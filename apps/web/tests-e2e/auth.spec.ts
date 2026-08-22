@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { appOrigin } from "./helpers";
 
 // This spec is the one that exercises the password sign-in and sign-out
 // journey itself, so it starts from a clean browser rather than the session
@@ -44,7 +45,10 @@ test("sign in, reach the dashboard, reload, and sign out", async ({ page }) => {
   }
 
   // Lands back on the app's protected dashboard with live backend data.
-  await expect(page).toHaveURL(/localhost:3000\/?$/);
+  // The app's own origin, whatever port this machine configured — see
+  // helpers.appOrigin. A literal :3000 here failed on any stack that moved
+  // the dev server, which is a configuration difference, not a regression.
+  await expect(page).toHaveURL(new RegExp(`^${appOrigin().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?$`));
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(page.getByText("Total Records")).toBeVisible();
 

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 
 /** Wraps every protected route. Backend authorization remains the sole
@@ -11,6 +12,20 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       login();
     }
   }, [status, login]);
+
+  // A session that ended somewhere else — the idle timeout, or another tab
+  // signing out — leaves this tab on a protected route with no session and
+  // no redirect coming: the effect above deliberately fires only for
+  // "unauthenticated", because "signed-out" is a decision, not an expiry, and
+  // bouncing the user straight back to the identity provider would undo it.
+  //
+  // Without this the tab renders "Redirecting to sign in…" indefinitely,
+  // describing something that is never going to happen. Sending it to the
+  // same confirmation the signing-out tab shows means every route ends in an
+  // explanation the user can act on.
+  if (status === "signed-out") {
+    return <Navigate to="/signed-out" replace />;
+  }
 
   if (status === "loading") {
     return (

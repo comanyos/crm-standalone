@@ -298,7 +298,7 @@ cleanup. It belongs with the other DBCore provenance items already open in
 
 - [x] Verify local Authorization Code + PKCE, consent, token exchange, JWT
   validation through JWKS, refresh-token rotation, and revocation.
-- [~] Add an automated browser test for login redirect, callback validation,
+- [x] Add an automated browser test for login redirect, callback validation,
   CSRF state validation, PKCE verifier, session restoration, and logout.
   `apps/web/tests-e2e/auth.spec.ts` covers login redirect, consent, the live
   dashboard, session restoration across a reload, and logout against the real
@@ -306,9 +306,12 @@ cleanup. It belongs with the other DBCore provenance items already open in
   unit tests in `packages/auth-client/test/client.test.ts` rather than through
   the browser — driving a forged `state` or a mismatched verifier through a
   real redirect means making the identity provider misbehave, which the
-  browser tier cannot arrange. What is genuinely still missing at this tier is
-  a spec for the *new* session policy: idle timeout and cross-tab sign-out are
-  unit-tested but not yet exercised in a real browser with two tabs.
+  browser tier cannot arrange.
+  New: `apps/web/tests-e2e/session-policy.spec.ts` covers cross-tab sign-out
+  across two real documents, that a session ended locally does not come back
+  on reload while a live one does, and that no JWT is ever written to browser
+  storage (`localStorage` holds nothing at all). 18/18 e2e pass, twice in a
+  row, in parallel.
 - [x] Define the web token/session model: memory-only access token, refresh
   protocol, refresh failure handling, idle timeout, and multi-tab behavior.
   Written up in `docs/ARCHITECTURE.md` — what is stored and where, what ends a
@@ -366,6 +369,23 @@ cleanup. It belongs with the other DBCore provenance items already open in
 
 Fixed while doing the above:
 
+- **The e2e suite could not run on any machine that moved the web dev server
+  off port 3000.** `playwright.config.ts` hardcoded `http://localhost:3000`
+  for both `baseURL` and the `webServer` readiness URL, while `vite.config.ts`
+  honours `VITE_WEB_PORT` — so `npm run dev` bound one origin and Playwright
+  waited on another, and the run never started. `auth.spec.ts` and
+  `helpers.ts` each hardcoded the same port in a URL assertion. The origin is
+  now derived once, from the same env vite reads, and handed to the tests.
+  (Port 3000 is a common collision; this repository's own `.env.example`
+  documents moving it.)
+- **A tab whose session ended elsewhere hung on "Redirecting to sign in…"
+  forever.** `RequireAuth` only calls `login()` for `unauthenticated`, and the
+  signed-out confirmation is a route the signing-out tab navigates to itself —
+  so a tab ended by the idle timeout or by another tab's sign-out rendered a
+  promise of a redirect that was never going to happen. It now goes to
+  `/signed-out`, the same confirmation the signing-out tab shows. Found by the
+  browser test; the unit tests could not see it, because they assert on
+  `status` rather than on what a route renders.
 - The cross-tab sign-out broadcast originally opened a fresh `BroadcastChannel`
   per call. A channel does not deliver back to the instance that posted, but it
   does deliver to every *other* instance — including another one in the same

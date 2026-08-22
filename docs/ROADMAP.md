@@ -108,8 +108,15 @@ provider credentials.
   tests in `packages/auth-client` — driving a forged state through a real
   redirect would mean making the identity provider misbehave. Still missing at
   the browser tier: a two-tab spec for the new session policy. See
-  `docs/ARCHITECTURE.md` for the two windows offline verification leaves open
-  by design.
+  The browser tier now also covers cross-tab sign-out across two real
+  documents, that a locally ended session does not survive a reload while a
+  live one does, and that no JWT reaches browser storage — 18/18 e2e passing.
+  Two fixes came out of running it: the suite could not start at all on any
+  machine that moved the dev server off port 3000 (the origin was hardcoded in
+  three places while vite honours `VITE_WEB_PORT`), and a tab whose session
+  ended elsewhere hung on "Redirecting to sign in…" forever instead of showing
+  the signed-out confirmation. See `docs/ARCHITECTURE.md` for the two windows
+  offline verification leaves open by design.
 - [x] Prove API and database cross-organization isolation with two principals.
   Two organizations are seeded with a full record set each, then probed at
   four layers: all 36 CRM RPCs (`internal/api/tenant_isolation_test.go`), the

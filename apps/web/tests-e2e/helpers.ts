@@ -2,6 +2,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 
+/** The app's own origin, as configured for this machine. Playwright's
+ * baseURL is derived from the same env (playwright.config.ts), so tests that
+ * need to name the origin explicitly stay in step with it. */
+export function appOrigin(): string {
+  return process.env.PLAYWRIGHT_APP_ORIGIN ?? `http://localhost:${process.env.VITE_WEB_PORT ?? "3000"}`;
+}
+
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Where auth.setup.ts saves the signed-in browser state that every other
  * spec reuses. Gitignored — it holds a live session cookie. */
 export const AUTH_STATE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), ".auth", "state.json");
@@ -43,7 +54,11 @@ export async function passwordSignIn(page: Page) {
     await allowButton.click();
   }
 
-  await expect(page).toHaveURL(/localhost:3000\/?$/);
+  // Back on the app's own origin, whatever port it was configured with —
+  // asserting a literal :3000 here fails on any machine that moved the dev
+  // server, which is the same value playwright.config.ts derives its baseURL
+  // from.
+  await expect(page).toHaveURL(new RegExp(`^${escapeForRegExp(appOrigin())}/?$`));
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 }
 
