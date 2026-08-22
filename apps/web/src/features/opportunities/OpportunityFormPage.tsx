@@ -73,6 +73,12 @@ export default function OpportunityFormPage({ mode }: { mode: "create" | "edit" 
         id,
         // The backend stamps this on the closing write and rejects a client-supplied date.
         closeDate: closesNow ? undefined : existing?.closeDate,
+        // UpdateOpportunity replaces the custom field document rather than
+        // merging it, so anything this form does not send is deleted. This
+        // form has no custom-field inputs, so it must round-trip what it read:
+        // without it, saving an edit wiped every optional custom value on the
+        // record, and failed outright for a tenant with a required one.
+        customFields: existing?.customFields,
         updatedAt: existing?.updatedAt,
       } })).opportunity;
     },

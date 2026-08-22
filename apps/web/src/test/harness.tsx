@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter, type RouteObject } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
 import { timestampFromDate, type Timestamp } from "@bufbuild/protobuf/wkt";
-import type { Account, Contact, Note, Task } from "@crm/contracts";
+import type { Account, Contact, Note, Opportunity, PipelineStage, Task } from "@crm/contracts";
 
 /** Renders a route tree on a memory **data** router.
  *
@@ -107,4 +107,52 @@ export function makeNote(overrides: Partial<Note> = {}): Note {
  * exactly that value coming back). */
 export function makeTimestamp(iso: string): Timestamp {
   return timestampFromDate(new Date(iso));
+}
+
+/** The system Sales pipeline's stages, the shape the backend provisions for a
+ * tenant that has configured none of its own (systemSalesStages in
+ * opportunity_pipeline_config.go): four open stages in position order, then a
+ * won and a lost stage that both require a close reason. */
+export function makeSalesStages(): PipelineStage[] {
+  const stage = (id: string, name: string, position: number, overrides: Partial<PipelineStage> = {}) =>
+    ({
+      $typeName: "crm.v1.PipelineStage",
+      id,
+      pipelineId: "system-sales",
+      name,
+      position,
+      probability: 0,
+      terminalType: "open",
+      requiresCloseReason: false,
+      ...overrides,
+    }) as PipelineStage;
+  return [
+    stage("prospecting", "Prospecting", 0),
+    stage("qualification", "Qualification", 1),
+    stage("proposal", "Proposal", 2),
+    stage("negotiation", "Negotiation", 3),
+    stage("closed_won", "Closed won", 4, { terminalType: "won", requiresCloseReason: true }),
+    stage("closed_lost", "Closed lost", 5, { terminalType: "lost", requiresCloseReason: true }),
+  ];
+}
+
+/** A fully-populated Opportunity on the default pipeline's first open stage.
+ * customFields is populated by default so a test can catch a write path that
+ * drops it — UpdateOpportunity replaces the document rather than merging it. */
+export function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
+  return {
+    $typeName: "crm.v1.Opportunity",
+    id: "opp-1",
+    name: "Acme renewal",
+    accountId: "acc-1",
+    stage: "prospecting",
+    pipelineId: "system-sales",
+    stageId: "prospecting",
+    amount: 50000,
+    probability: 10,
+    closeDate: undefined,
+    closeReason: "",
+    customFields: { deal_source: { $typeName: "crm.v1.CustomValue", kind: { case: "textValue", value: "tradeshow" } } },
+    ...overrides,
+  } as Opportunity;
 }

@@ -960,6 +960,26 @@ Acceptance criteria:
   Administrators can edit pipeline/stage settings, atomically choose one
   default pipeline, and archive a pipeline without deleting its history.
   Individual stage archival and opportunity migration are still pending.
+
+  **Archiving is currently a data trap, and this is the next thing to fix
+  here.** Nothing checks whether a pipeline or stage still holds deals.
+  `UpdateOpportunity` resolves the deal's current stage through
+  `activePipelineStage`, which refuses an archived pipeline or stage before
+  any other rule runs — so every deal left behind becomes permanently
+  unwritable: it cannot advance, cannot be closed, and cannot even be renamed.
+  It stays readable and keeps its amount, so it still counts toward any
+  forecast built later. The only exit is SQL. Pipeline archival is reachable
+  today from a button on `/settings/pipelines` whose confirm text promises the
+  records are merely retained for reporting; stage archival has the same hole
+  but no UI control yet, so adding one without a guard first would ship a
+  second copy of the trap.
+
+  Decided policy: **refuse until empty.** Archival returns `ErrConflict`
+  naming the blocking deals, and the caller moves them off first through the
+  normal validated transition path — no bulk relocation, no silent
+  reassignment of records an admin never named. The UI then tells the
+  administrator how many deals must be moved before the stage or pipeline can
+  be retired.
 - [x] Migrate existing opportunity stage behavior to pipeline/stage IDs without
   data loss and retain immutable stage history. Migration `0013` binds prior
   records to a compatible, tenant-local Sales pipeline; new opportunities use
@@ -997,12 +1017,38 @@ Acceptance criteria:
   `apps/web/src/features/opportunities`. The current UI uses the generated
   Connect client, respects `crm:opportunity:*` permissions, uses live
   pipeline/stage IDs, and displays stage-specific close-reason requirements.
-- [~] Build Kanban/pipeline and immutable stage-history views after the
+- [x] Build Kanban/pipeline and immutable stage-history views after the
   tenant-configurable pipeline model is available. A live, tenant-scoped
   `/opportunities/board` is implemented with pipeline selection, active-stage
   columns, and loading/empty/error/permission-aware states. Each opportunity
   detail screen now renders its append-only stage history through a typed,
-  tenant-scoped endpoint. Validated drag/drop transitions are still pending.
+  tenant-scoped endpoint.
+
+  Drag/drop transitions are now validated. `transitions.ts` mirrors the
+  server's four transition rules (`checkConfiguredStageTransition`) so an
+  ineligible column greys out during the drag and an illegal drop is refused
+  without a request; the server still decides every move, so a divergence
+  between the two shows up as a rejected drop rather than an illegal write.
+  Dragging is only the pointer affordance — a drop and a card's **Move** menu
+  both call one `moveTo`, which is what gives keyboard and touch users the
+  same operation, since HTML5 drag events reach neither. Dropping onto a
+  terminal stage opens the close-reason dialog the stage requires; the write
+  omits `close_date` so the server stamps it. Moves round-trip `updated_at`,
+  so a board left open while someone else edits the deal reports a conflict
+  instead of overwriting them, and `custom_fields`, which `UpdateOpportunity`
+  replaces rather than merges.
+
+  A card renders in its destination column while its write is in flight and
+  returns if the write fails, so the board feels immediate without the query
+  cache being edited behind the server's back.
+
+  Two notes for whoever picks this up next. The board permits closing from any
+  open stage, matching the server; `OpportunityFormPage` is stricter and only
+  offers a terminal stage from the last open one, so the two disagree about a
+  legal move and the form is the one that should change. And the same
+  `custom_fields` round-trip is still missing from the lead, account, contact
+  and task edit forms — each silently wipes every optional custom value on
+  save, and fails outright where a tenant has marked one required.
 - [ ] Define quota, forecast category, weighted pipeline, and forecast snapshot
   calculations; test them with deterministic dates/currency rules.
 
