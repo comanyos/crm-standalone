@@ -55,6 +55,32 @@ issuer URL, or (AuthinCore) an ephemeral signing key — `APP_ENV` unset or
 Each service also has its own `Makefile` with finer-grained targets
 (`fmt`, `vet`, `tidy`, `generate`, `build`, `run`).
 
+## Changing CRM roles or scopes
+
+Three places have to move together, and each has a test that fails if it does
+not:
+
+1. `packages/contracts/rbac/crm-roles.json` — the source of truth for which
+   scopes each built-in role grants, with a written rationale per role.
+2. `services/authincore/cmd/authinctl/bootstrap.go` — provisions those roles
+   into an organization. Pinned by `bootstrap_roles_test.go`.
+3. `services/crm-api/internal/server/scopes.go` — maps every procedure to the
+   scope it demands. Pinned by `role_matrix_test.go`, which also asserts each
+   role reaches exactly its intended procedures.
+
+The two services are separate Go modules and cannot share a package, so the
+JSON file plus a test on each side is what keeps them agreeing. A scope
+granted by one and named differently by the other is invisible at build time
+and surfaces as one role being denied a screen it should have.
+
+Adding an RPC additionally requires a `scopes.go` entry: the policy denies any
+procedure it has no decision for, and `server.New` refuses to start when the
+catalog does not cover everything the generated descriptors serve.
+
+Roles are reconciled, so re-running `make bootstrap` against an existing
+organization applies scope changes to its existing roles without touching
+identities or credentials.
+
 ## Test tiers
 
 1. **Unit tests** (`go test ./...` within each service) — domain invariants,

@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "$comment": [
+    "The CRM role matrix (task.md §1.4). This file is the source of truth for",
+    "which scopes each built-in role grants, and both services pin themselves",
+    "to it in their own test suites:",
+    "",
+    "  services/authincore/cmd/authinctl/bootstrap.go — provisions the roles",
+    "    and their permissions into an organization. Pinned by",
+    "    bootstrap_roles_test.go.",
+    "  services/crm-api/internal/server/scopes.go — maps every procedure to the",
+    "    scope it demands. Pinned by role_matrix_test.go, which also asserts",
+    "    each role can reach exactly the procedures it is meant to.",
+    "",
+    "The two services are separate Go modules and cannot share a package, so",
+    "without this file the matrix would exist twice with nothing comparing the",
+    "copies. Drift between an identity service that grants a scope and a",
+    "resource server that demands a different one is silent at build time and",
+    "shows up as a permission error for one role in production.",
+    "",
+    "Scopes are coarse: one read and one write per entity. Restrictions that",
+    "depend on the record rather than its type — 'may edit only accounts they",
+    "own' — cannot be expressed in a token scope and belong to the record-level",
+    "authorization work still open in task.md §1.4."
+  ],
+  "scopes": [
+    "crm:account:read",
+    "crm:account:write",
+    "crm:contact:read",
+    "crm:contact:write",
+    "crm:lead:read",
+    "crm:lead:write",
+    "crm:opportunity:read",
+    "crm:opportunity:write",
+    "crm:pipeline:read",
+    "crm:pipeline:write",
+    "crm:activity:read",
+    "crm:activity:write",
+    "crm:summary:read"
+  ],
+  "roles": [
+    {
+      "key": "crm_admin",
+      "displayName": "CRM Administrator",
+      "scopes": ["crm:*"],
+      "rationale": "Full authority over the organization's CRM, including pipeline configuration. Held via a server-side role grant only: AuthinCore strips a browser-requested crm:* from human tokens, so authority cannot be self-assigned by asking for it at the authorize endpoint."
+    },
+    {
+      "key": "crm_manager",
+      "displayName": "CRM Manager",
+      "scopes": [
+        "crm:account:read", "crm:account:write",
+        "crm:contact:read", "crm:contact:write",
+        "crm:lead:read", "crm:lead:write",
+        "crm:opportunity:read", "crm:opportunity:write",
+        "crm:pipeline:read", "crm:pipeline:write",
+        "crm:activity:read", "crm:activity:write",
+        "crm:summary:read"
+      ],
+      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role."
+    },
+    {
+      "key": "crm_member",
+      "displayName": "CRM Member",
+      "scopes": [
+        "crm:account:read",
+        "crm:contact:read", "crm:contact:write",
+        "crm:lead:read", "crm:lead:write",
+        "crm:opportunity:read", "crm:opportunity:write",
+        "crm:pipeline:read",
+        "crm:activity:read", "crm:activity:write",
+        "crm:summary:read"
+      ],
+      "rationale": "An individual contributor works their own contacts, leads, opportunities and activities, but does not create or rename the accounts they hang off, and does not configure pipelines. crm:pipeline:read is not optional despite pipelines being manager-owned: an opportunity is meaningless without its stage names, ordering and close-reason rules, so the opportunity form and board cannot render without it."
+    },
+    {
+      "key": "crm_viewer",
+      "displayName": "CRM Viewer",
+      "scopes": [
+        "crm:account:read",
+        "crm:contact:read",
+        "crm:lead:read",
+        "crm:opportunity:read",
+        "crm:pipeline:read",
+        "crm:activity:read",
+        "crm:summary:read"
+      ],
+      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list."
+    }
+  ]
+}

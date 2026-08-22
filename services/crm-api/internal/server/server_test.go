@@ -4,81 +4,118 @@ import (
 	"strings"
 	"testing"
 
-	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
+	"github.com/santoshguru/crm/internal/auth"
 )
 
-// The scope policy is checked against the SERVICE DESCRIPTOR, not against a
+// The scope policy is checked against the SERVICE DESCRIPTORS, not against a
 // list written by hand.
 //
 // A hand-written list inverts the point of this test. Adding an RPC and
-// forgetting its scopePolicy entry, and forgetting to add it to the test, are
-// the same act of forgetting — so a hardcoded list only catches someone who
+// forgetting its policy entry, and forgetting to add it to the test, are the
+// same act of forgetting — so a hardcoded list only catches someone who
 // remembered the test but not the policy, which is not how the mistake happens.
 // It caught nothing while looking like it caught everything.
 //
-// Deriving the list from the generated descriptor means a new RPC appears here
+// Deriving the list from the generated descriptors means a new RPC appears here
 // the moment `make generate` runs, whether or not anyone remembered this file.
+// servedProcedures (scopes.go) does that derivation, and the same function
+// backs the startup check, so the test and the running server cannot disagree
+// about which procedures exist.
 
-// procedures returns every procedure connect registers for CRMService, built
-// the same way connect builds them: "/<service full name>/<method name>".
-func procedures(t *testing.T) []string {
-	t.Helper()
-
-	services := crmv1.File_crm_v1_crm_proto.Services()
-	svc := services.Get(0)
-	for i := 0; i < services.Len(); i++ {
-		if services.Get(i).Name() == "CRMService" {
-			svc = services.Get(i)
+// TestServedProceduresIsDerivedNotGuessed guards the derivation itself: a bug
+// that returned nothing would make every check below pass vacuously.
+func TestServedProceduresIsDerivedNotGuessed(t *testing.T) {
+	served := servedProcedures()
+	if len(served) == 0 {
+		t.Fatal("no procedures derived from the service descriptors")
+	}
+	for _, want := range []string{
+		"/crm.v1.CRMService/GetAccount",
+		"/crm.v1.CRMService/GetSummary",
+		"/platform.v1.ModuleService/GetHealth",
+	} {
+		found := false
+		for _, procedure := range served {
+			if procedure == want {
+				found = true
+				break
+			}
 		}
-	}
-	if got := string(svc.Name()); got != "CRMService" {
-		t.Fatalf("expected CRMService in the descriptor, found %q", got)
-	}
-
-	methods := svc.Methods()
-	if methods.Len() == 0 {
-		t.Fatal("the descriptor reports no methods; the derivation is broken, and a " +
-			"test that derives nothing passes for the wrong reason")
-	}
-
-	out := make([]string, 0, methods.Len())
-	for i := 0; i < methods.Len(); i++ {
-		out = append(out, "/"+string(svc.FullName())+"/"+string(methods.Get(i).Name()))
-	}
-	return out
-}
-
-// TestScopePolicyCoversEveryProcedure fails if any registered RPC has no scope.
-//
-// An RPC missing from scopePolicy is enforced as PUBLIC — the interceptor
-// checks only the procedures it finds in the map — and it behaves completely
-// normally in every other test. This is the only thing standing between
-// "someone added a handler" and "someone shipped an unauthorised endpoint".
-func TestScopePolicyCoversEveryProcedure(t *testing.T) {
-	for _, proc := range procedures(t) {
-		scope, ok := scopePolicy[proc]
-		if !ok || strings.TrimSpace(scope) == "" {
-			t.Errorf("scopePolicy has no entry for %q; that RPC is enforced as public", proc)
+		if !found {
+			t.Errorf("%s is served but not derived; the descriptor walk misses a service", want)
 		}
 	}
 }
 
-// TestScopePolicyHasNoDeadEntries fails if the map names a procedure that does
-// not exist.
-//
-// A typo in a key is worse than a missing key: the entry looks present in
-// review, matches nothing at runtime, and leaves the real procedure unguarded.
-// This is the direction a hand-written list could never check, because both
-// sides were typed by the same person from the same assumption.
-func TestScopePolicyHasNoDeadEntries(t *testing.T) {
-	live := make(map[string]bool)
-	for _, p := range procedures(t) {
-		live[p] = true
+// TestScopePolicyDecidesEveryProcedure is the check that also runs at startup.
+// A procedure with no decision is denied at request time, so this failing is
+// not itself a hole — it is the hole being reported before deployment.
+func TestScopePolicyDecidesEveryProcedure(t *testing.T) {
+	if err := assertPolicyIsTotal(scopePolicy); err != nil {
+		t.Error(err)
 	}
-	for proc := range scopePolicy {
-		if !live[proc] {
-			t.Errorf("scopePolicy names %q, which is not a procedure on this service; "+
-				"if that is a typo, the real procedure is unguarded", proc)
+}
+
+// TestPolicyTotalityCatchesEachKindOfHole proves the previous test can fail.
+// A completeness check that cannot be made to fail is decoration.
+func TestPolicyTotalityCatchesEachKindOfHole(t *testing.T) {
+	const real = "/crm.v1.CRMService/GetAccount"
+
+	t.Run("undecided procedure", func(t *testing.T) {
+		required := map[string]string{}
+		for procedure, scope := range crmScopes {
+			required[procedure] = scope
+		}
+		delete(required, real)
+		err := assertPolicyIsTotal(auth.ScopePolicy{Required: required, Unscoped: unscopedProcedures})
+		if err == nil {
+			t.Fatal("a procedure with no scope decision was accepted")
+		}
+		if !strings.Contains(err.Error(), real) {
+			t.Errorf("error does not name the undecided procedure: %v", err)
+		}
+	})
+
+	t.Run("procedure decided twice", func(t *testing.T) {
+		unscoped := map[string]string{real: "a mistake"}
+		for procedure, why := range unscopedProcedures {
+			unscoped[procedure] = why
+		}
+		if err := assertPolicyIsTotal(auth.ScopePolicy{Required: crmScopes, Unscoped: unscoped}); err == nil {
+			t.Fatal("a procedure that is both scoped and unscoped was accepted")
+		}
+	})
+
+	t.Run("entry for a procedure that does not exist", func(t *testing.T) {
+		required := map[string]string{"/crm.v1.CRMService/GetAcccount": "crm:account:read"}
+		for procedure, scope := range crmScopes {
+			required[procedure] = scope
+		}
+		err := assertPolicyIsTotal(auth.ScopePolicy{Required: required, Unscoped: unscopedProcedures})
+		if err == nil {
+			t.Fatal("a typo'd procedure name was accepted")
+		}
+		// A typo is worse than a missing key: the entry looks present in
+		// review, matches nothing at runtime, and leaves the real procedure
+		// undecided. Here the real one is still present, so only the orphan
+		// is reported — which is exactly the signal a reviewer needs.
+		if !strings.Contains(err.Error(), "no longer served") {
+			t.Errorf("error does not report the dead entry: %v", err)
+		}
+	})
+}
+
+// TestUnscopedProceduresAreArguedFor keeps the allowlist from becoming a
+// dumping ground: every waiver carries the reason it is safe, and no CRM
+// procedure may take one, because all of them read or write tenant data.
+func TestUnscopedProceduresAreArguedFor(t *testing.T) {
+	for procedure, why := range unscopedProcedures {
+		if len(strings.TrimSpace(why)) < 40 {
+			t.Errorf("%s is unscoped with no real justification (%q)", procedure, why)
+		}
+		if strings.HasPrefix(procedure, "/crm.v1.") {
+			t.Errorf("%s waives its scope check, but every CRM procedure reads or "+
+				"writes tenant-owned data", procedure)
 		}
 	}
 }
@@ -87,12 +124,8 @@ func TestScopePolicyHasNoDeadEntries(t *testing.T) {
 // read scope. Reusing the read scope for a write lets anyone who may look at a
 // record change it, which reads fine in a diff.
 func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
-	for _, proc := range procedures(t) {
-		scope, ok := scopePolicy[proc]
-		if !ok {
-			continue // reported by TestScopePolicyCoversEveryProcedure
-		}
-		method := proc[strings.LastIndex(proc, "/")+1:]
+	for procedure, scope := range crmScopes {
+		method := procedure[strings.LastIndex(procedure, "/")+1:]
 		if isMutation(method) {
 			if !strings.HasSuffix(scope, ":write") {
 				t.Errorf("%s mutates but is guarded by %q; a write needs a :write scope",

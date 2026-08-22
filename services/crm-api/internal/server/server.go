@@ -16,49 +16,6 @@ import (
 
 const moduleID = "crm"
 
-// scopePolicy maps every connect procedure to the scope the caller must hold.
-//
-// An RPC missing from this map is enforced as public: the interceptor only
-// checks procedures it finds here. Adding a handler means adding its entry.
-var scopePolicy = map[string]string{
-	"/crm.v1.CRMService/CreateAccount":               "crm:account:write",
-	"/crm.v1.CRMService/GetAccount":                  "crm:account:read",
-	"/crm.v1.CRMService/ListAccounts":                "crm:account:read",
-	"/crm.v1.CRMService/UpdateAccount":               "crm:account:write",
-	"/crm.v1.CRMService/DeleteAccount":               "crm:account:write",
-	"/crm.v1.CRMService/CreateContact":               "crm:contact:write",
-	"/crm.v1.CRMService/GetContact":                  "crm:contact:read",
-	"/crm.v1.CRMService/ListContacts":                "crm:contact:read",
-	"/crm.v1.CRMService/UpdateContact":               "crm:contact:write",
-	"/crm.v1.CRMService/DeleteContact":               "crm:contact:write",
-	"/crm.v1.CRMService/CreateLead":                  "crm:lead:write",
-	"/crm.v1.CRMService/GetLead":                     "crm:lead:read",
-	"/crm.v1.CRMService/ListLeads":                   "crm:lead:read",
-	"/crm.v1.CRMService/UpdateLead":                  "crm:lead:write",
-	"/crm.v1.CRMService/DeleteLead":                  "crm:lead:write",
-	"/crm.v1.CRMService/ConvertLead":                 "crm:lead:write",
-	"/crm.v1.CRMService/CreateOpportunity":           "crm:opportunity:write",
-	"/crm.v1.CRMService/GetOpportunity":              "crm:opportunity:read",
-	"/crm.v1.CRMService/ListOpportunities":           "crm:opportunity:read",
-	"/crm.v1.CRMService/UpdateOpportunity":           "crm:opportunity:write",
-	"/crm.v1.CRMService/DeleteOpportunity":           "crm:opportunity:write",
-	"/crm.v1.CRMService/ListOpportunityStageHistory": "crm:opportunity:read",
-	"/crm.v1.CRMService/CreatePipeline":              "crm:pipeline:write",
-	"/crm.v1.CRMService/GetPipeline":                 "crm:pipeline:read",
-	"/crm.v1.CRMService/ListPipelines":               "crm:pipeline:read",
-	"/crm.v1.CRMService/UpdatePipeline":              "crm:pipeline:write",
-	"/crm.v1.CRMService/CreatePipelineStage":         "crm:pipeline:write",
-	"/crm.v1.CRMService/ListPipelineStages":          "crm:pipeline:read",
-	"/crm.v1.CRMService/UpdatePipelineStage":         "crm:pipeline:write",
-	"/crm.v1.CRMService/CreateActivity":              "crm:activity:write",
-	"/crm.v1.CRMService/GetActivity":                 "crm:activity:read",
-	"/crm.v1.CRMService/ListActivities":              "crm:activity:read",
-	"/crm.v1.CRMService/UpdateActivity":              "crm:activity:write",
-	"/crm.v1.CRMService/DeleteActivity":              "crm:activity:write",
-	"/crm.v1.CRMService/ListActivitiesForSubject":    "crm:activity:read",
-	"/crm.v1.CRMService/GetSummary":                  "crm:summary:read",
-}
-
 // Server holds the wired CRM HTTP server.
 type Server struct {
 	cfg     config.Config
@@ -69,9 +26,19 @@ type Server struct {
 }
 
 // New builds the server and registers routes.
+//
+// It refuses to build a server whose scope policy does not decide every
+// procedure it is about to serve — see assertPolicyIsTotal in scopes.go. A
+// procedure with no decision is already denied at request time, so this is
+// not what keeps it closed; it is what makes the hole visible at deploy time
+// instead of as a support ticket about an RPC that returns permission denied
+// for everyone.
 func New(
 	cfg config.Config, store domain.Store, authn *auth.Authenticator,
-) *Server {
+) (*Server, error) {
+	if err := assertPolicyIsTotal(scopePolicy); err != nil {
+		return nil, err
+	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
 		cfg:     cfg,
@@ -81,7 +48,7 @@ func New(
 		mux:     http.NewServeMux(),
 	}
 	s.routes()
-	return s
+	return s, nil
 }
 
 // Close gracefully drains the server's NATS connection.

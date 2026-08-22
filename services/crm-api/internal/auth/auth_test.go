@@ -134,7 +134,15 @@ type stubVerifier struct {
 
 func (s stubVerifier) verify(context.Context, string) (*Principal, error) { return s.p, s.err }
 
-func callInterceptor(t *testing.T, a *Authenticator, policy map[string]string, authHeader string) (*Principal, error) {
+// anyProcedurePolicy allows the empty procedure name a hand-built
+// connect.Request carries, so the tests below can exercise token handling
+// without also exercising the scope catalog. Deny-by-default is covered by
+// TestUnknownProcedureIsDenied and by the server package's totality tests.
+var anyProcedurePolicy = ScopePolicy{
+	Unscoped: map[string]string{"": "a request built in a test has no procedure name"},
+}
+
+func callInterceptor(t *testing.T, a *Authenticator, policy ScopePolicy, authHeader string) (*Principal, error) {
 	t.Helper()
 	var seen *Principal
 	next := func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
@@ -153,7 +161,7 @@ func callInterceptor(t *testing.T, a *Authenticator, policy map[string]string, a
 }
 
 func TestInterceptorDisabledInjectsDevPrincipal(t *testing.T) {
-	seen, err := callInterceptor(t, Disabled(), nil, "")
+	seen, err := callInterceptor(t, Disabled(), anyProcedurePolicy, "")
 	if err != nil {
 		t.Fatalf("disabled interceptor err: %v", err)
 	}
@@ -164,21 +172,21 @@ func TestInterceptorDisabledInjectsDevPrincipal(t *testing.T) {
 
 func TestInterceptorMissingToken(t *testing.T) {
 	a := &Authenticator{v: stubVerifier{}}
-	if _, err := callInterceptor(t, a, nil, ""); connect.CodeOf(err) != connect.CodeUnauthenticated {
+	if _, err := callInterceptor(t, a, anyProcedurePolicy, ""); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("missing token code = %v, want Unauthenticated", connect.CodeOf(err))
 	}
 }
 
 func TestInterceptorBadToken(t *testing.T) {
 	a := &Authenticator{v: stubVerifier{err: errors.New("nope")}}
-	if _, err := callInterceptor(t, a, nil, "Bearer x"); connect.CodeOf(err) != connect.CodeUnauthenticated {
+	if _, err := callInterceptor(t, a, anyProcedurePolicy, "Bearer x"); connect.CodeOf(err) != connect.CodeUnauthenticated {
 		t.Errorf("bad token code = %v, want Unauthenticated", connect.CodeOf(err))
 	}
 }
 
 func TestInterceptorGoodTokenInjectsPrincipal(t *testing.T) {
 	a := &Authenticator{v: stubVerifier{p: &Principal{Subject: "u1", Scopes: []string{"crm:*"}}}}
-	seen, err := callInterceptor(t, a, nil, "Bearer x")
+	seen, err := callInterceptor(t, a, anyProcedurePolicy, "Bearer x")
 	if err != nil {
 		t.Fatalf("good token err: %v", err)
 	}

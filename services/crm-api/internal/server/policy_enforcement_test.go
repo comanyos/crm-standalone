@@ -1,0 +1,374 @@
+package server
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"connectrpc.com/connect"
+	"github.com/golang-jwt/jwt/v5"
+	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
+	"github.com/santoshguru/crm/gen/crm/v1/crmv1connect"
+	platformv1 "github.com/santoshguru/crm/gen/platform/v1"
+	"github.com/santoshguru/crm/gen/platform/v1/platformv1connect"
+	"github.com/santoshguru/crm/internal/auth"
+	"github.com/santoshguru/crm/internal/config"
+	"github.com/santoshguru/crm/internal/domain"
+)
+
+// End-to-end scope enforcement (task.md §1.4): a real HTTP server, real
+// signed tokens verified against a real JWKS, the real interceptor, and the
+// real handlers over a live store.
+//
+// The unit tests above reason about the policy as data. This file is the one
+// that would catch the policy being correct but not actually wired — an
+// interceptor registered on one handler and not the other, say, which every
+// data-level test would still pass.
+
+const enforcementKID = "policy-test-key"
+
+// jwksFor serves the public half of key and returns the JWKS URL.
+func jwksFor(t *testing.T, pub *rsa.PublicKey) string {
+	t.Helper()
+	eBuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(eBuf, uint32(pub.E))
+	i := 0
+	for i < len(eBuf)-1 && eBuf[i] == 0 {
+		i++
+	}
+	doc := map[string]any{"keys": []map[string]string{{
+		"kty": "RSA", "use": "sig", "alg": "RS256", "kid": enforcementKID,
+		"n": base64.RawURLEncoding.EncodeToString(pub.N.Bytes()),
+		"e": base64.RawURLEncoding.EncodeToString(eBuf[i:]),
+	}}}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(doc)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// liveServer wires a real CRM server behind a real authenticator and returns
+// clients for both registered services plus a token minter for arbitrary
+// scope sets.
+func liveServer(t *testing.T) (crmv1connect.CRMServiceClient, platformv1connect.ModuleServiceClient, func(org string, scopes []string) string) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authn, err := auth.FromConfig(context.Background(), jwksFor(t, &key.PublicKey), "authincore", "")
+	if err != nil {
+		t.Fatalf("build authenticator: %v", err)
+	}
+
+	srv, err := New(config.Config{}, domain.NewMemStore(), authn)
+	if err != nil {
+		t.Fatalf("build server: %v", err)
+	}
+	t.Cleanup(srv.Close)
+
+	http := httptest.NewServer(srv.Handler())
+	t.Cleanup(http.Close)
+
+	mint := func(org string, scopes []string) string {
+		t.Helper()
+		claims := jwt.MapClaims{
+			"sub": "user-" + org, "iss": "authincore", "org_id": org,
+			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
+		}
+		if scopes != nil {
+			raw := make([]any, 0, len(scopes))
+			for _, s := range scopes {
+				raw = append(raw, s)
+			}
+			claims["scopes"] = raw
+		}
+		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+		tok.Header["kid"] = enforcementKID
+		signed, err := tok.SignedString(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return signed
+	}
+
+	return crmv1connect.NewCRMServiceClient(http.Client(), http.URL),
+		platformv1connect.NewModuleServiceClient(http.Client(), http.URL),
+		mint
+}
+
+// withToken attaches a bearer token to a request.
+func withToken[T any](msg *T, token string) *connect.Request[T] {
+	req := connect.NewRequest(msg)
+	req.Header().Set("Authorization", "Bearer "+token)
+	return req
+}
+
+// TestViewerCannotWriteThroughTheRealServer is the lower-privilege behaviour
+// task.md §1.3's acceptance criteria also asked for: a read-only role is
+// refused every mutation, over HTTP, by the deployed configuration.
+func TestViewerCannotWriteThroughTheRealServer(t *testing.T) {
+	client, _, mint := liveServer(t)
+	ctx := context.Background()
+
+	admin := mint("org-1", []string{"crm:*"})
+	viewer := mint("org-1", []string{
+		"crm:account:read", "crm:contact:read", "crm:lead:read",
+		"crm:opportunity:read", "crm:pipeline:read", "crm:activity:read",
+		"crm:summary:read",
+	})
+
+	created, err := client.CreateAccount(ctx, withToken(&crmv1.CreateAccountRequest{
+		Account: &crmv1.Account{Name: "Acme", OwnerId: "owner-1"},
+	}, admin))
+	if err != nil {
+		t.Fatalf("admin create: %v", err)
+	}
+	id := created.Msg.GetAccount().GetId()
+
+	// The viewer may read it.
+	if _, err := client.GetAccount(ctx, withToken(&crmv1.GetAccountRequest{Id: id}, viewer)); err != nil {
+		t.Fatalf("viewer read: %v", err)
+	}
+
+	// And may not change or remove it.
+	_, err = client.UpdateAccount(ctx, withToken(&crmv1.UpdateAccountRequest{
+		Account: &crmv1.Account{Id: id, Name: "Renamed", OwnerId: "owner-1"},
+	}, viewer))
+	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+		t.Errorf("viewer update code = %v, want PermissionDenied", got)
+	}
+	_, err = client.DeleteAccount(ctx, withToken(&crmv1.DeleteAccountRequest{Id: id}, viewer))
+	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+		t.Errorf("viewer delete code = %v, want PermissionDenied", got)
+	}
+
+	// The record is untouched: a denied write must not have partially applied.
+	after, err := client.GetAccount(ctx, withToken(&crmv1.GetAccountRequest{Id: id}, admin))
+	if err != nil {
+		t.Fatalf("re-read: %v", err)
+	}
+	if got := after.Msg.GetAccount().GetName(); got != "Acme" {
+		t.Errorf("account name = %q after denied writes, want %q", got, "Acme")
+	}
+}
+
+// TestScopeDenialIsNotAnExistenceOracle checks the shape of the refusal, not
+// just its code. The scope check runs before the handler, so a caller without
+// the scope gets an identical answer whether or not the id names a real
+// record — otherwise "PermissionDenied here, NotFound there" would let a
+// viewer enumerate ids they may not read.
+func TestScopeDenialIsNotAnExistenceOracle(t *testing.T) {
+	client, _, mint := liveServer(t)
+	ctx := context.Background()
+
+	admin := mint("org-1", []string{"crm:*"})
+	created, err := client.CreateAccount(ctx, withToken(&crmv1.CreateAccountRequest{
+		Account: &crmv1.Account{Name: "Acme", OwnerId: "owner-1"},
+	}, admin))
+	if err != nil {
+		t.Fatalf("admin create: %v", err)
+	}
+	realID := created.Msg.GetAccount().GetId()
+
+	// A principal with no account scope at all.
+	blind := mint("org-1", []string{"crm:summary:read"})
+
+	var codes []connect.Code
+	var messages []string
+	for _, id := range []string{realID, "definitely-not-a-real-id"} {
+		_, err := client.GetAccount(ctx, withToken(&crmv1.GetAccountRequest{Id: id}, blind))
+		if err == nil {
+			t.Fatalf("a principal without crm:account:read read account %q", id)
+		}
+		codes = append(codes, connect.CodeOf(err))
+		messages = append(messages, err.Error())
+	}
+	if codes[0] != connect.CodePermissionDenied || codes[1] != connect.CodePermissionDenied {
+		t.Errorf("codes = %v, want both PermissionDenied", codes)
+	}
+	if messages[0] != messages[1] {
+		t.Errorf("the refusal differs between a real and a fabricated id:\n  real: %s\n  fake: %s\n"+
+			"that difference is an existence oracle", messages[0], messages[1])
+	}
+}
+
+// TestMissingScopeIsDeniedForEveryWriteProcedure sweeps the whole catalog
+// rather than sampling it: for each procedure, a principal holding every
+// scope except the one it requires must be refused.
+func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
+	client, _, mint := liveServer(t)
+	ctx := context.Background()
+
+	// One representative call per write scope. The point is the interceptor,
+	// so the arguments only need to be well-formed enough to reach it.
+	calls := map[string]func(token string) error{
+		"crm:account:write": func(tok string) error {
+			_, err := client.DeleteAccount(ctx, withToken(&crmv1.DeleteAccountRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:contact:write": func(tok string) error {
+			_, err := client.DeleteContact(ctx, withToken(&crmv1.DeleteContactRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:lead:write": func(tok string) error {
+			_, err := client.DeleteLead(ctx, withToken(&crmv1.DeleteLeadRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:opportunity:write": func(tok string) error {
+			_, err := client.DeleteOpportunity(ctx, withToken(&crmv1.DeleteOpportunityRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:activity:write": func(tok string) error {
+			_, err := client.DeleteActivity(ctx, withToken(&crmv1.DeleteActivityRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:pipeline:write": func(tok string) error {
+			_, err := client.CreatePipeline(ctx, withToken(&crmv1.CreatePipelineRequest{
+				Pipeline: &crmv1.Pipeline{Name: "P"},
+			}, tok))
+			return err
+		},
+	}
+
+	// Every write scope this service demands needs a probe here.
+	demanded := map[string]bool{}
+	for _, scope := range crmScopes {
+		if len(scope) > 6 && scope[len(scope)-6:] == ":write" {
+			demanded[scope] = true
+		}
+	}
+	for scope := range demanded {
+		if _, ok := calls[scope]; !ok {
+			t.Errorf("no denial probe for write scope %q", scope)
+		}
+	}
+
+	for withheld, call := range calls {
+		t.Run(withheld, func(t *testing.T) {
+			var granted []string
+			for _, scope := range []string{
+				"crm:account:read", "crm:account:write",
+				"crm:contact:read", "crm:contact:write",
+				"crm:lead:read", "crm:lead:write",
+				"crm:opportunity:read", "crm:opportunity:write",
+				"crm:pipeline:read", "crm:pipeline:write",
+				"crm:activity:read", "crm:activity:write",
+				"crm:summary:read",
+			} {
+				if scope != withheld {
+					granted = append(granted, scope)
+				}
+			}
+			err := call(mint("org-1", granted))
+			if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+				t.Errorf("withholding %q still allowed the call: code = %v, want PermissionDenied",
+					withheld, got)
+			}
+		})
+	}
+}
+
+// TestNoTokenIsUnauthenticatedNotDenied keeps the two failures distinct: a
+// caller who sent no credentials should be told to authenticate, not that
+// they lack permission.
+func TestNoTokenIsUnauthenticatedNotDenied(t *testing.T) {
+	client, _, _ := liveServer(t)
+	_, err := client.GetSummary(context.Background(), connect.NewRequest(&crmv1.GetSummaryRequest{}))
+	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+		t.Errorf("code = %v, want Unauthenticated", got)
+	}
+}
+
+// TestUnscopedProceduresWorkForAScopelessPrincipal confirms the waiver list
+// is real end to end: a principal holding no CRM scope at all can still reach
+// the module manifest and health, which is why the shell can render before it
+// knows what the user may do — and cannot reach anything else.
+func TestUnscopedProceduresWorkForAScopelessPrincipal(t *testing.T) {
+	crm, module, mint := liveServer(t)
+	ctx := context.Background()
+	scopeless := mint("org-1", nil)
+
+	if _, err := module.GetManifest(ctx, withToken(&platformv1.GetManifestRequest{}, scopeless)); err != nil {
+		t.Errorf("GetManifest is unscoped but failed for a scopeless principal: %v", err)
+	}
+	if _, err := module.GetHealth(ctx, withToken(&platformv1.GetHealthRequest{}, scopeless)); err != nil {
+		t.Errorf("GetHealth is unscoped but failed for a scopeless principal: %v", err)
+	}
+	if _, err := module.ListActions(ctx, withToken(&platformv1.ListActionsRequest{}, scopeless)); err != nil {
+		t.Errorf("ListActions is unscoped but failed for a scopeless principal: %v", err)
+	}
+
+	// The waiver stops there: no CRM data is reachable without a CRM scope.
+	_, err := crm.GetSummary(ctx, withToken(&crmv1.GetSummaryRequest{}, scopeless))
+	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+		t.Errorf("a scopeless principal read the summary: code = %v, want PermissionDenied", got)
+	}
+	_, err = crm.ListAccounts(ctx, withToken(&crmv1.ListAccountsRequest{}, scopeless))
+	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+		t.Errorf("a scopeless principal listed accounts: code = %v, want PermissionDenied", got)
+	}
+}
+
+// TestRoleChangesTakeEffectOnlyAtTheNextToken pins the session boundary
+// (task.md §1.4).
+//
+// Authority is carried in the access token, and this service verifies tokens
+// offline against JWKS rather than asking AuthinCore per request. So granting
+// or revoking a role does not change what a client can do until that client
+// presents a token minted after the change — its existing token keeps exactly
+// the authority it was signed with, until it expires.
+//
+// That is a deliberate trade (a network round trip per request is the
+// alternative), but it is the kind of behaviour an operator discovers at the
+// worst moment: revoking a role and watching the user carry on working. The
+// window is the access-token lifetime, and this test is where that is written
+// down rather than assumed.
+func TestRoleChangesTakeEffectOnlyAtTheNextToken(t *testing.T) {
+	client, _, mint := liveServer(t)
+	ctx := context.Background()
+
+	admin := mint("org-1", []string{"crm:*"})
+	created, err := client.CreateAccount(ctx, withToken(&crmv1.CreateAccountRequest{
+		Account: &crmv1.Account{Name: "Acme", OwnerId: "owner-1"},
+	}, admin))
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	id := created.Msg.GetAccount().GetId()
+
+	// The same person, before and after a role change. Both tokens are valid
+	// and unexpired; only their scope sets differ.
+	beforeRevocation := mint("org-1", []string{"crm:account:read", "crm:account:write"})
+	afterRevocation := mint("org-1", []string{"crm:account:read"})
+
+	// The newly minted, reduced token is refused the write immediately.
+	_, err = client.UpdateAccount(ctx, withToken(&crmv1.UpdateAccountRequest{
+		Account: &crmv1.Account{Id: id, Name: "Renamed by new token", OwnerId: "owner-1"},
+	}, afterRevocation))
+	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+		t.Errorf("the post-change token still had write authority: code = %v", got)
+	}
+
+	// The token issued before the change still carries it. This is the
+	// documented window, not a defect — but it must be a window, not a
+	// permanent grant, which is why auth/jwks.go requires an exp claim.
+	if _, err := client.UpdateAccount(ctx, withToken(&crmv1.UpdateAccountRequest{
+		Account: &crmv1.Account{Id: id, Name: "Renamed by old token", OwnerId: "owner-1"},
+	}, beforeRevocation)); err != nil {
+		t.Fatalf("the pre-change token unexpectedly lost its authority: %v", err)
+	}
+
+	// The window closes at expiry, which is enforced rather than assumed:
+	// internal/auth requires an exp claim, so no token can carry stale
+	// authority indefinitely (TestDeactivatedOrganizationIsBoundedByTokenExpiry).
+}

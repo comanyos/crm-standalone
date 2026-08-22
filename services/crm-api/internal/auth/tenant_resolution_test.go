@@ -67,7 +67,7 @@ func interceptWithHeaders(t *testing.T, a *Authenticator, headers map[string]str
 	for k, v := range headers {
 		req.Header().Set(k, v)
 	}
-	_, err := a.Interceptor(nil)(next)(context.Background(), req)
+	_, err := a.Interceptor(anyProcedurePolicy)(next)(context.Background(), req)
 	return seen, err
 }
 

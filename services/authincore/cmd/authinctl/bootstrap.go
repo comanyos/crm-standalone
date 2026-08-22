@@ -202,12 +202,24 @@ type roleDefinition struct {
 	Scopes       []string
 }
 
+// crmRoleDefinitions provisions the built-in roles into an organization.
+//
+// The CRM entries here must match packages/contracts/rbac/crm-roles.json,
+// which services/crm-api demands its scopes against. The two live in separate
+// Go modules and cannot share a package, so bootstrap_roles_test.go compares
+// this slice against that file — drift between what identity grants and what
+// the resource server requires is otherwise silent until a role hits a
+// permission error in production.
+//
+// The "owner" entry is deliberately absent from the shared file: it is an
+// AuthinCore administration role, not a CRM one, and crm-api has no opinion
+// about it.
 var crmRoleDefinitions = []roleDefinition{
 	{Key: "owner", DisplayName: "Organization Owner", ResourceType: "authincore", ResourceName: "administration", Scopes: []string{"*"}},
 	{Key: "crm_admin", DisplayName: "CRM Administrator", ResourceType: "crm", ResourceName: "crm", Scopes: []string{"crm:*"}},
 	{Key: "crm_manager", DisplayName: "CRM Manager", ResourceType: "crm", ResourceName: "crm", Scopes: []string{"crm:account:read", "crm:account:write", "crm:contact:read", "crm:contact:write", "crm:lead:read", "crm:lead:write", "crm:opportunity:read", "crm:opportunity:write", "crm:pipeline:read", "crm:pipeline:write", "crm:activity:read", "crm:activity:write", "crm:summary:read"}},
-	{Key: "crm_member", DisplayName: "CRM Member", ResourceType: "crm", ResourceName: "crm", Scopes: []string{"crm:account:read", "crm:contact:read", "crm:contact:write", "crm:lead:read", "crm:lead:write", "crm:opportunity:read", "crm:opportunity:write", "crm:activity:read", "crm:activity:write", "crm:summary:read"}},
-	{Key: "crm_viewer", DisplayName: "CRM Viewer", ResourceType: "crm", ResourceName: "crm", Scopes: []string{"crm:account:read", "crm:contact:read", "crm:lead:read", "crm:opportunity:read", "crm:activity:read", "crm:summary:read"}},
+	{Key: "crm_member", DisplayName: "CRM Member", ResourceType: "crm", ResourceName: "crm", Scopes: []string{"crm:account:read", "crm:contact:read", "crm:contact:write", "crm:lead:read", "crm:lead:write", "crm:opportunity:read", "crm:opportunity:write", "crm:pipeline:read", "crm:activity:read", "crm:activity:write", "crm:summary:read"}},
+	{Key: "crm_viewer", DisplayName: "CRM Viewer", ResourceType: "crm", ResourceName: "crm", Scopes: []string{"crm:account:read", "crm:contact:read", "crm:lead:read", "crm:opportunity:read", "crm:pipeline:read", "crm:activity:read", "crm:summary:read"}},
 }
 
 func ensureCRMRoleModel(ctx context.Context, tx pgx.Tx, orgID uuid.UUID) (map[string]uuid.UUID, error) {

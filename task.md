@@ -354,25 +354,91 @@ a revocation list — a §10.1 decision, not a §1.3 one.
 
 ### 1.4 RBAC and record-level authorization
 
-- [ ] Finalize role matrix with product owner: `crm_admin`, `crm_manager`,
-  `crm_member`, `crm_viewer`, and any required custom roles.
-- [ ] Define a permission catalog for every current and planned RPC/action;
-  forbid public RPCs by default.
-- [ ] Add tests that each role has exactly its intended scopes and that changes
-  take effect after the expected token/session refresh boundary.
+- [~] Finalize role matrix with product owner: `crm_admin`, `crm_manager`,
+  `crm_member`, `crm_viewer`, and any required custom roles. The four roles
+  are now specified with a written rationale each in
+  `packages/contracts/rbac/crm-roles.json`, which both services pin
+  themselves to. Two things keep this partial: no product owner has signed
+  off on the matrix, and custom (organization-defined) roles are not
+  supported — AuthinCore can hold them, but the CRM has no way to describe
+  what a custom role may do.
+- [x] Define a permission catalog for every current RPC/action; forbid public
+  RPCs by default. `internal/server/scopes.go` carries the catalog, and
+  `auth.ScopePolicy` now **denies any procedure it has no entry for**. The
+  previous `map[string]string` failed open: a procedure absent from the map
+  was enforced as public, so adding a handler and forgetting its entry
+  silently published it to every authenticated principal in every
+  organization. `assertPolicyIsTotal` walks the generated service descriptors
+  and fails server construction — not just the test suite — on a procedure
+  with no decision, a procedure decided twice, or an entry naming a procedure
+  that no longer exists. ("Planned" actions are deliberately not catalogued:
+  an entry for an RPC that does not exist is exactly the dead entry the
+  totality check rejects.)
+- [x] Add tests that each role has exactly its intended scopes and that
+  changes take effect after the expected token/session refresh boundary.
+  `internal/server/role_matrix_test.go` asserts behaviour rather than
+  restating the file: for each role it computes which procedures the real
+  policy would let it reach, and compares that against separately written
+  intent. `TestRoleChangesTakeEffectOnlyAtTheNextToken` pins the session
+  boundary — authority travels in the token and this service verifies
+  offline, so a revoked role keeps working until the client presents a newly
+  minted token. `TestViewerHoldsNoWriteAuthority` and
+  `TestOnlyTheAdminRoleUsesAWildcard` state the two properties that would
+  otherwise be inferred from a list.
 - [ ] Design AuthinCore FGA relations for account/contact/lead/opportunity
   owner, editor, viewer, team, and organization access.
 - [ ] Implement FGA check calls in CRM before record reads/writes where a
   tenant-wide scope alone is insufficient.
 - [ ] Add FGA tuple lifecycle rules for creation, ownership transfer, deletion,
   user deactivation, and tenant removal.
-- [ ] Surface permission-denied states in the API and web UI without leaking
-  record existence across tenants.
+  **The three FGA bullets are blocked on a product decision, not on
+  engineering.** Record-level authorization means answering "may this user
+  edit an account they do not own, and who can grant that" — a sharing policy
+  the matrix above cannot express, because a scope in a token describes a
+  *type* of record, never an instance. Implementing relations before the
+  policy exists would bake in a guess that later has to be migrated out of
+  every tuple. The needed input is already listed under "Required external
+  decisions": *Final role matrix and record-sharing policy*.
+- [x] Surface permission-denied states in the API and web UI without leaking
+  record existence across tenants. `TestScopeDenialIsNotAnExistenceOracle`
+  proves the scope check runs before the handler, so the refusal is byte-identical
+  whether or not the id names a real record — a caller lacking the scope cannot
+  use the error to enumerate ids. Cross-tenant reads answer NotFound rather than
+  PermissionDenied (§1.3). On the web, `ForbiddenState`
+  (`apps/web/src/components/ui/StatePanel.tsx`) renders the denial without
+  naming the record.
 
 Acceptance criteria:
 
-- Every CRM RPC has explicit required scope(s).
+- Every CRM RPC has explicit required scope(s). **Met**, and enforced: the
+  server refuses to start otherwise.
 - Record sharing and ownership cannot bypass tenant RLS or tenant-level RBAC.
+  **Not yet applicable** — there is no record sharing to bypass anything with
+  until the FGA bullets above are unblocked. Tenant RLS and tenant-level RBAC
+  are themselves proven (§1.3 and this section).
+
+Fixed while doing the above:
+
+- `crm_member` and `crm_viewer` were granted no `crm:pipeline:read`, but
+  `apps/web/src/features/opportunities/OpportunityFormPage.tsx` and
+  `OpportunityBoardPage.tsx` call `ListPipelines`/`ListPipelineStages`
+  unconditionally. A member therefore could not create or edit an opportunity
+  and a viewer could not open the board — both got a permission error on a
+  screen their role is meant to include. Pipeline definitions are reference
+  data an opportunity cannot be rendered without (stage names, ordering,
+  close-reason rules), so both roles now read them; writing pipelines stays
+  with manager and admin.
+
+  **Operator action required:** an organization bootstrapped before this
+  change still has the old scope set. Re-run `make bootstrap` against it —
+  `ensureCRMRoleModel` upserts permissions, so the new scope is applied to the
+  existing roles without touching identities or credentials.
+
+Testing note: `internal/server/policy_enforcement_test.go` runs against a real
+HTTP server, real RSA-signed tokens verified through a real JWKS endpoint, the
+real interceptor and the real handlers. The data-level tests above would all
+still pass if the interceptor were registered on one handler and not the
+other; this is the file that would not.
 
 ---
 

@@ -45,7 +45,11 @@ func main() {
 	}
 	defer func() { _ = store.Close() }()
 
-	srv := server.New(cfg, store, authn)
+	srv, err := server.New(cfg, store, authn)
+	if err != nil {
+		slog.Error("server", "err", err)
+		os.Exit(1)
+	}
 	defer srv.Close()
 
 	// Drain the CRM event outbox onto the bus (Track A3). Nothing in the

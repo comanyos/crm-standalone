@@ -85,7 +85,26 @@ provider credentials.
   named an unrelated project's port, silently skipping the whole PostgreSQL
   tier. Tenant labelling of audit events and metrics stays open — neither
   surface exists yet (M6).
-- [ ] Add record-level FGA checks before exposing owner/editor/viewer controls.
+- [x] Scope enforcement is deny-by-default and the role matrix is pinned on
+  both sides. `auth.ScopePolicy` refuses any procedure it has no entry for —
+  the previous map enforced an unlisted procedure as public — and the server
+  refuses to start if the catalog does not decide every procedure the
+  generated descriptors say it serves. The four built-in roles
+  (`crm_admin`/`crm_manager`/`crm_member`/`crm_viewer`) are specified with a
+  rationale each in `packages/contracts/rbac/crm-roles.json`; AuthinCore's
+  bootstrap and crm-api each have a test comparing themselves against it,
+  because they are separate Go modules and drift between them is otherwise
+  silent until a role hits a permission error in production. Enforcement is
+  verified end to end over real HTTP with real signed tokens. Fixed in
+  passing: `crm_member` and `crm_viewer` had no `crm:pipeline:read`, so a
+  member could not create or edit an opportunity and a viewer could not open
+  the board — existing organizations need `make bootstrap` re-run to pick the
+  scope up.
+- [ ] Add record-level FGA checks before exposing owner/editor/viewer
+  controls. Blocked on the product owner's record-sharing policy, not on
+  engineering: a scope in a token describes a type of record, never an
+  instance, so "may edit accounts they do not own" cannot be expressed until
+  someone decides who may grant it.
 
 Acceptance criteria: a clean `make up` plus documented bootstrap command works
 without committed credentials; an admin receives only tenant-local grants; a
