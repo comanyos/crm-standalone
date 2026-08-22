@@ -227,20 +227,72 @@ Acceptance criteria:
 - [x] Add idempotent `authinctl bootstrap` and Compose tools profile.
 - [x] Bootstrap a first organization, administrator, `owner` and `crm_admin`
   grants, CRM role model, and public `crm-web` client.
-- [ ] Add structured bootstrap integration tests against a clean database.
-- [ ] Test a second bootstrap invocation produces no duplicate org, identity,
+- [x] Add structured bootstrap integration tests against a clean database.
+  `services/authincore/cmd/authinctl/bootstrap_integration_test.go` runs
+  against a real migrated AuthinCore database (compose `auth-postgres-test`,
+  migrations applied by the suite itself from the embedded FS). Every test
+  owns a unique organization domain rather than assuming an empty database,
+  so none of them only passes when it runs first.
+- [x] Test a second bootstrap invocation produces no duplicate org, identity,
   role, resource, permission, project, or OAuth client.
-- [ ] Add safe admin-password reset/recovery process with explicit operator
+  `TestSecondBootstrapCreatesNoDuplicates` snapshots all nine row counts,
+  re-runs bootstrap twice, and compares the whole struct — plus asserts the
+  reported ids are stable, the `created_*` flags flip to false, and no
+  duplicate `org.created` audit event appears.
+- [x] Add safe admin-password reset/recovery process with explicit operator
   confirmation and audit event; never silently reset on normal bootstrap.
-- [ ] Document organization domain rules, localhost development setup, and
-  tenant-domain DNS/TLS prerequisites for staging/production.
+  New `authinctl reset-admin-password` (`make reset-admin-password`,
+  documented in `docs/BOOTSTRAP.md`). It is a separate command rather than a
+  flag on bootstrap for a specific reason: bootstrap is re-run routinely and
+  reads `BOOTSTRAP_ADMIN_PASSWORD` from the environment each time, so if it
+  also reset the password, an operator whose shell still had the original
+  value exported would reset it invisibly and one whose shell did not would
+  lock the administrator out — neither failure announces itself.
+  `RESET_ADMIN_CONFIRM` must equal the account's own address, not a bare
+  "yes", so pasting a runbook command unedited cannot reset the wrong
+  account. The command creates nothing, replaces rather than adds a
+  credential, writes an `identity.password.reset` audit event naming the
+  account but never the password or hash, and leaves roles, grants and the
+  OAuth client untouched. `TestBootstrapNeverResetsAnExistingAdministratorPassword`
+  proves the "never silently" half against a real database.
+- [x] Document organization domain rules, localhost development setup, and
+  tenant-domain DNS/TLS prerequisites for staging/production —
+  `docs/BOOTSTRAP.md`, linked from the README.
 
 Acceptance criteria:
 
 - A blank AuthinCore database can be initialized using environment-injected
-  values only.
+  values only. **Met**, and now proven rather than asserted:
+  `TestBootstrapOnACleanDatabaseCreatesTheWholeModel` checks the organization
+  is active, the administrator is resolvable the way a login resolves them,
+  and both creations left an audit event.
 - Bootstrap output contains IDs and client configuration but never a password,
-  private key, or client secret.
+  private key, or client secret. **Met** —
+  `TestBootstrapOutputAndClientCarryNoSecrets` scans the encoded result and
+  also asserts the `crm-web` client is a public PKCE client
+  (`client_secret` empty, `auth_method_type: none`, `application_type: spa`),
+  because a browser cannot keep a secret.
+
+Found while doing the above — **needs a product decision:**
+
+`services/authincore/migrations/025_dbcore_role_scopes.sql` installs an
+`AFTER INSERT` trigger on `orgs` that seeds three roles for **DBCore** — a
+different product, whose source is not in this repository — into every
+organization ever created, plus a `dbcore` resource, and grants the `owner`
+role `dbcore:*` on it. It also backfills organizations that already exist. So
+a customer organization provisioned by this CRM carries "DBCore Admin",
+"DBCore Operator" and "DBCore Read-only" roles it has no use for.
+
+Blast radius is bounded and that is now tested: none of those roles carries
+any CRM scope, so they grant no access to this product
+(`TestOrganizationsCarryRolesForAnUnrelatedProduct`, which also pins the CRM's
+own roles to the shared matrix). What they do is pollute any administration UI
+that lists roles, and any audit of who can do what.
+
+Removing them means deleting authority rows from organizations that already
+exist, and migrations here are append-only — so this is a decision, not a
+cleanup. It belongs with the other DBCore provenance items already open in
+`docs/THIRD_PARTY_NOTICES.md` and Phase 0.
 
 ### 1.2 OIDC end-to-end behavior
 
@@ -268,13 +320,16 @@ Acceptance criteria:
 
 ### 1.3 Tenant isolation
 
-- [~] Create two test organizations, principals, and OAuth clients in an
-  isolated test fixture. Two organizations with their own principals and
-  full record sets are seeded by `seedTenant` (`internal/domain/
+- [x] Create two test organizations, principals, and OAuth clients in an
+  isolated test fixture. Two organizations with their own principals and full
+  record sets are seeded by `seedTenant` (`internal/domain/
   pgstore_tenant_isolation_test.go`) and `seedViaAPI` (`internal/api/
-  tenant_isolation_test.go`). Two *OAuth clients* are not: that needs a
-  Docker-backed AuthinCore bootstrap fixture, tracked as its own item in
-  `docs/ROADMAP.md` M1.
+  tenant_isolation_test.go`). The OAuth-client half is covered by §1.1's
+  `TestTwoOrganizationsBootstrapIndependently`, which provisions two real
+  organizations through the real bootstrap path — deliberately sharing an
+  administrator email address and a client id, the two values most likely to
+  have been given a global unique constraint by accident — and asserts no
+  role, resource, permission, project or application is visible from both.
 - [x] Prove org B cannot retrieve, update, delete, list, search, or reference
   an org A account/contact/lead/opportunity/activity by ID.
   `TestCrossOrganizationRPCAccessIsDenied` probes all 36 CRM RPCs across the

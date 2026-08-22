@@ -40,6 +40,8 @@ func main() {
 		err = cmdBlueprintApply(ctx, os.Args[3])
 	case "bootstrap":
 		err = cmdBootstrap(ctx)
+	case "reset-admin-password":
+		err = cmdResetAdminPassword(ctx)
 	case "version":
 		fmt.Println("authincore dev")
 	default:
@@ -59,7 +61,13 @@ Commands:
   migrate [up|down|status|reset]   Run database migrations (default: up)
   blueprint apply <file.yaml>      Apply a declarative blueprint
   bootstrap                        Create/reconcile the initial CRM organization and administrator
+  reset-admin-password             Replace one existing administrator's password (never creates)
   version                          Show version
+
+reset-admin-password reads RESET_ORG_DOMAIN, RESET_ADMIN_EMAIL,
+RESET_ADMIN_PASSWORD and RESET_ADMIN_CONFIRM. Set RESET_ADMIN_CONFIRM to the
+same address as RESET_ADMIN_EMAIL to confirm. The bootstrap command never
+changes an existing password, by design.
 `)
 }
 

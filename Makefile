@@ -1,4 +1,4 @@
-.PHONY: dev-key auth-ui up down logs ps test verify bootstrap test-db-up test-db-down
+.PHONY: dev-key auth-ui up down logs ps test verify bootstrap reset-admin-password test-db-up test-db-down
 
 dev-key:
 	mkdir -p deploy/secrets
@@ -33,6 +33,15 @@ verify:
 # BOOTSTRAP_ADMIN_EMAIL=admin@localhost BOOTSTRAP_ADMIN_PASSWORD='change-me-now' make bootstrap
 bootstrap:
 	docker compose --profile tools run --rm auth-bootstrap
+
+# Administrator password recovery. Deliberately not part of `bootstrap`:
+# re-running bootstrap must never change an existing password, so this is the
+# only path that does. RESET_ADMIN_CONFIRM must equal RESET_ADMIN_EMAIL.
+# Example: RESET_ORG_DOMAIN=localhost RESET_ADMIN_EMAIL=admin@localhost \
+# RESET_ADMIN_CONFIRM=admin@localhost RESET_ADMIN_PASSWORD='new-password-here' \
+# make reset-admin-password
+reset-admin-password:
+	docker compose --profile tools run --rm auth-reset-password
 
 # Disposable Postgres instances for integration tests only — separate ports,
 # tmpfs storage, never the development databases. See CONTRIBUTING.md.

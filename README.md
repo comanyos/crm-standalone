@@ -49,6 +49,11 @@ administrator password and does not reset an existing administrator password.
 The CRM API validates AuthinCore tokens using the internal JWKS endpoint while
 requiring the public issuer http://localhost:18080.
 
+For organization domain rules, staging/production DNS and TLS prerequisites,
+and how to recover an administrator who cannot sign in, see
+[docs/BOOTSTRAP.md](docs/BOOTSTRAP.md). Bootstrap deliberately never changes an
+existing password; `make reset-admin-password` is the command that does.
+
 ### Web app
 
 Set `CRM_WEB_AUTH_ORG_ID` in the ignored root `.env` to the organization ID

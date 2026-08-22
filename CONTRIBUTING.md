@@ -93,9 +93,12 @@ identities or credentials.
    separated from unit tests in `go test ./...`, so treat any test that opens
    a database connection as this tier.
 
-   These tests default to the `crm-postgres-test` instance `make test-db-up`
-   starts, so no environment variable is needed; set `TEST_DATABASE_URL` only
-   to point them somewhere else. Note that a database they cannot reach is a
+   These tests default to the instances `make test-db-up` starts, so no
+   environment variable is needed: `crm-postgres-test` for `services/crm-api`
+   (override with `TEST_DATABASE_URL`) and `auth-postgres-test` for
+   `services/authincore`'s bootstrap suite (override with
+   `AUTH_TEST_DATABASE_URL`; that suite applies AuthinCore's migrations
+   itself). Note that a database they cannot reach is a
    `t.Skip`, not a failure — so if `make test-db-up` was never run, the whole
    tier passes without executing. Check for `--- SKIP` in `go test -v` output
    before treating a green run as proof. The connection must be a superuser:

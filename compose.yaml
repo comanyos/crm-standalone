@@ -133,6 +133,29 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # Administrator password recovery. Separate from auth-bootstrap on purpose:
+  # bootstrap is re-run routinely and never changes an existing password, so
+  # changing one has to be asked for by name. See docs/BOOTSTRAP.md.
+  auth-reset-password:
+    build:
+      context: ./services/authincore
+      dockerfile: Dockerfile
+    entrypoint: ["/authinctl"]
+    command: ["reset-admin-password"]
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
+      RESET_ORG_DOMAIN: ${RESET_ORG_DOMAIN:-}
+      RESET_ADMIN_EMAIL: ${RESET_ADMIN_EMAIL:-}
+      RESET_ADMIN_PASSWORD: ${RESET_ADMIN_PASSWORD:-}
+      RESET_ADMIN_CONFIRM: ${RESET_ADMIN_CONFIRM:-}
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
   authincore:
     build:
       context: ./services/authincore

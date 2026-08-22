@@ -68,7 +68,23 @@ provider credentials.
 - [x] Resource authority is derived from server-side role permissions; a
   browser-requested wildcard (for example `crm:*`) is filtered from human
   tokens and has a regression test proving a viewer cannot self-escalate.
-- [ ] Add Docker-backed bootstrap integration tests with two organizations.
+- [x] Add Docker-backed bootstrap integration tests with two organizations.
+  `services/authincore/cmd/authinctl/bootstrap_integration_test.go` runs
+  against a real migrated database: a clean bootstrap creates the whole model
+  and audits it, a second and third invocation insert nothing, and two
+  organizations sharing an administrator email address and a client id stay
+  completely separate. Added alongside: `authinctl reset-admin-password`
+  (`make reset-admin-password`) for administrator recovery, because bootstrap
+  deliberately never changes an existing password — with explicit
+  per-account confirmation, an audit event carrying no secret, and a test
+  proving a normal bootstrap does not rewrite a credential. Operator
+  documentation is in `docs/BOOTSTRAP.md`.
+
+  Found in passing, needing a decision: `migrations/025_dbcore_role_scopes.sql`
+  installs a trigger that seeds three roles for the unrelated DBCore product
+  into every organization created, and backfills existing ones. They carry no
+  CRM scope — that is now asserted — but they are authority nobody in this
+  product reviewed. Tracked with the other DBCore provenance items in M0.
 - [ ] Automate browser login, authorization-code exchange with PKCE, refresh,
   logout/revocation, JWKS validation, CRM API access, 401, and 403 behavior.
 - [x] Prove API and database cross-organization isolation with two principals.
