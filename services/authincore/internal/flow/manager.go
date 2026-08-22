@@ -49,6 +49,21 @@ func NewManager(repo Repository, strategies ...Strategy) *Manager {
 	return m
 }
 
+// KnownMethod reports whether method names a registered strategy.
+//
+// The submitted method arrives in a request body, so it is caller-chosen text
+// until this says otherwise. Anything deriving a bounded value from it — a
+// Prometheus label above all, where an unbounded label set is a memory
+// exhaustion vector — must ask here first rather than passing the raw string
+// through.
+func (m *Manager) KnownMethod(method string) bool {
+	if m == nil {
+		return false
+	}
+	_, ok := m.strategies[method]
+	return ok
+}
+
 // Create initialises a new flow, populates UI nodes from all registered strategies, and persists it.
 func (m *Manager) Create(ctx context.Context, flowType domflow.Type, orgID uuid.UUID, returnTo string) (*domflow.Flow, error) {
 	f := domflow.New(flowType, orgID, returnTo)

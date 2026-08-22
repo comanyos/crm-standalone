@@ -383,7 +383,7 @@ func (s *Server) handleSubmitFlow(w http.ResponseWriter, r *http.Request) {
 
 	result, err := s.deps.Flows.Submit(r.Context(), flowID, req.Method, req.Body)
 	if err != nil {
-		metrics.LoginTotal.WithLabelValues(req.Method, "failure").Inc()
+		metrics.LoginTotal.WithLabelValues(s.safeFlowMethod(req.Method), "failure").Inc()
 		httpError(w, err, s.deps.Log)
 		return
 	}
@@ -442,7 +442,7 @@ func (s *Server) runPostLoginChecks(w http.ResponseWriter, r *http.Request, resu
 		return true
 	}
 
-	metrics.LoginTotal.WithLabelValues(method, "success").Inc()
+	metrics.LoginTotal.WithLabelValues(s.safeFlowMethod(method), "success").Inc()
 	metrics.TokensIssued.WithLabelValues("login").Inc()
 	metrics.ActiveSessions.Inc()
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -1185,6 +1185,27 @@ func (s *Server) rateLimited(action string, maxReqs int64, window time.Duration,
 }
 
 // --- helpers ---
+
+// unknownFlowMethod is the single label every unregistered method collapses
+// into, so the series count stays bounded by the registered strategies.
+const unknownFlowMethod = "unknown"
+
+// safeFlowMethod bounds a submitted flow method before it becomes a metric
+// label.
+//
+// The method is read straight out of the request body, and Submit rejects an
+// unregistered one — which put the caller's own string on the failure counter.
+// A Prometheus label set fed from untrusted input grows without limit: every
+// distinct value is a new time series held in memory for the process's life,
+// so a caller who can reach this endpoint can drive the exporter into
+// exhaustion, one request at a time. Rate limiting bounds the rate, not the
+// total. Only a registered strategy id survives; anything else is "unknown".
+func (s *Server) safeFlowMethod(method string) string {
+	if s.deps.Flows.KnownMethod(method) {
+		return method
+	}
+	return unknownFlowMethod
+}
 
 // errorResponse is the canonical error body for every non-2xx response.
 type errorResponse struct {
