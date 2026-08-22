@@ -61,6 +61,70 @@ func initialPipelineStage(ctx context.Context, r pipelineReader, scope Scope, pi
 	return nil, fmt.Errorf("%w: pipeline has no open stage", ErrInvalid)
 }
 
+// opportunityStageResolver is everything prepareOpportunityStage needs from
+// a store: the pipeline reads the configured rules run against, plus the
+// tenant's default pipeline for an Opportunity created without one.
+//
+// It is an interface rather than a concrete store so the one implementation
+// below serves all three callers — MemStore, PgStore, and PgStore's
+// transaction-scoped reader (pgstore_opportunity.go), which must resolve the
+// stage against the same locked snapshot as the write it is deciding on.
+type opportunityStageResolver interface {
+	pipelineReader
+	defaultOpportunityPipeline(ctx context.Context, scope Scope) (*Pipeline, error)
+}
+
+// prepareOpportunityStage resolves the pipeline and stage a write is asking
+// for, fills in the defaults an omitted field implies, and returns the stage
+// definition the closing/transition rules are then evaluated against. It
+// mutates v.PipelineID/v.StageID/v.Stage into their resolved values.
+//
+// existing is nil on Create and the stored record on Update.
+func prepareOpportunityStage(
+	ctx context.Context, r opportunityStageResolver, scope Scope, v, existing *Opportunity,
+) (*PipelineStage, error) {
+	if v.PipelineID == "" {
+		if existing != nil {
+			v.PipelineID = existing.PipelineID
+		} else {
+			pipeline, err := r.defaultOpportunityPipeline(ctx, scope)
+			if err != nil {
+				return nil, err
+			}
+			v.PipelineID = pipeline.ID
+		}
+	}
+	if existing != nil && v.PipelineID != existing.PipelineID {
+		return nil, fmt.Errorf("%w: an opportunity cannot move to another pipeline", ErrInvalidTransition)
+	}
+	if existing != nil && v.Stage != "" && v.Stage != existing.Stage {
+		// Compatibility for clients that predate stage_id: a changed legacy
+		// stage value is the requested stage identifier in the Sales pipeline.
+		v.StageID = v.Stage
+	} else if v.StageID == "" {
+		if existing != nil && v.Stage == existing.Stage {
+			v.StageID = existing.StageID
+		} else if v.Stage != "" {
+			v.StageID = v.Stage
+		} else {
+			stage, err := initialPipelineStage(ctx, r, scope, v.PipelineID)
+			if err != nil {
+				return nil, err
+			}
+			v.StageID = stage.ID
+		}
+	}
+	stage, err := activePipelineStage(ctx, r, scope, v.PipelineID, v.StageID)
+	if err != nil {
+		if v.PipelineID == systemSalesPipelineID {
+			return nil, fmt.Errorf("%w: %q is not a known Opportunity stage", ErrInvalidTransition, v.StageID)
+		}
+		return nil, err
+	}
+	v.Stage = stageDisplay(v.PipelineID, stage)
+	return stage, nil
+}
+
 func stageDisplay(pipelineID string, stage *PipelineStage) string {
 	if pipelineID == systemSalesPipelineID {
 		return stage.ID

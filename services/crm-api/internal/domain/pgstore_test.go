@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,15 +48,22 @@ func alreadyApplied(err error) bool {
 // TEST_DATABASE_URL.
 const defaultTestDSN = "postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable"
 
+// testDSN is the connection every test in this tier uses, honouring the two
+// documented overrides (CONTRIBUTING.md) before falling back to the
+// disposable instance `make test-db-up` starts.
+func testDSN() string {
+	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
+		return dsn
+	}
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		return dsn
+	}
+	return defaultTestDSN
+}
+
 func livePgStore(t *testing.T) *PgStore {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		dsn = os.Getenv("DATABASE_URL")
-	}
-	if dsn == "" {
-		dsn = defaultTestDSN
-	}
+	dsn := testDSN()
 	s, err := NewPgStore(context.Background(), dsn)
 	if err != nil {
 		t.Skipf("skipping live Postgres test (cannot connect to %s): %v", dsn, err)
@@ -67,9 +75,51 @@ func livePgStore(t *testing.T) *PgStore {
 	return s
 }
 
+// migrationLockKey is an arbitrary but fixed advisory-lock key, shared with
+// internal/server's Postgres tier (revenue_workflow_pg_test.go).
+//
+// `go test ./...` runs each package's tests in its own process, at the same
+// time, and two of them now use this database. This package is the only one
+// that brings the schema up to date, and the DDL it runs takes ACCESS
+// EXCLUSIVE locks on tables the other package is querying — which deadlocks,
+// nondeterministically, if the two overlap.
+//
+// So the two take opposite halves of one advisory lock: this package takes it
+// exclusively while it applies migrations, and internal/server holds it in
+// shared mode for the length of each of its Postgres-backed tests. Neither
+// waits on the other for long — migrations are applied once per process, and
+// those tests are a fraction of a second each.
+const migrationLockKey = 0x63726D5F6D696701
+
+// migrationsOnce keeps the schema work to one burst per test binary. It used
+// to run on every livePgStore call, which was harmless while this was the
+// only package touching the database and is not any more.
+var migrationsOnce sync.Once
+
 func applyMigrations(t *testing.T, s *PgStore) {
 	t.Helper()
+	var failure error
+	migrationsOnce.Do(func() { failure = applyMigrationsOnce(s) })
+	if failure != nil {
+		t.Fatalf("apply migrations: %v", failure)
+	}
+}
+
+func applyMigrationsOnce(s *PgStore) error {
 	ctx := context.Background()
+
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return fmt.Errorf("acquire for migration lock: %w", err)
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, int64(migrationLockKey)); err != nil {
+		return fmt.Errorf("take migration lock: %w", err)
+	}
+	defer func() {
+		_, _ = conn.Exec(ctx, `SELECT pg_advisory_unlock($1)`, int64(migrationLockKey))
+	}()
+
 	candidates := []string{
 		"../../migrations",
 		"../../../migrations",
@@ -83,22 +133,33 @@ func applyMigrations(t *testing.T, s *PgStore) {
 		}
 	}
 	if migDir == "" {
-		return
+		return nil
 	}
 	files, err := filepath.Glob(filepath.Join(migDir, "*.sql"))
 	if err != nil {
-		return
+		return nil
 	}
 	sort.Strings(files)
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
-			t.Fatalf("read migration %s: %v", f, err)
+			return fmt.Errorf("read migration %s: %w", f, err)
 		}
-		if _, err := s.pool.Exec(ctx, string(b)); err != nil && !alreadyApplied(err) {
-			t.Fatalf("apply migration %s: %v", f, err)
+		if _, err := conn.Exec(ctx, string(b)); err != nil {
+			if !alreadyApplied(err) {
+				return fmt.Errorf("apply migration %s: %w", f, err)
+			}
+			// The migrations wrap themselves in BEGIN/COMMIT, so a tolerated
+			// error leaves this session holding an aborted transaction that
+			// would reject every statement after it. Clear it before the next
+			// file — the advisory lock has to stay held, so taking a fresh
+			// connection instead is not an option.
+			if _, rberr := conn.Exec(ctx, `ROLLBACK`); rberr != nil {
+				return fmt.Errorf("clear aborted transaction after %s: %w", f, rberr)
+			}
 		}
 	}
+	return nil
 }
 
 // TestPgStoreNewFieldsRoundTripAndTenantIsolation proves Account.ParentID and

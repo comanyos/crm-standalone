@@ -914,15 +914,41 @@ Acceptance criteria:
 
 ### 4.1 Leads
 
-- [ ] Verify existing lead lifecycle and conversion against Postgres/RLS with
+- [x] Verify existing lead lifecycle and conversion against Postgres/RLS with
   retries, transactions, duplicate contacts, and cross-tenant references.
+  `internal/domain/pgstore_revenue_workflow_test.go` walks the whole status
+  machine against live Postgres (default status, every legal step, both
+  terminal branches, and the four ways a caller can try to cheat it —
+  skipping, moving backward, creating into a terminal status, and setting
+  `converted` through `UpdateLead` instead of `ConvertLead`), and proves each
+  refusal writes nothing. Conversion is proven **atomic** by engineering a
+  failure at its last step — a default pipeline with no open stage, so the
+  conversion Opportunity is refused after the Contact and Account inserts have
+  already run — and showing that neither survives, and that the lead is still
+  `qualified` with no conversion links. `TestRevenueWorkflowsUnderRowLevelSecurity`
+  re-runs the load-bearing half as `crm_app` (the role RLS binds, not the
+  table owner) with two organizations: every cross-organization read and
+  mutation, `ConvertLead` included, answers NotFound, and a deal cannot be
+  pointed at another tenant's account.
 - [ ] Define lead fields, assignment, source, score, disqualification reasons,
   conversion options, and audit history.
 - [x] Build live lead list, detail, create/edit, lifecycle progression,
   disqualification, duplicate-contact warning, and conversion confirmation UX
   in `apps/web/src/features/leads`. This uses the generated Connect client;
   workflow coverage is assigned to the QA workstream.
-- [ ] Ensure conversion outcomes are idempotent and linked records are visible.
+- [x] Ensure conversion outcomes are idempotent and linked records are visible.
+  `TestPgStoreConcurrentLeadConversionConvertsExactlyOnce` runs four
+  simultaneous conversions of one lead — a double-clicked button, or a client
+  retrying a request whose answer it never saw — and asserts all four return
+  the same three ids and the tenant holds exactly one contact, one account and
+  one opportunity. `PgStore` gets that from `SELECT ... FOR UPDATE` on the
+  lead; `MemStore` had no equivalent and duplicated everything, which
+  `revenue_store_parity_test.go` now catches and a mutex over its compound
+  write paths now prevents. `TestPgStoreLeadConversionLinksAreReal` checks
+  linkage rather than non-emptiness: each id resolves, in this tenant, and
+  points back — the contact is attached to the linked account, the
+  opportunity is against it, and it opened on the tenant's default pipeline at
+  its first open stage, exactly like a directly created deal.
 
 ### 4.2 Pipelines and opportunities
 
@@ -939,8 +965,33 @@ Acceptance criteria:
   records to a compatible, tenant-local Sales pipeline; new opportunities use
   a default or explicitly selected configured pipeline and retain the existing
   append-only stage-history rows.
-- [ ] Add opportunity validation: account ownership, amount/currency, expected
+- [~] Add opportunity validation: account ownership, amount/currency, expected
   close date, loss/win reason, stage transitions, and concurrency handling.
+  Stage transitions, the terminal-stage close fields and concurrency are now
+  verified against Postgres and over real HTTP
+  (`pgstore_revenue_workflow_test.go`, `internal/server/revenue_workflow_pg_test.go`):
+  a deal walks the configured pipeline one stage at a time, skipping and
+  unknown stages are refused without writing a history entry, closing requires
+  a reason and refuses a client-supplied close date, both terminal stages are
+  terminal in every direction, only a won transition publishes
+  `opportunity.closed_won`, and the history forms an unbroken chain ending
+  where the deal actually is.
+
+  Three defects fixed here. `UpdateOpportunity` had **no optimistic-concurrency
+  check** even though `OpportunityFormPage` had been sending `updated_at` all
+  along, so a second editor silently overwrote the first. It also ran its
+  read, write, history append and outbox enqueue as **separate transactions
+  with no lock**, so concurrent advances each decided their transition from
+  the same stale stage and each appended an entry leaving it — the audit log
+  branched. And it acquired a **second pool connection inside its own
+  transaction** to read custom-field definitions, which deadlocks the pool
+  once there are as many concurrent writers as connections (`ConvertLead` had
+  this one already). It is now one RLS-bound transaction, row-locked, reading
+  everything through `txReader`. Each fix has a test that fails without it;
+  see `docs/ARCHITECTURE.md` "Write concurrency".
+
+  Still open: amount/currency (there is no currency field yet) and an
+  explicit expected-close-date model distinct from the stamped `close_date`.
 - [x] Build live opportunity list, detail, create/edit/delete, account
   association, and permitted stage-change UX in
   `apps/web/src/features/opportunities`. The current UI uses the generated

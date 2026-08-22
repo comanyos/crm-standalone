@@ -175,6 +175,22 @@ func created[T Entity](v T) time.Time {
 // MemStore is the in-memory Store. It is the default when DATABASE_URL is unset and
 // is intended for development and tests — it holds nothing across a restart.
 type MemStore struct {
+	// compound serializes the write paths that are more than one table
+	// operation — ConvertLead, UpdateLead and UpdateOpportunity. Each
+	// memTable has its own lock, which makes a single row operation atomic
+	// but says nothing about a read-decide-write sequence spanning several
+	// of them: two concurrent conversions of one lead would both read it as
+	// qualified and both create a contact/account/opportunity, and two
+	// concurrent stage advances would both decide their transition from the
+	// same "from" stage and write two stage-history rows leaving it.
+	//
+	// PgStore closes the same two races with SELECT ... FOR UPDATE on the
+	// lead/opportunity row (pgstore_lead_conversion.go,
+	// pgstore_opportunity.go). This is the in-memory equivalent: coarser
+	// than a per-row lock, which is the right trade for a store whose whole
+	// point is being simple.
+	compound sync.Mutex
+
 	account          *memTable[*Account]
 	contact          *memTable[*Contact]
 	lead             *memTable[*Lead]
@@ -639,6 +655,10 @@ func (s *MemStore) ListLeads(_ context.Context, scope Scope, page Page) ([]*Lead
 // and refreshing the duplicate-contact flag. Status can never be set to
 // converted directly through this path — only ConvertLead may perform that
 // transition, since it is the one that also creates the linked records.
+//
+// Optimistic concurrency: a non-zero v.UpdatedAt must match the stored
+// record's, or the write is rejected with ErrConflict — the same contract as
+// UpdateAccount.
 func (s *MemStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
@@ -646,9 +666,16 @@ func (s *MemStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead,
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+
+	s.compound.Lock()
+	defer s.compound.Unlock()
+
 	existing, err := s.lead.get(scope, v.EntityID())
 	if err != nil {
 		return nil, err
+	}
+	if !v.UpdatedAt.IsZero() && !v.UpdatedAt.Equal(existing.UpdatedAt) {
+		return nil, fmt.Errorf("%w: Lead %s was modified since it was last read", ErrConflict, v.EntityID())
 	}
 	if v.Status == "" {
 		v.Status = existing.Status
@@ -733,6 +760,10 @@ func (s *MemStore) ConvertLead(ctx context.Context, scope Scope, in ConvertLeadI
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
+
+	s.compound.Lock()
+	defer s.compound.Unlock()
+
 	lead, err := s.lead.get(scope, in.LeadID)
 	if err != nil {
 		return nil, err
@@ -885,7 +916,7 @@ func (s *MemStore) CreateOpportunity(ctx context.Context, scope Scope, v *Opport
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
-	stage, err := s.prepareOpportunityStage(ctx, scope, v, nil)
+	stage, err := prepareOpportunityStage(ctx, s, scope, v, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -920,6 +951,10 @@ func (s *MemStore) ListOpportunities(_ context.Context, scope Scope, page Page) 
 // rule on a fresh transition into a closed stage, recording stage history,
 // and — on the specific transition into closed_won — publishing
 // opportunity.closed_won.
+//
+// Optimistic concurrency: a non-zero v.UpdatedAt must match the stored
+// record's, or the write is rejected with ErrConflict — the same contract as
+// UpdateAccount.
 func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportunity) (*Opportunity, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
@@ -927,11 +962,18 @@ func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opport
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+
+	s.compound.Lock()
+	defer s.compound.Unlock()
+
 	existing, err := s.opportunity.get(scope, v.EntityID())
 	if err != nil {
 		return nil, err
 	}
-	stage, err := s.prepareOpportunityStage(ctx, scope, v, existing)
+	if !v.UpdatedAt.IsZero() && !v.UpdatedAt.Equal(existing.UpdatedAt) {
+		return nil, fmt.Errorf("%w: Opportunity %s was modified since it was last read", ErrConflict, v.EntityID())
+	}
+	stage, err := prepareOpportunityStage(ctx, s, scope, v, existing)
 	if err != nil {
 		return nil, err
 	}
@@ -1008,49 +1050,6 @@ func (s *MemStore) defaultOpportunityPipeline(ctx context.Context, scope Scope) 
 		}
 	}
 	return pipeline, nil
-}
-
-func (s *MemStore) prepareOpportunityStage(ctx context.Context, scope Scope, v, existing *Opportunity) (*PipelineStage, error) {
-	if v.PipelineID == "" {
-		if existing != nil {
-			v.PipelineID = existing.PipelineID
-		} else {
-			pipeline, err := s.defaultOpportunityPipeline(ctx, scope)
-			if err != nil {
-				return nil, err
-			}
-			v.PipelineID = pipeline.ID
-		}
-	}
-	if existing != nil && v.PipelineID != existing.PipelineID {
-		return nil, fmt.Errorf("%w: an opportunity cannot move to another pipeline", ErrInvalidTransition)
-	}
-	if existing != nil && v.Stage != "" && v.Stage != existing.Stage {
-		// Compatibility for clients that predate stage_id: a changed legacy
-		// stage value is the requested stage identifier in the Sales pipeline.
-		v.StageID = v.Stage
-	} else if v.StageID == "" {
-		if existing != nil && v.Stage == existing.Stage {
-			v.StageID = existing.StageID
-		} else if v.Stage != "" {
-			v.StageID = v.Stage
-		} else {
-			stage, err := initialPipelineStage(ctx, s, scope, v.PipelineID)
-			if err != nil {
-				return nil, err
-			}
-			v.StageID = stage.ID
-		}
-	}
-	stage, err := activePipelineStage(ctx, s, scope, v.PipelineID, v.StageID)
-	if err != nil {
-		if v.PipelineID == systemSalesPipelineID {
-			return nil, fmt.Errorf("%w: %q is not a known Opportunity stage", ErrInvalidTransition, v.StageID)
-		}
-		return nil, err
-	}
-	v.Stage = stageDisplay(v.PipelineID, stage)
-	return stage, nil
 }
 
 // DeleteOpportunity removes an Opportunity from the scope's tenant.

@@ -784,6 +784,12 @@ func (s *PgStore) ListLeads(ctx context.Context, scope Scope, page Page) ([]*Lea
 // can never be set to converted directly through this path — only
 // ConvertLead may perform that transition, since it is the one that also
 // creates the linked records.
+//
+// Optimistic concurrency: a non-zero v.UpdatedAt must match the stored
+// record's, or the write is rejected with ErrConflict. A caller that does not
+// round-trip UpdatedAt skips the check. See UpdateAccount for the same
+// contract — leads and opportunities were the two entities missing it, while
+// the web client had been sending the field for both all along.
 func (s *PgStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
@@ -797,6 +803,9 @@ func (s *PgStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	existing, err := s.GetLead(ctx, scope, v.ID)
 	if err != nil {
 		return nil, err
+	}
+	if !v.UpdatedAt.IsZero() && !v.UpdatedAt.Equal(existing.UpdatedAt) {
+		return nil, fmt.Errorf("%w: Lead %s was modified since it was last read", ErrConflict, v.ID)
 	}
 	if v.Status == "" {
 		v.Status = existing.Status
@@ -937,7 +946,7 @@ func (s *PgStore) CreateOpportunity(ctx context.Context, scope Scope, v *Opportu
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
-	stage, err := s.prepareOpportunityStage(ctx, scope, v, nil)
+	stage, err := prepareOpportunityStage(ctx, s, scope, v, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1024,146 +1033,6 @@ func (s *PgStore) ListOpportunities(ctx context.Context, scope Scope, page Page)
 		next = out[len(out)-1].ID
 	}
 	return out, next, nil
-}
-
-// UpdateOpportunity replaces an existing Opportunity, preserving created_at.
-// It enforces the stage state machine, re-checks the account_id reference,
-// applies the win/loss rule on a fresh transition into a closed stage,
-// records stage history, and — on the specific transition into closed_won —
-// publishes opportunity.closed_won.
-func (s *PgStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportunity) (*Opportunity, error) {
-	if !scope.Valid() {
-		return nil, ErrNoTenant
-	}
-	if v.ID == "" {
-		return nil, ErrNotFound
-	}
-	if err := v.Validate(); err != nil {
-		return nil, err
-	}
-	existing, err := s.GetOpportunity(ctx, scope, v.ID)
-	if err != nil {
-		return nil, err
-	}
-	stage, err := s.prepareOpportunityStage(ctx, scope, v, existing)
-	if err != nil {
-		return nil, err
-	}
-	fromStage, err := activePipelineStage(ctx, s, scope, existing.PipelineID, existing.StageID)
-	if err != nil {
-		return nil, err
-	}
-	if err := checkConfiguredStageTransition(fromStage, stage); err != nil {
-		return nil, err
-	}
-	// account_id is re-checked on every update, not only when it changes: a
-	// dangling reference introduced after this Opportunity was created (the
-	// account it named was deleted) must be caught here too.
-	if err := requireAccount(ctx, s, scope, v.AccountID); err != nil {
-		return nil, err
-	}
-
-	becameClosed := existing.StageID != v.StageID && stage.TerminalType != "open"
-	if becameClosed {
-		if err := applyConfiguredClosingRules(v, stage); err != nil {
-			return nil, err
-		}
-	}
-	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, existing.CustomFields)
-	if err != nil {
-		return nil, err
-	}
-	v.CustomFields = custom
-	document, err := custom.MarshalDocument()
-	if err != nil {
-		return nil, err
-	}
-	v.UpdatedAt = nowStamp()
-
-	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE opportunities SET name = $3, account_id = $4, stage = $5, pipeline_id = $6, stage_id = $7, amount = $8, probability = $9, close_date = $10, close_reason = $11, updated_at = $12, custom_fields = $13
-		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.Probability, v.CloseDate, v.CloseReason, v.UpdatedAt, document)
-	if err != nil {
-		return nil, fmt.Errorf("update opportunity: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return nil, ErrNotFound
-	}
-
-	updated, err := s.GetOpportunity(ctx, scope, v.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	if existing.StageID != updated.StageID {
-		if err := s.recordOpportunityStageChange(ctx, scope, updated.ID, existing.Stage, updated.Stage); err != nil {
-			return nil, err
-		}
-	}
-
-	if becameClosed && stage.TerminalType == "won" {
-		if err := enqueueOpportunityClosedWon(ctx, s, scope, updated); err != nil {
-			return nil, err
-		}
-	}
-
-	return updated, nil
-}
-
-func (s *PgStore) prepareOpportunityStage(ctx context.Context, scope Scope, v, existing *Opportunity) (*PipelineStage, error) {
-	if v.PipelineID == "" {
-		if existing != nil {
-			v.PipelineID = existing.PipelineID
-		} else {
-			pipeline, err := s.defaultOpportunityPipeline(ctx, scope)
-			if err != nil {
-				return nil, err
-			}
-			v.PipelineID = pipeline.ID
-		}
-	}
-	if existing != nil && v.PipelineID != existing.PipelineID {
-		return nil, fmt.Errorf("%w: an opportunity cannot move to another pipeline", ErrInvalidTransition)
-	}
-	if existing != nil && v.Stage != "" && v.Stage != existing.Stage {
-		// Compatibility for clients that predate stage_id: a changed legacy
-		// stage value is the requested stage identifier in the Sales pipeline.
-		v.StageID = v.Stage
-	} else if v.StageID == "" {
-		if existing != nil && v.Stage == existing.Stage {
-			v.StageID = existing.StageID
-		} else if v.Stage != "" {
-			v.StageID = v.Stage
-		} else {
-			stage, err := initialPipelineStage(ctx, s, scope, v.PipelineID)
-			if err != nil {
-				return nil, err
-			}
-			v.StageID = stage.ID
-		}
-	}
-	stage, err := activePipelineStage(ctx, s, scope, v.PipelineID, v.StageID)
-	if err != nil {
-		if v.PipelineID == systemSalesPipelineID {
-			return nil, fmt.Errorf("%w: %q is not a known Opportunity stage", ErrInvalidTransition, v.StageID)
-		}
-		return nil, err
-	}
-	v.Stage = stageDisplay(v.PipelineID, stage)
-	return stage, nil
-}
-
-// recordOpportunityStageChange appends one row to opportunity_stage_history.
-func (s *PgStore) recordOpportunityStageChange(ctx context.Context, scope Scope, opportunityID, from, to string) error {
-	_, err := s.db.Exec(ctx, scope,
-		`INSERT INTO opportunity_stage_history (tenant_id, id, opportunity_id, from_stage, to_stage, changed_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		scope.TenantID, newID(), opportunityID, from, to, nowStamp())
-	if err != nil {
-		return fmt.Errorf("record opportunity stage history: %w", err)
-	}
-	return nil
 }
 
 // ListStageHistory returns every recorded stage change for one Opportunity

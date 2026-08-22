@@ -38,7 +38,7 @@ type OpportunityClosedWonPayload struct {
 // durably. Both MemStore and PgStore already implement it.
 type closedWonDeps interface {
 	accountReader
-	EventOutboxStore
+	eventEnqueuer
 }
 
 // enqueueOpportunityClosedWon writes the durable opportunity.closed_won

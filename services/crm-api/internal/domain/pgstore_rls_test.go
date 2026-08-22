@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -21,13 +20,7 @@ import (
 // This connects as the role the policies are meant to bind.
 func restrictedDSN(t *testing.T) string {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		dsn = os.Getenv("DATABASE_URL")
-	}
-	if dsn == "" {
-		dsn = defaultTestDSN
-	}
+	dsn := testDSN()
 	at := strings.Index(dsn, "@")
 	scheme := strings.Index(dsn, "://")
 	if at < 0 || scheme < 0 {

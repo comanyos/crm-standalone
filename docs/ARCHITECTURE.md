@@ -181,3 +181,76 @@ to a user who duplicated a tab and left both open past the renewal window.
 
 Browsers without `BroadcastChannel` (Safari before 15.4) lose cross-tab
 propagation only; sign-out, renewal and the idle timeout are unaffected.
+
+## Write concurrency
+
+Two different mechanisms guard CRM writes, and they answer different
+questions. Both are needed; neither substitutes for the other.
+
+### Optimistic concurrency: whose edit wins
+
+Every entity carries `updated_at`. A client that round-trips the value it last
+read is telling the server which version it edited, and a write whose
+`updated_at` disagrees with the stored row is refused with
+`ErrConflict`, surfaced as Connect's `Aborted` and shown to the user as "This
+record was changed by someone else." A client that sends no `updated_at` opts
+out and gets last-write-wins, which is what makes the check safe to add to an
+endpoint that already has callers.
+
+This applies to accounts, contacts, leads, opportunities, tasks and notes.
+Leads and opportunities were the two that had the client half and not the
+server half: both form pages sent the field, and both stores accepted and
+discarded it, so a second editor's save silently overwrote the first.
+
+### Row locks: what the server does with simultaneous writes
+
+Optimistic concurrency only helps a caller who tells the server what it read.
+It does nothing for two writes that arrive together, and nothing at all for a
+write that is several statements long.
+
+Two CRM operations are several statements long:
+
+- **`ConvertLead`** creates or reuses a contact, attaches it to a matched or
+  new account, optionally creates an opportunity, and marks the lead
+  converted. Half of that is worse than none of it: a contact and account with
+  no lead pointing at them are invisible orphans.
+- **`UpdateOpportunity`** decides a stage transition, writes the row, appends
+  the stage-history entry that transition produced, and — on the one
+  transition into a won stage — enqueues `opportunity.closed_won`. The stage
+  history is the pipeline's audit record, so a row that records a move the
+  deal did not make is a reporting defect, not a cosmetic one.
+
+`PgStore` runs each of these as one RLS-bound transaction and takes the
+subject row with `SELECT ... FOR UPDATE` first. Under `READ COMMITTED` a
+second caller blocks on that lock and then re-reads the committed row, so it
+decides its transition from where the deal actually is: either a legal next
+step or a rejected one, never a second branch out of a stage that has already
+been left. Conversion gets its idempotency from the same lock — the loser
+sees `status = converted` and returns the ids the winner produced rather than
+creating a second opportunity, which has no natural key to deduplicate
+against.
+
+`MemStore` has no rows to lock, so it serializes the same three compound
+paths (`ConvertLead`, `UpdateLead`, `UpdateOpportunity`) on one mutex. That is
+coarser than a per-row lock and correct for a store whose point is being
+simple. The two implementations are held to identical observable behaviour by
+`internal/domain/revenue_store_parity_test.go`, because `MemStore` is what the
+service runs on with `DATABASE_URL` unset and what `internal/api`'s suite
+tests against.
+
+### Never acquire a second connection inside a transaction
+
+A transaction holds a pool connection for its whole life. Any step inside it
+that reads through the store rather than through the transaction asks the pool
+for a *second* connection — and with as many concurrent writers as the pool
+has connections, every writer holds one and waits for another that will never
+be free. The failure is not a wrong answer, it is the service hanging until
+request contexts expire.
+
+`txReader` (`internal/domain/pgstore_opportunity.go`) exists for this: it
+serves accounts, contacts, leads, opportunities, pipelines, stages, custom
+field definitions and the outbox from an open transaction, so the shared rule
+helpers can run inside one. Reading definitions from the transaction also
+means a write is validated against the snapshot it commits in.
+`internal/domain/pgstore_revenue_workflow_test.go` pins this with a
+deliberately two-connection pool and more writers than that.

@@ -205,15 +205,24 @@ type EventPublisher interface {
 
 // EventOutboxStore is what EnqueueEvent and DrainEventOutbox need from a Store.
 type EventOutboxStore interface {
-	enqueueOutboxEvent(ctx context.Context, scope Scope, ev *OutboxEvent) error
+	eventEnqueuer
 	DueOutboxEvents(ctx context.Context, scope Scope, now time.Time) ([]*OutboxEvent, error)
 	UpdateOutboxEvent(ctx context.Context, scope Scope, ev *OutboxEvent) error
+}
+
+// eventEnqueuer is the write half on its own. EnqueueEvent takes this rather
+// than the whole EventOutboxStore so a caller that can only write — notably
+// PgStore's transaction-scoped writer, which enqueues in the same
+// transaction as the business row that justified the event — can still use
+// it. The method is unexported, so only this package can implement it.
+type eventEnqueuer interface {
+	enqueueOutboxEvent(ctx context.Context, scope Scope, ev *OutboxEvent) error
 }
 
 // EnqueueEvent wraps env in a durable OutboxEvent and writes it. This is the
 // seam Track B calls once a state transition decides it must publish; A3
 // does not call it from anywhere itself.
-func EnqueueEvent(ctx context.Context, store EventOutboxStore, scope Scope, env Envelope) (*OutboxEvent, error) {
+func EnqueueEvent(ctx context.Context, store eventEnqueuer, scope Scope, env Envelope) (*OutboxEvent, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}

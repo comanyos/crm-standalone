@@ -319,6 +319,10 @@ func leadFromProto(m *crmv1.Lead) *domain.Lead {
 		ConvertedAccountID:     m.GetConvertedAccountId(),
 		ConvertedOpportunityID: m.GetConvertedOpportunityId(),
 		CustomFields:           customValuesFromProto(m.GetCustomFields()),
+		// UpdatedAt round-trips the caller's last-read version for
+		// UpdateLead's optimistic-concurrency check — see accountFromProto
+		// above for why an absent field must become the true Go zero Time.
+		UpdatedAt: protoTimestamp(m.GetUpdatedAt()),
 	}
 }
 
@@ -364,6 +368,11 @@ func opportunityFromProto(m *crmv1.Opportunity) *domain.Opportunity {
 		CloseDate:    protoTimestamp(m.GetCloseDate()),
 		CloseReason:  m.GetCloseReason(),
 		CustomFields: customValuesFromProto(m.GetCustomFields()),
+		// UpdatedAt round-trips the caller's last-read version for
+		// UpdateOpportunity's optimistic-concurrency check — see
+		// accountFromProto above for why an absent field must become the true
+		// Go zero Time.
+		UpdatedAt: protoTimestamp(m.GetUpdatedAt()),
 	}
 }
 

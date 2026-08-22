@@ -215,14 +215,62 @@ and contacts**, with one caveat: permission-denied behaviour is proven at the
 component tier but not live, because no second, lower-scoped test principal
 exists yet. Leads and opportunities screens remain M3.
 
-## M3 — Revenue workflow (50%)
+## M3 — Revenue workflow (70%)
 
 Dependencies: M2 core records and M1 scope enforcement.
 
 - [x] Backend domain includes tenant-scoped leads, conversion, opportunities,
   stage history, activities, and database migrations.
-- [ ] Verify each backend workflow against Postgres/RLS, not only in-memory
-  stores, including authorization and race/retry behavior.
+- [x] Verify each backend workflow against Postgres/RLS, not only in-memory
+  stores, including authorization and race/retry behavior. Leads, lead
+  conversion and opportunities are now covered at two live tiers:
+  `internal/domain/pgstore_revenue_workflow_test.go` exercises the store
+  against real PostgreSQL (both as the owning superuser and as `crm_app`, the
+  role the policies bind), and
+  `internal/server/revenue_workflow_pg_test.go` drives the same workflows over
+  real HTTP with real RS256 tokens, the real scope interceptor and that same
+  RLS-bound store — the combination neither previous tier had, since scope
+  enforcement was proven over `MemStore` and isolation over the store alone.
+  Two organizations prove every cross-organization read *and* mutation
+  answers NotFound; conversion is proven atomic by making it fail at its last
+  step and showing the contact and account it had created are gone;
+  stage history is proven contiguous under concurrent advances; and
+  optimistic-concurrency conflicts are proven for both entities, at the store
+  and over the wire. `internal/domain/revenue_store_parity_test.go` holds
+  `MemStore` to the same observable contract, since that is the store the API
+  suite and a `DATABASE_URL`-less deployment actually use.
+
+  **Four defects were found and fixed, each with the regression test that
+  fails without the fix** (see `docs/ARCHITECTURE.md` "Write concurrency"):
+
+  1. Leads and opportunities had no optimistic-concurrency check, although
+     both form pages had been round-tripping `updated_at` since they were
+     built and `mutationErrorMessage` already had the conflict copy. The
+     server accepted the field and discarded it, so a second editor's save
+     silently overwrote the first. The field is now carried through
+     `leadFromProto`/`opportunityFromProto` and compared in both stores.
+  2. `UpdateOpportunity` ran its read, write, stage-history append and outbox
+     enqueue as separate transactions with no lock between them. Concurrent
+     stage advances each decided their transition from the same stale stage
+     and each appended an entry leaving it, so the audit log branched and all
+     but one of its entries described a move that never happened. It is now
+     one RLS-bound transaction with `SELECT ... FOR UPDATE` on the deal.
+  3. Both multi-statement write paths acquired a second pool connection from
+     inside their own open transaction, to read custom-field definitions. With
+     as many concurrent writers as the pool has connections, every writer
+     held one and waited for another — the service hangs rather than
+     answering wrongly. `ConvertLead` had this before this work; the fix
+     covers both.
+  4. `MemStore` had no serialization across its compound writes, so
+     concurrent conversions of one lead each created their own contact,
+     account and opportunity.
+
+  Remaining at this tier: the metadata-layer tables
+  (`custom_field_definitions`, `custom_object_definitions`, `custom_records`)
+  are skipped by `TestUnscopedQuerySeesNothingInAnyTenantTable` because its
+  fixture seeds no rows in them — the policies are asserted to exist, but not
+  asserted to filter. That belongs with the metadata layer's own phase, not
+  with the revenue workflow.
 - [x] Build live Leads list/detail/create/edit screens, lifecycle controls,
   duplicate-contact warnings, and qualified-lead conversion confirmation using
   the generated CRM contract.
@@ -258,11 +306,14 @@ Dependencies: M2 core records and M1 scope enforcement.
 
 Acceptance criteria: a lead converts atomically to linked records; opportunity
 stage history is accurate; every workflow is tenant-isolated and auditably
-tested; the UI exposes it with permission-aware controls. **Lead and
-opportunity UI, configurable pipelines, the Kanban board, and the stage-history
-view are all implemented (see the entries above). Individual-stage archival,
-historical reporting semantics, quotas/forecasts, and live workflow/tenant/RBAC
-verification remain in the QA and product workstreams.**
+tested; the UI exposes it with permission-aware controls. **All four are now
+met for leads, lead conversion and opportunities, verified against real
+PostgreSQL with row-level security and over real HTTP with real tokens — see
+the verification entry above for what was proven and the four defects it
+found.** Still open in this milestone: individual-stage archival, historical
+reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
+half of the activities entry. Attachment storage still needs object-storage
+ownership from the product owner.
 
 ## M4 — Data productivity (0%)
 

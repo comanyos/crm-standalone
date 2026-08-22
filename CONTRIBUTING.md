@@ -105,6 +105,17 @@ identities or credentials.
    migration `0003_rls_enforce.sql` creates `crm_app` and `crm_drain`, and the
    tenant-isolation tests connect as both to prove row-level security applies
    to the role the service actually uses.
+
+   Two packages now use this database: `internal/domain` and, for the revenue
+   workflows end to end, `internal/server`. `go test ./...` runs them in
+   separate processes at the same time, so they coordinate over one Postgres
+   advisory lock — `internal/domain` owns the schema and takes the lock
+   exclusively while it applies migrations (once per test binary);
+   `internal/server` runs no DDL of its own and holds the same lock in shared
+   mode for each of its Postgres-backed tests. Without that, the migrations'
+   `ACCESS EXCLUSIVE` locks deadlock at random against the other package's
+   queries. A third package joining this tier must take the shared lock the
+   same way — see `migrationLockKey` in either file.
 3. **Browser tests** — end-to-end coverage of critical user journeys, in
    `apps/web/tests-e2e/`, run via `npm run test:e2e --workspace=@crm/web`
    against a live backend. `auth.spec.ts` covers sign-in, the protected

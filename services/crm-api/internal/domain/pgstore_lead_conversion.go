@@ -193,7 +193,7 @@ func (s *PgStore) txCreateContact(ctx context.Context, tx pgx.Tx, scope Scope, e
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
-	custom, err := CoerceCustomValues(ctx, s, scope, "contact", v.CustomFields, nil)
+	custom, err := CoerceCustomValues(ctx, txReader{s: s, tx: tx}, scope, "contact", v.CustomFields, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (s *PgStore) txCreateAccount(ctx context.Context, tx pgx.Tx, scope Scope, v
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
-	custom, err := CoerceCustomValues(ctx, s, scope, "account", v.CustomFields, nil)
+	custom, err := CoerceCustomValues(ctx, txReader{s: s, tx: tx}, scope, "account", v.CustomFields, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -290,13 +290,14 @@ func (s *PgStore) txCreateConversionOpportunity(
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
-	pipeline, stage, err := s.txDefaultOpportunityPipeline(ctx, tx, scope)
-	if err != nil {
+	// The same stage resolution CreateOpportunity performs, run against this
+	// transaction: the tenant's default pipeline (provisioned here if it has
+	// none yet) at its first open stage. Sharing it is what keeps a
+	// conversion-created deal indistinguishable from a directly created one.
+	if _, err := prepareOpportunityStage(ctx, txReader{s: s, tx: tx}, scope, v, nil); err != nil {
 		return nil, err
 	}
-	v.PipelineID, v.StageID = pipeline.ID, stage.ID
-	v.Stage = stageDisplay(v.PipelineID, stage)
-	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, nil)
+	custom, err := CoerceCustomValues(ctx, txReader{s: s, tx: tx}, scope, "opportunity", v.CustomFields, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -321,37 +322,6 @@ func (s *PgStore) txCreateConversionOpportunity(
 		return nil, fmt.Errorf("insert conversion opportunity: %w", err)
 	}
 	return v, nil
-}
-
-func (s *PgStore) txDefaultOpportunityPipeline(ctx context.Context, tx pgx.Tx, scope Scope) (*Pipeline, *PipelineStage, error) {
-	pipeline, err := scanPipeline(tx.QueryRow(ctx,
-		`SELECT `+pipelineColumns+` FROM pipelines WHERE tenant_id = $1 AND is_default AND archived_at IS NULL ORDER BY id LIMIT 1`,
-		scope.TenantID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		now := nowStamp()
-		pipeline = &Pipeline{ID: systemSalesPipelineID, Name: "Sales", IsDefault: true, CreatedAt: now, UpdatedAt: now}
-		if _, err := tx.Exec(ctx, `INSERT INTO pipelines (tenant_id, id, name, is_default, created_at, updated_at) VALUES ($1, $2, $3, true, $4, $5)`, scope.TenantID, pipeline.ID, pipeline.Name, now, now); err != nil {
-			return nil, nil, fmt.Errorf("insert default Sales pipeline: %w", err)
-		}
-		for _, definition := range systemSalesStages {
-			stage := definition
-			if _, err := tx.Exec(ctx, `INSERT INTO pipeline_stages (tenant_id, pipeline_id, id, name, position, probability, terminal_type, requires_close_reason, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, scope.TenantID, pipeline.ID, stage.ID, stage.Name, stage.Position, stage.Probability, stage.TerminalType, stage.RequiresCloseReason, now, now); err != nil {
-				return nil, nil, fmt.Errorf("insert default Sales stage: %w", err)
-			}
-		}
-	} else if err != nil {
-		return nil, nil, fmt.Errorf("find default pipeline: %w", err)
-	}
-	stage, err := scanPipelineStage(tx.QueryRow(ctx,
-		`SELECT `+pipelineStageColumns+` FROM pipeline_stages WHERE tenant_id = $1 AND pipeline_id = $2 AND terminal_type = 'open' AND archived_at IS NULL ORDER BY position, id LIMIT 1`,
-		scope.TenantID, pipeline.ID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil, fmt.Errorf("%w: default pipeline has no open stage", ErrInvalid)
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("find initial default stage: %w", err)
-	}
-	return pipeline, stage, nil
 }
 
 // txLoadConversionResult mirrors MemStore's loadConversionResult for the
