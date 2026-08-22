@@ -49,7 +49,7 @@ func (s *PgStore) CreatePipeline(ctx context.Context, scope Scope, v *Pipeline) 
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 	_, err := s.db.Exec(ctx, scope,
 		`INSERT INTO pipelines (tenant_id, id, name, is_default, archived_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -135,7 +135,7 @@ func (s *PgStore) UpdatePipeline(ctx context.Context, scope Scope, v *Pipeline) 
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 	// The partial unique index permits one active default per tenant. Clear a
 	// previous default in the same RLS-bound transaction before promoting this
 	// pipeline, so the API supports an intentional default change rather than
@@ -182,7 +182,7 @@ func (s *PgStore) CreatePipelineStage(ctx context.Context, scope Scope, v *Pipel
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 	_, err = s.db.Exec(ctx, scope,
 		`INSERT INTO pipeline_stages (tenant_id, pipeline_id, id, name, position, probability, terminal_type, requires_close_reason, archived_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
@@ -233,7 +233,7 @@ func (s *PgStore) UpdatePipelineStage(ctx context.Context, scope Scope, v *Pipel
 	if !pipeline.ArchivedAt.IsZero() {
 		return nil, fmt.Errorf("%w: cannot update a stage in an archived pipeline", ErrInvalid)
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE pipeline_stages SET name = $4, position = $5, probability = $6, terminal_type = $7, requires_close_reason = $8, archived_at = $9, updated_at = $10 WHERE tenant_id = $1 AND pipeline_id = $2 AND id = $3`,
 		scope.TenantID, v.PipelineID, v.ID, v.Name, v.Position, v.Probability, v.TerminalType, v.RequiresCloseReason, nullableTime(v.ArchivedAt), v.UpdatedAt)

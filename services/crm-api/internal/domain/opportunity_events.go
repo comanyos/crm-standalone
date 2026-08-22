@@ -66,7 +66,7 @@ func enqueueOpportunityClosedWon(ctx context.Context, deps closedWonDeps, scope 
 		EntityID:      o.ID,
 		SourceVersion: 1,
 		Actor:         "system",
-		OccurredAt:    time.Now().UTC(),
+		OccurredAt:    nowStamp(),
 	}
 	env, err = env.WithPayload(OpportunityClosedWonPayload{
 		OpportunityID: o.ID,

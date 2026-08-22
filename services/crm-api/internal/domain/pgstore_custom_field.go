@@ -81,7 +81,7 @@ func (s *PgStore) CreateCustomFieldDefinition(
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 	// A field that arrives already retired is a definition nothing can write
 	// to, so creation never accepts an archive stamp from the caller.
@@ -176,7 +176,7 @@ func (s *PgStore) UpdateCustomFieldDefinition(
 	if err != nil {
 		return nil, err
 	}
-	current.UpdatedAt = time.Now().UTC()
+	current.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE custom_field_definitions
@@ -201,7 +201,7 @@ func (s *PgStore) ArchiveCustomFieldDefinition(
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v, err := scanCustomFieldDefinition(s.db.QueryRow(ctx, scope,
 		`UPDATE custom_field_definitions
 		    SET archived_at = COALESCE(archived_at, $3), updated_at = $3

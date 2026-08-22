@@ -63,7 +63,7 @@ func (s *PgStore) CreateTask(ctx context.Context, scope Scope, v *Task) (*Task, 
 		return nil, err
 	}
 	sanitizeTaskLifecycle(v, nil)
-	now := time.Now().UTC()
+	now := nowStamp()
 	if v.Status == TaskCompleted {
 		applyTaskCompletion(v, v.CreatedBy, now)
 	}
@@ -217,7 +217,7 @@ func (s *PgStore) UpdateTask(ctx context.Context, scope Scope, v *Task) (*Task, 
 	}
 	sanitizeTaskLifecycle(v, existing)
 	v.CreatedBy = existing.CreatedBy
-	now := time.Now().UTC()
+	now := nowStamp()
 	switch {
 	case v.Status == TaskCompleted:
 		applyTaskCompletion(v, existing.CompletedBy, now)
@@ -271,7 +271,7 @@ func (s *PgStore) CompleteTask(ctx context.Context, scope Scope, id, actor strin
 	if existing.Status == TaskCompleted {
 		return existing, nil
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE tasks SET status='completed', completed_at=$3, completed_by=$4, updated_at=$3
 		 WHERE tenant_id=$1 AND id=$2`,
@@ -300,7 +300,7 @@ func (s *PgStore) ReopenTask(ctx context.Context, scope Scope, id string) (*Task
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE tasks SET status='open', completed_at=NULL, completed_by='', updated_at=$3
 		 WHERE tenant_id=$1 AND id=$2`,
-		scope.TenantID, id, time.Now().UTC())
+		scope.TenantID, id, nowStamp())
 	if err != nil {
 		return nil, fmt.Errorf("reopen task: %w", err)
 	}
@@ -344,7 +344,7 @@ func (s *PgStore) CreateNote(ctx context.Context, scope Scope, v *Note) (*Note, 
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err := s.db.Exec(ctx, scope,
@@ -447,7 +447,7 @@ func (s *PgStore) UpdateNote(ctx context.Context, scope Scope, v *Note) (*Note, 
 	if !v.UpdatedAt.IsZero() && !v.UpdatedAt.Equal(existing.UpdatedAt) {
 		return nil, fmt.Errorf("%w: Note %s was modified since it was last read", ErrConflict, v.ID)
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	applyNoteEdit(v, existing, now)
 	if err := v.Validate(); err != nil {
 		return nil, err

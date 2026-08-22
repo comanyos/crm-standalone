@@ -37,7 +37,7 @@ func (t *memTable[T]) create(scope Scope, v T) (T, error) {
 	if v.EntityID() == "" {
 		v.SetEntityID(newID())
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.SetTimestamps(now, now)
 
 	if _, ok := t.rows[scope.TenantID]; !ok {
@@ -112,7 +112,7 @@ func (t *memTable[T]) update(scope Scope, v T) (T, error) {
 	if !ok {
 		return zero, ErrNotFound
 	}
-	v.SetTimestamps(created(existing), time.Now().UTC())
+	v.SetTimestamps(created(existing), nowStamp())
 	t.rows[scope.TenantID][v.EntityID()] = t.clone(v)
 	return t.clone(v), nil
 }
@@ -386,7 +386,7 @@ func (s *MemStore) UpdateAccount(ctx context.Context, scope Scope, v *Account) (
 			AccountID:   updated.ID,
 			FromOwnerID: existing.OwnerID,
 			ToOwnerID:   updated.OwnerID,
-			ChangedAt:   time.Now().UTC(),
+			ChangedAt:   nowStamp(),
 		}); err != nil {
 			return nil, fmt.Errorf("record account ownership history: %w", err)
 		}
@@ -927,7 +927,7 @@ func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opport
 			OpportunityID: updated.ID,
 			FromStage:     existing.Stage,
 			ToStage:       updated.Stage,
-			ChangedAt:     time.Now().UTC(),
+			ChangedAt:     nowStamp(),
 		}); err != nil {
 			return nil, fmt.Errorf("record opportunity stage history: %w", err)
 		}

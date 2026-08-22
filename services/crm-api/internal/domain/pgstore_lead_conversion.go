@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -87,7 +86,7 @@ func (s *PgStore) ConvertLead(ctx context.Context, scope Scope, in ConvertLeadIn
 	if opp != nil {
 		lead.ConvertedOpportunityID = opp.ID
 	}
-	lead.UpdatedAt = time.Now().UTC()
+	lead.UpdatedAt = nowStamp()
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE leads SET status = $3, converted_contact_id = $4, converted_account_id = $5,
@@ -129,7 +128,7 @@ func (s *PgStore) txResolveConversionContactAndAccount(
 		existing.AccountID = account.ID
 		if _, err := tx.Exec(ctx,
 			`UPDATE contacts SET account_id = $3, updated_at = $4 WHERE tenant_id = $1 AND id = $2`,
-			scope.TenantID, existing.ID, account.ID, time.Now().UTC()); err != nil {
+			scope.TenantID, existing.ID, account.ID, nowStamp()); err != nil {
 			return nil, nil, fmt.Errorf("attach reused contact to account: %w", err)
 		}
 		return existing, account, nil
@@ -195,7 +194,7 @@ func (s *PgStore) txCreateContact(ctx context.Context, tx pgx.Tx, scope Scope, e
 		return nil, err
 	}
 	v.ID = newID()
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 	_, err := tx.Exec(ctx,
 		`INSERT INTO contacts (tenant_id, id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at)
@@ -255,7 +254,7 @@ func (s *PgStore) txCreateAccount(ctx context.Context, tx pgx.Tx, scope Scope, v
 		return nil, err
 	}
 	v.ID = newID()
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 	_, err := tx.Exec(ctx,
 		`INSERT INTO accounts (tenant_id, id, name, industry, tier, owner_id, website, annual_revenue, parent_id, created_at, updated_at)
@@ -281,7 +280,7 @@ func (s *PgStore) txCreateConversionOpportunity(
 	v.PipelineID, v.StageID = pipeline.ID, stage.ID
 	v.Stage = stageDisplay(v.PipelineID, stage)
 	v.ID = newID()
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 	// close_date is passed as a parameter, not a literal SQL NULL: it is a
 	// zero-value time.Time here (the Opportunity is freshly created, open),
@@ -303,7 +302,7 @@ func (s *PgStore) txDefaultOpportunityPipeline(ctx context.Context, tx pgx.Tx, s
 		`SELECT `+pipelineColumns+` FROM pipelines WHERE tenant_id = $1 AND is_default AND archived_at IS NULL ORDER BY id LIMIT 1`,
 		scope.TenantID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		now := time.Now().UTC()
+		now := nowStamp()
 		pipeline = &Pipeline{ID: systemSalesPipelineID, Name: "Sales", IsDefault: true, CreatedAt: now, UpdatedAt: now}
 		if _, err := tx.Exec(ctx, `INSERT INTO pipelines (tenant_id, id, name, is_default, created_at, updated_at) VALUES ($1, $2, $3, true, $4, $5)`, scope.TenantID, pipeline.ID, pipeline.Name, now, now); err != nil {
 			return nil, nil, fmt.Errorf("insert default Sales pipeline: %w", err)

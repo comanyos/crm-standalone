@@ -139,7 +139,7 @@ func (s *PgStore) CreateAccount(ctx context.Context, scope Scope, v *Account) (*
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err := s.db.Exec(ctx, scope,
@@ -298,7 +298,7 @@ func (s *PgStore) UpdateAccount(ctx context.Context, scope Scope, v *Account) (*
 	if err := applyAccountDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE accounts SET name = $3, industry = $4, tier = $5, owner_id = $6, website = $7, annual_revenue = $8, parent_id = $9, duplicate_of_account_id = $10, updated_at = $11, website_domain = $12
@@ -330,7 +330,7 @@ func (s *PgStore) recordAccountOwnershipChange(ctx context.Context, scope Scope,
 	_, err := s.db.Exec(ctx, scope,
 		`INSERT INTO account_ownership_history (tenant_id, id, account_id, from_owner_id, to_owner_id, changed_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		scope.TenantID, newID(), accountID, from, to, time.Now().UTC())
+		scope.TenantID, newID(), accountID, from, to, nowStamp())
 	if err != nil {
 		return fmt.Errorf("record account ownership history: %w", err)
 	}
@@ -417,7 +417,7 @@ func (s *PgStore) CreateContact(ctx context.Context, scope Scope, v *Contact) (*
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err := s.db.Exec(ctx, scope,
@@ -568,7 +568,7 @@ func (s *PgStore) UpdateContact(ctx context.Context, scope Scope, v *Contact) (*
 	if err := applyContactDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE contacts SET email = $3, account_id = $4, first_name = $5, last_name = $6, phone = $7, title = $8, role = $9, duplicate_of_contact_id = $10, updated_at = $11
@@ -637,7 +637,7 @@ func (s *PgStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err := s.db.Exec(ctx, scope,
@@ -739,7 +739,7 @@ func (s *PgStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	if err := applyLeadDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE leads SET company = $3, source = $4, contact_email = $5, status = $6, score = $7, owner_id = $8,
@@ -855,7 +855,7 @@ func (s *PgStore) CreateOpportunity(ctx context.Context, scope Scope, v *Opportu
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err = s.db.Exec(ctx, scope,
@@ -963,7 +963,7 @@ func (s *PgStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportu
 			return nil, err
 		}
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE opportunities SET name = $3, account_id = $4, stage = $5, pipeline_id = $6, stage_id = $7, amount = $8, probability = $9, close_date = $10, close_reason = $11, updated_at = $12
@@ -1044,7 +1044,7 @@ func (s *PgStore) recordOpportunityStageChange(ctx context.Context, scope Scope,
 	_, err := s.db.Exec(ctx, scope,
 		`INSERT INTO opportunity_stage_history (tenant_id, id, opportunity_id, from_stage, to_stage, changed_at)
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		scope.TenantID, newID(), opportunityID, from, to, time.Now().UTC())
+		scope.TenantID, newID(), opportunityID, from, to, nowStamp())
 	if err != nil {
 		return fmt.Errorf("record opportunity stage history: %w", err)
 	}
@@ -1114,7 +1114,7 @@ func (s *PgStore) CreateActivity(ctx context.Context, scope Scope, v *Activity) 
 	if v.ID == "" {
 		v.ID = newID()
 	}
-	now := time.Now().UTC()
+	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err := s.db.Exec(ctx, scope,
@@ -1201,7 +1201,7 @@ func (s *PgStore) UpdateActivity(ctx context.Context, scope Scope, v *Activity) 
 	if err := checkActivityImmutable(existing, v); err != nil {
 		return nil, err
 	}
-	v.UpdatedAt = time.Now().UTC()
+	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE activities SET kind = $3, subject_type = $4, subject_id = $5, notes = $6, actor_id = $7, occurred_at = $8, updated_at = $9

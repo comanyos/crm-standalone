@@ -121,7 +121,7 @@ func (s *MemStore) ArchiveCustomFieldDefinition(
 	if current.Archived() {
 		return current, nil
 	}
-	current.ArchivedAt = time.Now().UTC()
+	current.ArchivedAt = nowStamp()
 	return s.customField.update(scope, current)
 }
 
