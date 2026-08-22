@@ -134,7 +134,12 @@ export default function TaskFormPage({ mode }: { mode: "create" | "edit" }) {
       // updatedAt round-trips the version this form was opened on, so a save
       // that would overwrite somebody else's concurrent edit is rejected
       // rather than silently winning.
-      const updated = await crm.updateTask({ task: { ...task, id, updatedAt: existing?.updatedAt } });
+      // UpdateTask replaces the custom field document rather than merging
+      // it, so anything this form omits is deleted. This form has no
+      // custom-field inputs, so it round-trips what it read.
+      const updated = await crm.updateTask({
+        task: { ...task, id, customFields: existing?.customFields, updatedAt: existing?.updatedAt },
+      });
       return updated.task;
     },
     onSuccess: (task) => {

@@ -64,7 +64,17 @@ export function NotesPanel({
     // the same note produce a conflict rather than one silently overwriting
     // the other.
     mutationFn: () =>
-      crm.updateNote({ note: { id: editing?.id ?? "", body: body.trim(), updatedAt: editing?.updatedAt } }),
+      // UpdateNote replaces the custom field document rather than merging
+      // it, so anything this panel omits is deleted. It edits only the body,
+      // so it round-trips what it read.
+      crm.updateNote({
+        note: {
+          id: editing?.id ?? "",
+          body: body.trim(),
+          customFields: editing?.customFields,
+          updatedAt: editing?.updatedAt,
+        },
+      }),
     onSuccess: () => done("Note updated."),
     onError: failed,
   });

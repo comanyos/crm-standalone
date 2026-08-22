@@ -90,6 +90,10 @@ export default function AccountFormPage({ mode }: { mode: "create" | "edit" }) {
             id,
             parentId: existing?.parentId ?? "",
             duplicateOfAccountId: existing?.duplicateOfAccountId ?? "",
+            // UpdateX replaces the custom field document rather than merging
+            // it, so anything this form omits is deleted. This form has no
+            // custom-field inputs, so it round-trips what it read.
+            customFields: existing?.customFields,
             updatedAt: existing?.updatedAt,
           },
         })

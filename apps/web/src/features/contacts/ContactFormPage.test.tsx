@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import ContactFormPage from "./ContactFormPage";
-import { makeAccount, makeContact, makeTimestamp, renderRoutes } from "../../test/harness";
+import { makeAccount, makeContact, makeTimestamp, renderRoutes, sampleCustomFields } from "../../test/harness";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
@@ -158,6 +158,9 @@ describe("ContactFormPage — edit", () => {
     const sent = crm.updateContact.mock.calls[0][0].contact;
     expect(sent).toMatchObject({ id: "con-1", title: "Principal Engineer" });
     expect(sent.updatedAt).toEqual(savedAt);
+    // UpdateContact replaces the custom field document rather than merging it,
+    // so a save without it deletes every custom value on the contact.
+    expect(sent.customFields).toEqual(sampleCustomFields);
   });
 
   it("tells the user to reload when the server reports a concurrent change", async () => {

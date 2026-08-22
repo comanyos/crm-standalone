@@ -116,7 +116,15 @@ export default function ContactFormPage({ mode }: { mode: "create" | "edit" }) {
       }
       return (
         await crm.updateContact({
-          contact: { ...values, id, updatedAt: existing?.updatedAt },
+          contact: {
+            ...values,
+            id,
+            // UpdateX replaces the custom field document rather than merging
+            // it, so anything this form omits is deleted. This form has no
+            // custom-field inputs, so it round-trips what it read.
+            customFields: existing?.customFields,
+            updatedAt: existing?.updatedAt,
+          },
         })
       ).contact;
     },

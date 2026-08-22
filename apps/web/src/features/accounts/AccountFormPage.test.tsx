@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import AccountFormPage from "./AccountFormPage";
-import { makeAccount, makeTimestamp, renderRoutes } from "../../test/harness";
+import { makeAccount, makeTimestamp, renderRoutes, sampleCustomFields } from "../../test/harness";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
@@ -119,6 +119,11 @@ describe("AccountFormPage — edit", () => {
     // Optimistic concurrency: the loaded record's updated_at must go back so
     // the server can detect a concurrent write (internal/domain UpdateAccount).
     expect(sent.updatedAt).toEqual(savedAt);
+    // And the custom field document, for a blunter reason: UpdateAccount
+    // replaces it rather than merging, so a save without it deletes every
+    // custom value on the account — and fails outright where the tenant has
+    // marked one required.
+    expect(sent.customFields).toEqual(sampleCustomFields);
   });
 
   it("tells the user to reload when the server reports a concurrent change", async () => {

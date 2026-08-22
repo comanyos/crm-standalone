@@ -68,7 +68,10 @@ describe("NotesPanel", () => {
 
     await waitFor(() =>
       expect(crm.updateNote).toHaveBeenCalledWith({
-        note: { id: "note-1", body: "Corrected.", updatedAt: note.updatedAt },
+        // customFields is round-tripped for the same reason as updatedAt:
+        // UpdateNote replaces the document, so a payload without it deletes
+        // every custom value the note carries.
+        note: { id: "note-1", body: "Corrected.", customFields: note.customFields, updatedAt: note.updatedAt },
       }),
     );
   });

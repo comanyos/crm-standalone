@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter, type RouteObject } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
 import { timestampFromDate, type Timestamp } from "@bufbuild/protobuf/wkt";
-import type { Account, Contact, Note, Opportunity, PipelineStage, Task } from "@crm/contracts";
+import type { Account, Contact, Lead, Note, Opportunity, PipelineStage, Task } from "@crm/contracts";
 
 /** Renders a route tree on a memory **data** router.
  *
@@ -29,6 +29,14 @@ export function renderRoutes(routes: RouteObject[], initialEntries: string[] = [
   return { ...view, router };
 }
 
+/** A sample custom-field document. Every factory below carries one, because
+ * the write paths replace this document rather than merging it: a form that
+ * forgets to round-trip it deletes the tenant's data, and a test whose
+ * fixture has no custom values cannot see that happen. */
+export const sampleCustomFields = {
+  deal_source: { $typeName: "crm.v1.CustomValue" as const, kind: { case: "textValue" as const, value: "tradeshow" } },
+};
+
 /** A fully-populated Account, so a test only states the fields it cares
  * about. Protobuf-es v2 message types are plain objects plus $typeName, so
  * a literal is a faithful stand-in for a decoded response. */
@@ -44,6 +52,7 @@ export function makeAccount(overrides: Partial<Account> = {}): Account {
     annualRevenue: 0,
     parentId: "",
     duplicateOfAccountId: "",
+    customFields: sampleCustomFields,
     ...overrides,
   } as Account;
 }
@@ -60,6 +69,7 @@ export function makeContact(overrides: Partial<Contact> = {}): Contact {
     title: "",
     role: "",
     duplicateOfContactId: "",
+    customFields: sampleCustomFields,
     ...overrides,
   } as Contact;
 }
@@ -82,6 +92,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     completedAt: undefined,
     completedBy: "",
     createdBy: "user-1",
+    customFields: sampleCustomFields,
     ...overrides,
   } as Task;
 }
@@ -97,8 +108,30 @@ export function makeNote(overrides: Partial<Note> = {}): Note {
     subjectId: "acc-1",
     authorId: "user-1",
     editedAt: undefined,
+    customFields: sampleCustomFields,
     ...overrides,
   } as Note;
+}
+
+/** A fully-populated Lead in the default `new` status. */
+export function makeLead(overrides: Partial<Lead> = {}): Lead {
+  return {
+    $typeName: "crm.v1.Lead",
+    id: "lead-1",
+    company: "Northwind",
+    contactEmail: "buyer@northwind.example",
+    source: "Webinar",
+    ownerId: "user-1",
+    score: 20,
+    status: "new",
+    disqualifiedReason: "",
+    duplicateOfContactId: "",
+    convertedContactId: "",
+    convertedAccountId: "",
+    convertedOpportunityId: "",
+    customFields: sampleCustomFields,
+    ...overrides,
+  } as Lead;
 }
 
 /** A protobuf Timestamp built the way the wire decoder builds one, for
@@ -152,7 +185,7 @@ export function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportuni
     probability: 10,
     closeDate: undefined,
     closeReason: "",
-    customFields: { deal_source: { $typeName: "crm.v1.CustomValue", kind: { case: "textValue", value: "tradeshow" } } },
+    customFields: sampleCustomFields,
     ...overrides,
   } as Opportunity;
 }
