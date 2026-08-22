@@ -46,9 +46,29 @@ BACKUP_AGE_IDENTITY_FILE=/secure/path/age-identity.txt \
 ./scripts/restore-compose.sh
 ```
 
-The restore script drops and recreates the `public` schema in **both** target
-databases, then restores the encrypted dumps. It has an exact confirmation
-string to prevent a pasted command from silently erasing the local stack.
+The restore script works in two phases. It first decrypts every archive to a
+private staging directory and checks that each one decompresses and carries a
+plain-format `pg_dump` header, and that the roles the dump's `GRANT`
+statements reference (`crm_app`, `crm_drain`) exist in the target cluster.
+Only then does it drop and recreate the `public` schema in **both** target
+databases and restore. Nothing is destroyed until every input is known good,
+so a wrong `BACKUP_AGE_IDENTITY_FILE` or a truncated archive fails with the
+databases untouched. It also has an exact confirmation string to prevent a
+pasted command from silently erasing the local stack.
+
+Backups keep their `GRANT` statements. `crm_app` and `crm_drain` receive their
+privileges from `migrations/0003_rls_enforce.sql`, and a dump taken with
+`--no-privileges` restores a database the CRM cannot read — which looks like a
+successful restore until the first request fails. Roles themselves are
+cluster-global and are not carried in a logical dump, which is why the restore
+checks for them up front rather than failing part-way through.
+
+### Verifying the scripts themselves
+
+`./scripts/test-backup-restore.sh` runs the whole round trip — seed, back up,
+destroy, restore, assert — against a throwaway PostgreSQL cluster it creates
+and removes itself. It needs no Docker and touches no development database,
+and it runs in CI. Use it after any change to either script.
 
 After restore:
 
