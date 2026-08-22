@@ -36,7 +36,8 @@ type Note struct {
 	// EditedAt is set the first time the body actually changes and left
 	// alone by a write that changes nothing — a client that always sends the
 	// whole record back must not make every save look like an edit.
-	EditedAt time.Time `json:"edited_at"`
+	EditedAt     time.Time    `json:"edited_at"`
+	CustomFields CustomValues `json:"custom_fields"`
 }
 
 const maxNoteBodyLen = 50_000
@@ -80,6 +81,7 @@ func cloneNote(v *Note) *Note {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }
 

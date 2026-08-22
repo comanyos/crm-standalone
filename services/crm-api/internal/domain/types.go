@@ -91,7 +91,8 @@ type Account struct {
 	// it never blocks or silently merges it (B3 —
 	// docs/customer-os/PLAN.md), the same convention Lead uses for
 	// DuplicateOfContactID.
-	DuplicateOfAccountID string `json:"duplicate_of_account_id"`
+	DuplicateOfAccountID string       `json:"duplicate_of_account_id"`
+	CustomFields         CustomValues `json:"custom_fields"`
 }
 
 // EntityID returns the record's identifier.
@@ -150,6 +151,7 @@ func cloneAccount(v *Account) *Account {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }
 
@@ -178,7 +180,8 @@ type Contact struct {
 	// never blocks or silently merges it (B4 — docs/customer-os/PLAN.md),
 	// the same convention Lead uses for its own DuplicateOfContactID and
 	// Account uses for DuplicateOfAccountID.
-	DuplicateOfContactID string `json:"duplicate_of_contact_id"`
+	DuplicateOfContactID string       `json:"duplicate_of_contact_id"`
+	CustomFields         CustomValues `json:"custom_fields"`
 }
 
 // EntityID returns the record's identifier.
@@ -242,6 +245,7 @@ func cloneContact(v *Contact) *Contact {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }
 
@@ -268,9 +272,10 @@ type Lead struct {
 	// instant this lead's Status becomes converted. Empty until then.
 	// UpdateLead cannot set Status to converted directly, and cannot set
 	// these — only ConvertLead may.
-	ConvertedContactID     string `json:"converted_contact_id"`
-	ConvertedAccountID     string `json:"converted_account_id"`
-	ConvertedOpportunityID string `json:"converted_opportunity_id"`
+	ConvertedContactID     string       `json:"converted_contact_id"`
+	ConvertedAccountID     string       `json:"converted_account_id"`
+	ConvertedOpportunityID string       `json:"converted_opportunity_id"`
+	CustomFields           CustomValues `json:"custom_fields"`
 }
 
 // EntityID returns the record's identifier.
@@ -300,23 +305,25 @@ func cloneLead(v *Lead) *Lead {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }
 
 // Opportunity is a opportunity record.
 type Opportunity struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	AccountID   string    `json:"account_id"`
-	Stage       string    `json:"stage"`
-	PipelineID  string    `json:"pipeline_id"`
-	StageID     string    `json:"stage_id"`
-	Amount      float64   `json:"amount"`
-	Probability float64   `json:"probability"`
-	CloseDate   time.Time `json:"close_date"`
-	CloseReason string    `json:"close_reason"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           string       `json:"id"`
+	Name         string       `json:"name"`
+	AccountID    string       `json:"account_id"`
+	Stage        string       `json:"stage"`
+	PipelineID   string       `json:"pipeline_id"`
+	StageID      string       `json:"stage_id"`
+	Amount       float64      `json:"amount"`
+	Probability  float64      `json:"probability"`
+	CloseDate    time.Time    `json:"close_date"`
+	CloseReason  string       `json:"close_reason"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	CustomFields CustomValues `json:"custom_fields"`
 }
 
 // EntityID returns the record's identifier.
@@ -346,6 +353,7 @@ func cloneOpportunity(v *Opportunity) *Opportunity {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }
 
@@ -547,15 +555,16 @@ func cloneAccountOwnershipHistory(v *AccountOwnershipHistory) *AccountOwnershipH
 
 // Activity is a activity record.
 type Activity struct {
-	ID          string    `json:"id"`
-	Kind        string    `json:"kind"`
-	SubjectType string    `json:"subject_type"`
-	SubjectID   string    `json:"subject_id"`
-	Notes       string    `json:"notes"`
-	ActorID     string    `json:"actor_id"`
-	OccurredAt  time.Time `json:"occurred_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           string       `json:"id"`
+	Kind         string       `json:"kind"`
+	SubjectType  string       `json:"subject_type"`
+	SubjectID    string       `json:"subject_id"`
+	Notes        string       `json:"notes"`
+	ActorID      string       `json:"actor_id"`
+	OccurredAt   time.Time    `json:"occurred_at"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	CustomFields CustomValues `json:"custom_fields"`
 }
 
 // EntityID returns the record's identifier.
@@ -585,5 +594,6 @@ func cloneActivity(v *Activity) *Activity {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }

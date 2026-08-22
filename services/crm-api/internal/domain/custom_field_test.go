@@ -20,9 +20,9 @@ func TestCustomFieldDefinitionValidation(t *testing.T) {
 		want string // substring of the expected error; "" means it must validate
 	}{
 		{"minimal text field", textField("region"), ""},
-		{"unknown object", &CustomFieldDefinition{
-			ObjectType: "invoice", FieldKey: "k", Label: "L", DataType: FieldText,
-		}, "unknown object type"},
+		{"invalid object", &CustomFieldDefinition{
+			ObjectType: "Invoice!", FieldKey: "k", Label: "L", DataType: FieldText,
+		}, "invalid object type"},
 		{"hyphen in key", textField("bad-key"), "field key"},
 		{"leading digit in key", textField("9region"), "field key"},
 		{"key too long", textField(strings.Repeat("a", 64)), "field key"},
@@ -79,12 +79,18 @@ func TestCustomFieldDefinitionValidation(t *testing.T) {
 			Config: FieldConfig{LookupObjectType: "contact"},
 		}, ""},
 
-		// A formula is refused outright until there is a sandbox to run it in.
-		// Storing one now would be storing an unvalidated program.
-		{"formula not available yet", &CustomFieldDefinition{
+		{"valid bounded formula", &CustomFieldDefinition{
 			ObjectType: "account", FieldKey: "k", Label: "L", DataType: FieldFormula,
 			Config: FieldConfig{Expression: "1 + 1"},
-		}, "not available yet"},
+		}, ""},
+		{"valid boolean formula with field reference", &CustomFieldDefinition{
+			ObjectType: "account", FieldKey: "k", Label: "L", DataType: FieldFormula,
+			Config: FieldConfig{Expression: "approved && amount > 1"},
+		}, ""},
+		{"formula with a call is rejected", &CustomFieldDefinition{
+			ObjectType: "account", FieldKey: "k", Label: "L", DataType: FieldFormula,
+			Config: FieldConfig{Expression: "run()"},
+		}, "invalid formula expression"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.in.Validate()
@@ -446,5 +452,64 @@ func TestPgStoreCustomFieldDefinitionsAreTenantIsolated(t *testing.T) {
 	// The same key in another tenant is a different field, not a collision.
 	if _, err := s.CreateCustomFieldDefinition(ctx, b, textField("region")); err != nil {
 		t.Fatalf("tenant b should be able to use the same key: %v", err)
+	}
+}
+
+// Values must travel through the same tenant-scoped row as their owning
+// account. This catches the failure mode where migration 0016 exists but a
+// store INSERT/SELECT silently omits custom_fields, and proves the same key
+// can safely carry different types in separate organizations.
+func TestPgStoreCustomFieldValuesRoundTripAndAreTenantIsolated(t *testing.T) {
+	s := livePgStore(t)
+	ctx := context.Background()
+	a := Scope{TenantID: "cf-values-a-" + newID()}
+	b := Scope{TenantID: "cf-values-b-" + newID()}
+
+	if _, err := s.CreateCustomFieldDefinition(ctx, a, textField("region")); err != nil {
+		t.Fatalf("define text field in tenant a: %v", err)
+	}
+	if _, err := s.CreateCustomFieldDefinition(ctx, b, &CustomFieldDefinition{
+		ObjectType: "account", FieldKey: "region", Label: "Region", DataType: FieldNumber,
+	}); err != nil {
+		t.Fatalf("define number field in tenant b: %v", err)
+	}
+
+	accountA, err := s.CreateAccount(ctx, a, &Account{
+		Name: "A", OwnerID: "owner-a", CustomFields: CustomValues{"region": "EMEA"},
+	})
+	if err != nil {
+		t.Fatalf("create tenant a account: %v", err)
+	}
+	accountB, err := s.CreateAccount(ctx, b, &Account{
+		Name: "B", OwnerID: "owner-b", CustomFields: CustomValues{"region": 7},
+	})
+	if err != nil {
+		t.Fatalf("create tenant b account: %v", err)
+	}
+	if got := accountA.CustomFields["region"]; got != "EMEA" {
+		t.Fatalf("tenant a create custom fields = %#v, want EMEA", accountA.CustomFields)
+	}
+	if got := accountB.CustomFields["region"]; got != 7.0 {
+		t.Fatalf("tenant b create custom fields = %#v, want 7", accountB.CustomFields)
+	}
+
+	loadedA, err := s.GetAccount(ctx, a, accountA.ID)
+	if err != nil {
+		t.Fatalf("get tenant a account: %v", err)
+	}
+	if got := loadedA.CustomFields["region"]; got != "EMEA" {
+		t.Fatalf("tenant a value did not round trip: %#v", loadedA.CustomFields)
+	}
+	if _, err := s.GetAccount(ctx, b, accountA.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("tenant b read tenant a account custom fields: %v", err)
+	}
+
+	loadedA.CustomFields = CustomValues{"region": "APAC"}
+	updated, err := s.UpdateAccount(ctx, a, loadedA)
+	if err != nil {
+		t.Fatalf("update tenant a account: %v", err)
+	}
+	if got := updated.CustomFields["region"]; got != "APAC" {
+		t.Fatalf("updated custom fields = %#v, want APAC", updated.CustomFields)
 	}
 }

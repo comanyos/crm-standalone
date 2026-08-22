@@ -22,6 +22,1892 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// CustomValue carries one tenant-defined field value without weakening the
+// type safety of the fixed CRM schema. Exact decimals remain strings rather
+// than protobuf doubles, so currency and percent values never round in transit.
+type CustomValue struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Value:
+	//
+	//	*CustomValue_Text
+	//	*CustomValue_Number
+	//	*CustomValue_Decimal
+	//	*CustomValue_Boolean
+	//	*CustomValue_Timestamp
+	//	*CustomValue_Date
+	//	*CustomValue_Reference
+	//	*CustomValue_TextList
+	Value         isCustomValue_Value `protobuf_oneof:"value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomValue) Reset() {
+	*x = CustomValue{}
+	mi := &file_crm_v1_crm_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomValue) ProtoMessage() {}
+
+func (x *CustomValue) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomValue.ProtoReflect.Descriptor instead.
+func (*CustomValue) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *CustomValue) GetValue() isCustomValue_Value {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *CustomValue) GetText() string {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Text); ok {
+			return x.Text
+		}
+	}
+	return ""
+}
+
+func (x *CustomValue) GetNumber() float64 {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Number); ok {
+			return x.Number
+		}
+	}
+	return 0
+}
+
+func (x *CustomValue) GetDecimal() string {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Decimal); ok {
+			return x.Decimal
+		}
+	}
+	return ""
+}
+
+func (x *CustomValue) GetBoolean() bool {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Boolean); ok {
+			return x.Boolean
+		}
+	}
+	return false
+}
+
+func (x *CustomValue) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Timestamp); ok {
+			return x.Timestamp
+		}
+	}
+	return nil
+}
+
+func (x *CustomValue) GetDate() string {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Date); ok {
+			return x.Date
+		}
+	}
+	return ""
+}
+
+func (x *CustomValue) GetReference() string {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_Reference); ok {
+			return x.Reference
+		}
+	}
+	return ""
+}
+
+func (x *CustomValue) GetTextList() *StringList {
+	if x != nil {
+		if x, ok := x.Value.(*CustomValue_TextList); ok {
+			return x.TextList
+		}
+	}
+	return nil
+}
+
+type isCustomValue_Value interface {
+	isCustomValue_Value()
+}
+
+type CustomValue_Text struct {
+	Text string `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+}
+
+type CustomValue_Number struct {
+	Number float64 `protobuf:"fixed64,2,opt,name=number,proto3,oneof"`
+}
+
+type CustomValue_Decimal struct {
+	Decimal string `protobuf:"bytes,3,opt,name=decimal,proto3,oneof"`
+}
+
+type CustomValue_Boolean struct {
+	Boolean bool `protobuf:"varint,4,opt,name=boolean,proto3,oneof"`
+}
+
+type CustomValue_Timestamp struct {
+	Timestamp *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=timestamp,proto3,oneof"`
+}
+
+type CustomValue_Date struct {
+	Date string `protobuf:"bytes,6,opt,name=date,proto3,oneof"`
+}
+
+type CustomValue_Reference struct {
+	Reference string `protobuf:"bytes,7,opt,name=reference,proto3,oneof"`
+}
+
+type CustomValue_TextList struct {
+	TextList *StringList `protobuf:"bytes,8,opt,name=text_list,json=textList,proto3,oneof"`
+}
+
+func (*CustomValue_Text) isCustomValue_Value() {}
+
+func (*CustomValue_Number) isCustomValue_Value() {}
+
+func (*CustomValue_Decimal) isCustomValue_Value() {}
+
+func (*CustomValue_Boolean) isCustomValue_Value() {}
+
+func (*CustomValue_Timestamp) isCustomValue_Value() {}
+
+func (*CustomValue_Date) isCustomValue_Value() {}
+
+func (*CustomValue_Reference) isCustomValue_Value() {}
+
+func (*CustomValue_TextList) isCustomValue_Value() {}
+
+type StringList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringList) Reset() {
+	*x = StringList{}
+	mi := &file_crm_v1_crm_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringList) ProtoMessage() {}
+
+func (x *StringList) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
+func (*StringList) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *StringList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type CustomFieldConfig struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Options          []string               `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty"`
+	LookupObjectType string                 `protobuf:"bytes,2,opt,name=lookup_object_type,json=lookupObjectType,proto3" json:"lookup_object_type,omitempty"`
+	Scale            int32                  `protobuf:"varint,3,opt,name=scale,proto3" json:"scale,omitempty"`
+	Expression       string                 `protobuf:"bytes,4,opt,name=expression,proto3" json:"expression,omitempty"`
+	// Empty means every role. Non-empty lists name the AuthinCore role keys
+	// permitted to see or edit this field; crm administrators always retain
+	// access so a misconfiguration remains recoverable.
+	VisibleToRoles  []string `protobuf:"bytes,5,rep,name=visible_to_roles,json=visibleToRoles,proto3" json:"visible_to_roles,omitempty"`
+	EditableToRoles []string `protobuf:"bytes,6,rep,name=editable_to_roles,json=editableToRoles,proto3" json:"editable_to_roles,omitempty"`
+	// A bounded expression evaluated against the full custom-field document on
+	// write. It must yield true; false rejects the write.
+	ValidationExpression string `protobuf:"bytes,7,opt,name=validation_expression,json=validationExpression,proto3" json:"validation_expression,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *CustomFieldConfig) Reset() {
+	*x = CustomFieldConfig{}
+	mi := &file_crm_v1_crm_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomFieldConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomFieldConfig) ProtoMessage() {}
+
+func (x *CustomFieldConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomFieldConfig.ProtoReflect.Descriptor instead.
+func (*CustomFieldConfig) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CustomFieldConfig) GetOptions() []string {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *CustomFieldConfig) GetLookupObjectType() string {
+	if x != nil {
+		return x.LookupObjectType
+	}
+	return ""
+}
+
+func (x *CustomFieldConfig) GetScale() int32 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *CustomFieldConfig) GetExpression() string {
+	if x != nil {
+		return x.Expression
+	}
+	return ""
+}
+
+func (x *CustomFieldConfig) GetVisibleToRoles() []string {
+	if x != nil {
+		return x.VisibleToRoles
+	}
+	return nil
+}
+
+func (x *CustomFieldConfig) GetEditableToRoles() []string {
+	if x != nil {
+		return x.EditableToRoles
+	}
+	return nil
+}
+
+func (x *CustomFieldConfig) GetValidationExpression() string {
+	if x != nil {
+		return x.ValidationExpression
+	}
+	return ""
+}
+
+type CustomFieldDefinition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ObjectType    string                 `protobuf:"bytes,2,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	FieldKey      string                 `protobuf:"bytes,3,opt,name=field_key,json=fieldKey,proto3" json:"field_key,omitempty"`
+	Label         string                 `protobuf:"bytes,4,opt,name=label,proto3" json:"label,omitempty"`
+	DataType      string                 `protobuf:"bytes,5,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
+	Config        *CustomFieldConfig     `protobuf:"bytes,6,opt,name=config,proto3" json:"config,omitempty"`
+	Required      bool                   `protobuf:"varint,7,opt,name=required,proto3" json:"required,omitempty"`
+	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3" json:"archived_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomFieldDefinition) Reset() {
+	*x = CustomFieldDefinition{}
+	mi := &file_crm_v1_crm_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomFieldDefinition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomFieldDefinition) ProtoMessage() {}
+
+func (x *CustomFieldDefinition) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomFieldDefinition.ProtoReflect.Descriptor instead.
+func (*CustomFieldDefinition) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CustomFieldDefinition) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CustomFieldDefinition) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *CustomFieldDefinition) GetFieldKey() string {
+	if x != nil {
+		return x.FieldKey
+	}
+	return ""
+}
+
+func (x *CustomFieldDefinition) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CustomFieldDefinition) GetDataType() string {
+	if x != nil {
+		return x.DataType
+	}
+	return ""
+}
+
+func (x *CustomFieldDefinition) GetConfig() *CustomFieldConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+func (x *CustomFieldDefinition) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
+func (x *CustomFieldDefinition) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
+	}
+	return nil
+}
+
+func (x *CustomFieldDefinition) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CustomFieldDefinition) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateCustomFieldDefinitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Definition    *CustomFieldDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomFieldDefinitionRequest) Reset() {
+	*x = CreateCustomFieldDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomFieldDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomFieldDefinitionRequest) ProtoMessage() {}
+
+func (x *CreateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*CreateCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CreateCustomFieldDefinitionRequest) GetDefinition() *CustomFieldDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type CreateCustomFieldDefinitionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Definition    *CustomFieldDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomFieldDefinitionResponse) Reset() {
+	*x = CreateCustomFieldDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomFieldDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomFieldDefinitionResponse) ProtoMessage() {}
+
+func (x *CreateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*CreateCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CreateCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type GetCustomFieldDefinitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCustomFieldDefinitionRequest) Reset() {
+	*x = GetCustomFieldDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCustomFieldDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCustomFieldDefinitionRequest) ProtoMessage() {}
+
+func (x *GetCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*GetCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetCustomFieldDefinitionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetCustomFieldDefinitionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Definition    *CustomFieldDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCustomFieldDefinitionResponse) Reset() {
+	*x = GetCustomFieldDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCustomFieldDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCustomFieldDefinitionResponse) ProtoMessage() {}
+
+func (x *GetCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*GetCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type ListCustomFieldDefinitionsRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ObjectType      string                 `protobuf:"bytes,1,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	IncludeArchived bool                   `protobuf:"varint,2,opt,name=include_archived,json=includeArchived,proto3" json:"include_archived,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListCustomFieldDefinitionsRequest) Reset() {
+	*x = ListCustomFieldDefinitionsRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCustomFieldDefinitionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCustomFieldDefinitionsRequest) ProtoMessage() {}
+
+func (x *ListCustomFieldDefinitionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCustomFieldDefinitionsRequest.ProtoReflect.Descriptor instead.
+func (*ListCustomFieldDefinitionsRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListCustomFieldDefinitionsRequest) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *ListCustomFieldDefinitionsRequest) GetIncludeArchived() bool {
+	if x != nil {
+		return x.IncludeArchived
+	}
+	return false
+}
+
+type ListCustomFieldDefinitionsResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Definitions   []*CustomFieldDefinition `protobuf:"bytes,1,rep,name=definitions,proto3" json:"definitions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCustomFieldDefinitionsResponse) Reset() {
+	*x = ListCustomFieldDefinitionsResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCustomFieldDefinitionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCustomFieldDefinitionsResponse) ProtoMessage() {}
+
+func (x *ListCustomFieldDefinitionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCustomFieldDefinitionsResponse.ProtoReflect.Descriptor instead.
+func (*ListCustomFieldDefinitionsResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListCustomFieldDefinitionsResponse) GetDefinitions() []*CustomFieldDefinition {
+	if x != nil {
+		return x.Definitions
+	}
+	return nil
+}
+
+type UpdateCustomFieldDefinitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Definition    *CustomFieldDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCustomFieldDefinitionRequest) Reset() {
+	*x = UpdateCustomFieldDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCustomFieldDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCustomFieldDefinitionRequest) ProtoMessage() {}
+
+func (x *UpdateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *UpdateCustomFieldDefinitionRequest) GetDefinition() *CustomFieldDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type UpdateCustomFieldDefinitionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Definition    *CustomFieldDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCustomFieldDefinitionResponse) Reset() {
+	*x = UpdateCustomFieldDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCustomFieldDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCustomFieldDefinitionResponse) ProtoMessage() {}
+
+func (x *UpdateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*UpdateCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpdateCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type ArchiveCustomFieldDefinitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveCustomFieldDefinitionRequest) Reset() {
+	*x = ArchiveCustomFieldDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveCustomFieldDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveCustomFieldDefinitionRequest) ProtoMessage() {}
+
+func (x *ArchiveCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ArchiveCustomFieldDefinitionRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type ArchiveCustomFieldDefinitionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Definition    *CustomFieldDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveCustomFieldDefinitionResponse) Reset() {
+	*x = ArchiveCustomFieldDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveCustomFieldDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveCustomFieldDefinitionResponse) ProtoMessage() {}
+
+func (x *ArchiveCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*ArchiveCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ArchiveCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type CustomObjectDefinition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ApiName       string                 `protobuf:"bytes,2,opt,name=api_name,json=apiName,proto3" json:"api_name,omitempty"`
+	Label         string                 `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
+	PluralLabel   string                 `protobuf:"bytes,4,opt,name=plural_label,json=pluralLabel,proto3" json:"plural_label,omitempty"`
+	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=archived_at,json=archivedAt,proto3" json:"archived_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomObjectDefinition) Reset() {
+	*x = CustomObjectDefinition{}
+	mi := &file_crm_v1_crm_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomObjectDefinition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomObjectDefinition) ProtoMessage() {}
+
+func (x *CustomObjectDefinition) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomObjectDefinition.ProtoReflect.Descriptor instead.
+func (*CustomObjectDefinition) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CustomObjectDefinition) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CustomObjectDefinition) GetApiName() string {
+	if x != nil {
+		return x.ApiName
+	}
+	return ""
+}
+
+func (x *CustomObjectDefinition) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CustomObjectDefinition) GetPluralLabel() string {
+	if x != nil {
+		return x.PluralLabel
+	}
+	return ""
+}
+
+func (x *CustomObjectDefinition) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
+	}
+	return nil
+}
+
+func (x *CustomObjectDefinition) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CustomObjectDefinition) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CustomRecord struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Id            string                  `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ObjectType    string                  `protobuf:"bytes,2,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	Fields        map[string]*CustomValue `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Relations     map[string]string       `protobuf:"bytes,4,rep,name=relations,proto3" json:"relations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	CreatedAt     *timestamppb.Timestamp  `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp  `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomRecord) Reset() {
+	*x = CustomRecord{}
+	mi := &file_crm_v1_crm_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomRecord) ProtoMessage() {}
+
+func (x *CustomRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomRecord.ProtoReflect.Descriptor instead.
+func (*CustomRecord) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CustomRecord) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *CustomRecord) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *CustomRecord) GetFields() map[string]*CustomValue {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+func (x *CustomRecord) GetRelations() map[string]string {
+	if x != nil {
+		return x.Relations
+	}
+	return nil
+}
+
+func (x *CustomRecord) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CustomRecord) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type CreateCustomObjectDefinitionRequest struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Definition    *CustomObjectDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomObjectDefinitionRequest) Reset() {
+	*x = CreateCustomObjectDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomObjectDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomObjectDefinitionRequest) ProtoMessage() {}
+
+func (x *CreateCustomObjectDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomObjectDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*CreateCustomObjectDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *CreateCustomObjectDefinitionRequest) GetDefinition() *CustomObjectDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type CreateCustomObjectDefinitionResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Definition    *CustomObjectDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomObjectDefinitionResponse) Reset() {
+	*x = CreateCustomObjectDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomObjectDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomObjectDefinitionResponse) ProtoMessage() {}
+
+func (x *CreateCustomObjectDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomObjectDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*CreateCustomObjectDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *CreateCustomObjectDefinitionResponse) GetDefinition() *CustomObjectDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type GetCustomObjectDefinitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiName       string                 `protobuf:"bytes,1,opt,name=api_name,json=apiName,proto3" json:"api_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCustomObjectDefinitionRequest) Reset() {
+	*x = GetCustomObjectDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCustomObjectDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCustomObjectDefinitionRequest) ProtoMessage() {}
+
+func (x *GetCustomObjectDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCustomObjectDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*GetCustomObjectDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetCustomObjectDefinitionRequest) GetApiName() string {
+	if x != nil {
+		return x.ApiName
+	}
+	return ""
+}
+
+type GetCustomObjectDefinitionResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Definition    *CustomObjectDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCustomObjectDefinitionResponse) Reset() {
+	*x = GetCustomObjectDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCustomObjectDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCustomObjectDefinitionResponse) ProtoMessage() {}
+
+func (x *GetCustomObjectDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCustomObjectDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*GetCustomObjectDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetCustomObjectDefinitionResponse) GetDefinition() *CustomObjectDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type ListCustomObjectDefinitionsRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	IncludeArchived bool                   `protobuf:"varint,1,opt,name=include_archived,json=includeArchived,proto3" json:"include_archived,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListCustomObjectDefinitionsRequest) Reset() {
+	*x = ListCustomObjectDefinitionsRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCustomObjectDefinitionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCustomObjectDefinitionsRequest) ProtoMessage() {}
+
+func (x *ListCustomObjectDefinitionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCustomObjectDefinitionsRequest.ProtoReflect.Descriptor instead.
+func (*ListCustomObjectDefinitionsRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ListCustomObjectDefinitionsRequest) GetIncludeArchived() bool {
+	if x != nil {
+		return x.IncludeArchived
+	}
+	return false
+}
+
+type ListCustomObjectDefinitionsResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Definitions   []*CustomObjectDefinition `protobuf:"bytes,1,rep,name=definitions,proto3" json:"definitions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCustomObjectDefinitionsResponse) Reset() {
+	*x = ListCustomObjectDefinitionsResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCustomObjectDefinitionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCustomObjectDefinitionsResponse) ProtoMessage() {}
+
+func (x *ListCustomObjectDefinitionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCustomObjectDefinitionsResponse.ProtoReflect.Descriptor instead.
+func (*ListCustomObjectDefinitionsResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListCustomObjectDefinitionsResponse) GetDefinitions() []*CustomObjectDefinition {
+	if x != nil {
+		return x.Definitions
+	}
+	return nil
+}
+
+type ArchiveCustomObjectDefinitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiName       string                 `protobuf:"bytes,1,opt,name=api_name,json=apiName,proto3" json:"api_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveCustomObjectDefinitionRequest) Reset() {
+	*x = ArchiveCustomObjectDefinitionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveCustomObjectDefinitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveCustomObjectDefinitionRequest) ProtoMessage() {}
+
+func (x *ArchiveCustomObjectDefinitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveCustomObjectDefinitionRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveCustomObjectDefinitionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ArchiveCustomObjectDefinitionRequest) GetApiName() string {
+	if x != nil {
+		return x.ApiName
+	}
+	return ""
+}
+
+type ArchiveCustomObjectDefinitionResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Definition    *CustomObjectDefinition `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveCustomObjectDefinitionResponse) Reset() {
+	*x = ArchiveCustomObjectDefinitionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveCustomObjectDefinitionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveCustomObjectDefinitionResponse) ProtoMessage() {}
+
+func (x *ArchiveCustomObjectDefinitionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveCustomObjectDefinitionResponse.ProtoReflect.Descriptor instead.
+func (*ArchiveCustomObjectDefinitionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ArchiveCustomObjectDefinitionResponse) GetDefinition() *CustomObjectDefinition {
+	if x != nil {
+		return x.Definition
+	}
+	return nil
+}
+
+type CreateCustomRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *CustomRecord          `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomRecordRequest) Reset() {
+	*x = CreateCustomRecordRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomRecordRequest) ProtoMessage() {}
+
+func (x *CreateCustomRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomRecordRequest.ProtoReflect.Descriptor instead.
+func (*CreateCustomRecordRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CreateCustomRecordRequest) GetRecord() *CustomRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type CreateCustomRecordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *CustomRecord          `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomRecordResponse) Reset() {
+	*x = CreateCustomRecordResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomRecordResponse) ProtoMessage() {}
+
+func (x *CreateCustomRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomRecordResponse.ProtoReflect.Descriptor instead.
+func (*CreateCustomRecordResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CreateCustomRecordResponse) GetRecord() *CustomRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type GetCustomRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ObjectType    string                 `protobuf:"bytes,1,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCustomRecordRequest) Reset() {
+	*x = GetCustomRecordRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCustomRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCustomRecordRequest) ProtoMessage() {}
+
+func (x *GetCustomRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCustomRecordRequest.ProtoReflect.Descriptor instead.
+func (*GetCustomRecordRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *GetCustomRecordRequest) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *GetCustomRecordRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetCustomRecordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *CustomRecord          `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCustomRecordResponse) Reset() {
+	*x = GetCustomRecordResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCustomRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCustomRecordResponse) ProtoMessage() {}
+
+func (x *GetCustomRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCustomRecordResponse.ProtoReflect.Descriptor instead.
+func (*GetCustomRecordResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GetCustomRecordResponse) GetRecord() *CustomRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type ListCustomRecordsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ObjectType    string                 `protobuf:"bytes,1,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCustomRecordsRequest) Reset() {
+	*x = ListCustomRecordsRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCustomRecordsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCustomRecordsRequest) ProtoMessage() {}
+
+func (x *ListCustomRecordsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCustomRecordsRequest.ProtoReflect.Descriptor instead.
+func (*ListCustomRecordsRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *ListCustomRecordsRequest) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *ListCustomRecordsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListCustomRecordsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type ListCustomRecordsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Records       []*CustomRecord        `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCustomRecordsResponse) Reset() {
+	*x = ListCustomRecordsResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCustomRecordsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCustomRecordsResponse) ProtoMessage() {}
+
+func (x *ListCustomRecordsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCustomRecordsResponse.ProtoReflect.Descriptor instead.
+func (*ListCustomRecordsResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *ListCustomRecordsResponse) GetRecords() []*CustomRecord {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+func (x *ListCustomRecordsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+type UpdateCustomRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *CustomRecord          `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCustomRecordRequest) Reset() {
+	*x = UpdateCustomRecordRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCustomRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCustomRecordRequest) ProtoMessage() {}
+
+func (x *UpdateCustomRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCustomRecordRequest.ProtoReflect.Descriptor instead.
+func (*UpdateCustomRecordRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *UpdateCustomRecordRequest) GetRecord() *CustomRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type UpdateCustomRecordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Record        *CustomRecord          `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateCustomRecordResponse) Reset() {
+	*x = UpdateCustomRecordResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateCustomRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateCustomRecordResponse) ProtoMessage() {}
+
+func (x *UpdateCustomRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateCustomRecordResponse.ProtoReflect.Descriptor instead.
+func (*UpdateCustomRecordResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *UpdateCustomRecordResponse) GetRecord() *CustomRecord {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type DeleteCustomRecordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ObjectType    string                 `protobuf:"bytes,1,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCustomRecordRequest) Reset() {
+	*x = DeleteCustomRecordRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCustomRecordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCustomRecordRequest) ProtoMessage() {}
+
+func (x *DeleteCustomRecordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCustomRecordRequest.ProtoReflect.Descriptor instead.
+func (*DeleteCustomRecordRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *DeleteCustomRecordRequest) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *DeleteCustomRecordRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type DeleteCustomRecordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteCustomRecordResponse) Reset() {
+	*x = DeleteCustomRecordResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteCustomRecordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteCustomRecordResponse) ProtoMessage() {}
+
+func (x *DeleteCustomRecordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteCustomRecordResponse.ProtoReflect.Descriptor instead.
+func (*DeleteCustomRecordResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{33}
+}
+
 type Account struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -42,14 +1928,15 @@ type Account struct {
 	// internal/domain/account_hierarchy.go) when website's domain exactly
 	// matches another tenant-scoped Account's website at write time. It flags
 	// the account; it never blocks or silently merges it (B3).
-	DuplicateOfAccountId string `protobuf:"bytes,11,opt,name=duplicate_of_account_id,json=duplicateOfAccountId,proto3" json:"duplicate_of_account_id,omitempty"`
+	DuplicateOfAccountId string                  `protobuf:"bytes,11,opt,name=duplicate_of_account_id,json=duplicateOfAccountId,proto3" json:"duplicate_of_account_id,omitempty"`
+	CustomFields         map[string]*CustomValue `protobuf:"bytes,12,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Account) Reset() {
 	*x = Account{}
-	mi := &file_crm_v1_crm_proto_msgTypes[0]
+	mi := &file_crm_v1_crm_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -61,7 +1948,7 @@ func (x *Account) String() string {
 func (*Account) ProtoMessage() {}
 
 func (x *Account) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[0]
+	mi := &file_crm_v1_crm_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -74,7 +1961,7 @@ func (x *Account) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Account.ProtoReflect.Descriptor instead.
 func (*Account) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{0}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *Account) GetId() string {
@@ -154,6 +2041,13 @@ func (x *Account) GetDuplicateOfAccountId() string {
 	return ""
 }
 
+func (x *Account) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateAccountRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Account       *Account               `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
@@ -163,7 +2057,7 @@ type CreateAccountRequest struct {
 
 func (x *CreateAccountRequest) Reset() {
 	*x = CreateAccountRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[1]
+	mi := &file_crm_v1_crm_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -175,7 +2069,7 @@ func (x *CreateAccountRequest) String() string {
 func (*CreateAccountRequest) ProtoMessage() {}
 
 func (x *CreateAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[1]
+	mi := &file_crm_v1_crm_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -188,7 +2082,7 @@ func (x *CreateAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAccountRequest.ProtoReflect.Descriptor instead.
 func (*CreateAccountRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{1}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CreateAccountRequest) GetAccount() *Account {
@@ -207,7 +2101,7 @@ type CreateAccountResponse struct {
 
 func (x *CreateAccountResponse) Reset() {
 	*x = CreateAccountResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[2]
+	mi := &file_crm_v1_crm_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -219,7 +2113,7 @@ func (x *CreateAccountResponse) String() string {
 func (*CreateAccountResponse) ProtoMessage() {}
 
 func (x *CreateAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[2]
+	mi := &file_crm_v1_crm_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -232,7 +2126,7 @@ func (x *CreateAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAccountResponse.ProtoReflect.Descriptor instead.
 func (*CreateAccountResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{2}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CreateAccountResponse) GetAccount() *Account {
@@ -251,7 +2145,7 @@ type GetAccountRequest struct {
 
 func (x *GetAccountRequest) Reset() {
 	*x = GetAccountRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[3]
+	mi := &file_crm_v1_crm_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +2157,7 @@ func (x *GetAccountRequest) String() string {
 func (*GetAccountRequest) ProtoMessage() {}
 
 func (x *GetAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[3]
+	mi := &file_crm_v1_crm_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +2170,7 @@ func (x *GetAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountRequest.ProtoReflect.Descriptor instead.
 func (*GetAccountRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{3}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetAccountRequest) GetId() string {
@@ -295,7 +2189,7 @@ type GetAccountResponse struct {
 
 func (x *GetAccountResponse) Reset() {
 	*x = GetAccountResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[4]
+	mi := &file_crm_v1_crm_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -307,7 +2201,7 @@ func (x *GetAccountResponse) String() string {
 func (*GetAccountResponse) ProtoMessage() {}
 
 func (x *GetAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[4]
+	mi := &file_crm_v1_crm_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -320,7 +2214,7 @@ func (x *GetAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccountResponse.ProtoReflect.Descriptor instead.
 func (*GetAccountResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{4}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetAccountResponse) GetAccount() *Account {
@@ -353,7 +2247,7 @@ type ListAccountsRequest struct {
 
 func (x *ListAccountsRequest) Reset() {
 	*x = ListAccountsRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[5]
+	mi := &file_crm_v1_crm_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -365,7 +2259,7 @@ func (x *ListAccountsRequest) String() string {
 func (*ListAccountsRequest) ProtoMessage() {}
 
 func (x *ListAccountsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[5]
+	mi := &file_crm_v1_crm_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -378,7 +2272,7 @@ func (x *ListAccountsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAccountsRequest.ProtoReflect.Descriptor instead.
 func (*ListAccountsRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{5}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListAccountsRequest) GetPageSize() int32 {
@@ -440,7 +2334,7 @@ type ListAccountsResponse struct {
 
 func (x *ListAccountsResponse) Reset() {
 	*x = ListAccountsResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[6]
+	mi := &file_crm_v1_crm_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +2346,7 @@ func (x *ListAccountsResponse) String() string {
 func (*ListAccountsResponse) ProtoMessage() {}
 
 func (x *ListAccountsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[6]
+	mi := &file_crm_v1_crm_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +2359,7 @@ func (x *ListAccountsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAccountsResponse.ProtoReflect.Descriptor instead.
 func (*ListAccountsResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{6}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListAccountsResponse) GetAccounts() []*Account {
@@ -491,7 +2385,7 @@ type UpdateAccountRequest struct {
 
 func (x *UpdateAccountRequest) Reset() {
 	*x = UpdateAccountRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[7]
+	mi := &file_crm_v1_crm_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +2397,7 @@ func (x *UpdateAccountRequest) String() string {
 func (*UpdateAccountRequest) ProtoMessage() {}
 
 func (x *UpdateAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[7]
+	mi := &file_crm_v1_crm_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +2410,7 @@ func (x *UpdateAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAccountRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAccountRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{7}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *UpdateAccountRequest) GetAccount() *Account {
@@ -535,7 +2429,7 @@ type UpdateAccountResponse struct {
 
 func (x *UpdateAccountResponse) Reset() {
 	*x = UpdateAccountResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[8]
+	mi := &file_crm_v1_crm_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -547,7 +2441,7 @@ func (x *UpdateAccountResponse) String() string {
 func (*UpdateAccountResponse) ProtoMessage() {}
 
 func (x *UpdateAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[8]
+	mi := &file_crm_v1_crm_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -560,7 +2454,7 @@ func (x *UpdateAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAccountResponse.ProtoReflect.Descriptor instead.
 func (*UpdateAccountResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{8}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *UpdateAccountResponse) GetAccount() *Account {
@@ -579,7 +2473,7 @@ type DeleteAccountRequest struct {
 
 func (x *DeleteAccountRequest) Reset() {
 	*x = DeleteAccountRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[9]
+	mi := &file_crm_v1_crm_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +2485,7 @@ func (x *DeleteAccountRequest) String() string {
 func (*DeleteAccountRequest) ProtoMessage() {}
 
 func (x *DeleteAccountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[9]
+	mi := &file_crm_v1_crm_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +2498,7 @@ func (x *DeleteAccountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAccountRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAccountRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{9}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *DeleteAccountRequest) GetId() string {
@@ -622,7 +2516,7 @@ type DeleteAccountResponse struct {
 
 func (x *DeleteAccountResponse) Reset() {
 	*x = DeleteAccountResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[10]
+	mi := &file_crm_v1_crm_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -634,7 +2528,7 @@ func (x *DeleteAccountResponse) String() string {
 func (*DeleteAccountResponse) ProtoMessage() {}
 
 func (x *DeleteAccountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[10]
+	mi := &file_crm_v1_crm_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -647,7 +2541,7 @@ func (x *DeleteAccountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAccountResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAccountResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{10}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{44}
 }
 
 type Contact struct {
@@ -675,14 +2569,15 @@ type Contact struct {
 	// tenant-scoped Contact's email at write time. It flags the contact; it
 	// never blocks or silently merges it (B4) — the same convention Lead and
 	// Account use for their own duplicate flags.
-	DuplicateOfContactId string `protobuf:"bytes,11,opt,name=duplicate_of_contact_id,json=duplicateOfContactId,proto3" json:"duplicate_of_contact_id,omitempty"`
+	DuplicateOfContactId string                  `protobuf:"bytes,11,opt,name=duplicate_of_contact_id,json=duplicateOfContactId,proto3" json:"duplicate_of_contact_id,omitempty"`
+	CustomFields         map[string]*CustomValue `protobuf:"bytes,12,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
 
 func (x *Contact) Reset() {
 	*x = Contact{}
-	mi := &file_crm_v1_crm_proto_msgTypes[11]
+	mi := &file_crm_v1_crm_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -694,7 +2589,7 @@ func (x *Contact) String() string {
 func (*Contact) ProtoMessage() {}
 
 func (x *Contact) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[11]
+	mi := &file_crm_v1_crm_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -707,7 +2602,7 @@ func (x *Contact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Contact.ProtoReflect.Descriptor instead.
 func (*Contact) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{11}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *Contact) GetId() string {
@@ -787,6 +2682,13 @@ func (x *Contact) GetDuplicateOfContactId() string {
 	return ""
 }
 
+func (x *Contact) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateContactRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Contact       *Contact               `protobuf:"bytes,1,opt,name=contact,proto3" json:"contact,omitempty"`
@@ -796,7 +2698,7 @@ type CreateContactRequest struct {
 
 func (x *CreateContactRequest) Reset() {
 	*x = CreateContactRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[12]
+	mi := &file_crm_v1_crm_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -808,7 +2710,7 @@ func (x *CreateContactRequest) String() string {
 func (*CreateContactRequest) ProtoMessage() {}
 
 func (x *CreateContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[12]
+	mi := &file_crm_v1_crm_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -821,7 +2723,7 @@ func (x *CreateContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContactRequest.ProtoReflect.Descriptor instead.
 func (*CreateContactRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{12}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CreateContactRequest) GetContact() *Contact {
@@ -840,7 +2742,7 @@ type CreateContactResponse struct {
 
 func (x *CreateContactResponse) Reset() {
 	*x = CreateContactResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[13]
+	mi := &file_crm_v1_crm_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -852,7 +2754,7 @@ func (x *CreateContactResponse) String() string {
 func (*CreateContactResponse) ProtoMessage() {}
 
 func (x *CreateContactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[13]
+	mi := &file_crm_v1_crm_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -865,7 +2767,7 @@ func (x *CreateContactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateContactResponse.ProtoReflect.Descriptor instead.
 func (*CreateContactResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{13}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *CreateContactResponse) GetContact() *Contact {
@@ -884,7 +2786,7 @@ type GetContactRequest struct {
 
 func (x *GetContactRequest) Reset() {
 	*x = GetContactRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[14]
+	mi := &file_crm_v1_crm_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +2798,7 @@ func (x *GetContactRequest) String() string {
 func (*GetContactRequest) ProtoMessage() {}
 
 func (x *GetContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[14]
+	mi := &file_crm_v1_crm_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -909,7 +2811,7 @@ func (x *GetContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactRequest.ProtoReflect.Descriptor instead.
 func (*GetContactRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{14}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetContactRequest) GetId() string {
@@ -928,7 +2830,7 @@ type GetContactResponse struct {
 
 func (x *GetContactResponse) Reset() {
 	*x = GetContactResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[15]
+	mi := &file_crm_v1_crm_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -940,7 +2842,7 @@ func (x *GetContactResponse) String() string {
 func (*GetContactResponse) ProtoMessage() {}
 
 func (x *GetContactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[15]
+	mi := &file_crm_v1_crm_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -953,7 +2855,7 @@ func (x *GetContactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContactResponse.ProtoReflect.Descriptor instead.
 func (*GetContactResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{15}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetContactResponse) GetContact() *Contact {
@@ -984,7 +2886,7 @@ type ListContactsRequest struct {
 
 func (x *ListContactsRequest) Reset() {
 	*x = ListContactsRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[16]
+	mi := &file_crm_v1_crm_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -996,7 +2898,7 @@ func (x *ListContactsRequest) String() string {
 func (*ListContactsRequest) ProtoMessage() {}
 
 func (x *ListContactsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[16]
+	mi := &file_crm_v1_crm_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1009,7 +2911,7 @@ func (x *ListContactsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContactsRequest.ProtoReflect.Descriptor instead.
 func (*ListContactsRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{16}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListContactsRequest) GetPageSize() int32 {
@@ -1064,7 +2966,7 @@ type ListContactsResponse struct {
 
 func (x *ListContactsResponse) Reset() {
 	*x = ListContactsResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[17]
+	mi := &file_crm_v1_crm_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1076,7 +2978,7 @@ func (x *ListContactsResponse) String() string {
 func (*ListContactsResponse) ProtoMessage() {}
 
 func (x *ListContactsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[17]
+	mi := &file_crm_v1_crm_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1089,7 +2991,7 @@ func (x *ListContactsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListContactsResponse.ProtoReflect.Descriptor instead.
 func (*ListContactsResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{17}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *ListContactsResponse) GetContacts() []*Contact {
@@ -1115,7 +3017,7 @@ type UpdateContactRequest struct {
 
 func (x *UpdateContactRequest) Reset() {
 	*x = UpdateContactRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[18]
+	mi := &file_crm_v1_crm_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1127,7 +3029,7 @@ func (x *UpdateContactRequest) String() string {
 func (*UpdateContactRequest) ProtoMessage() {}
 
 func (x *UpdateContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[18]
+	mi := &file_crm_v1_crm_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1140,7 +3042,7 @@ func (x *UpdateContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateContactRequest.ProtoReflect.Descriptor instead.
 func (*UpdateContactRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{18}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *UpdateContactRequest) GetContact() *Contact {
@@ -1159,7 +3061,7 @@ type UpdateContactResponse struct {
 
 func (x *UpdateContactResponse) Reset() {
 	*x = UpdateContactResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[19]
+	mi := &file_crm_v1_crm_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1171,7 +3073,7 @@ func (x *UpdateContactResponse) String() string {
 func (*UpdateContactResponse) ProtoMessage() {}
 
 func (x *UpdateContactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[19]
+	mi := &file_crm_v1_crm_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1184,7 +3086,7 @@ func (x *UpdateContactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateContactResponse.ProtoReflect.Descriptor instead.
 func (*UpdateContactResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{19}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *UpdateContactResponse) GetContact() *Contact {
@@ -1203,7 +3105,7 @@ type DeleteContactRequest struct {
 
 func (x *DeleteContactRequest) Reset() {
 	*x = DeleteContactRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[20]
+	mi := &file_crm_v1_crm_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1215,7 +3117,7 @@ func (x *DeleteContactRequest) String() string {
 func (*DeleteContactRequest) ProtoMessage() {}
 
 func (x *DeleteContactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[20]
+	mi := &file_crm_v1_crm_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1228,7 +3130,7 @@ func (x *DeleteContactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContactRequest.ProtoReflect.Descriptor instead.
 func (*DeleteContactRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{20}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *DeleteContactRequest) GetId() string {
@@ -1246,7 +3148,7 @@ type DeleteContactResponse struct {
 
 func (x *DeleteContactResponse) Reset() {
 	*x = DeleteContactResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[21]
+	mi := &file_crm_v1_crm_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1258,7 +3160,7 @@ func (x *DeleteContactResponse) String() string {
 func (*DeleteContactResponse) ProtoMessage() {}
 
 func (x *DeleteContactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[21]
+	mi := &file_crm_v1_crm_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1271,7 +3173,7 @@ func (x *DeleteContactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContactResponse.ProtoReflect.Descriptor instead.
 func (*DeleteContactResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{21}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{55}
 }
 
 type Lead struct {
@@ -1295,16 +3197,17 @@ type Lead struct {
 	// The following three are populated once, by ConvertLead, the instant this
 	// lead converts. Empty until then. UpdateLead cannot set status to
 	// converted directly or populate these — only ConvertLead may.
-	ConvertedContactId     string `protobuf:"bytes,11,opt,name=converted_contact_id,json=convertedContactId,proto3" json:"converted_contact_id,omitempty"`
-	ConvertedAccountId     string `protobuf:"bytes,12,opt,name=converted_account_id,json=convertedAccountId,proto3" json:"converted_account_id,omitempty"`
-	ConvertedOpportunityId string `protobuf:"bytes,13,opt,name=converted_opportunity_id,json=convertedOpportunityId,proto3" json:"converted_opportunity_id,omitempty"`
+	ConvertedContactId     string                  `protobuf:"bytes,11,opt,name=converted_contact_id,json=convertedContactId,proto3" json:"converted_contact_id,omitempty"`
+	ConvertedAccountId     string                  `protobuf:"bytes,12,opt,name=converted_account_id,json=convertedAccountId,proto3" json:"converted_account_id,omitempty"`
+	ConvertedOpportunityId string                  `protobuf:"bytes,13,opt,name=converted_opportunity_id,json=convertedOpportunityId,proto3" json:"converted_opportunity_id,omitempty"`
+	CustomFields           map[string]*CustomValue `protobuf:"bytes,14,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Lead) Reset() {
 	*x = Lead{}
-	mi := &file_crm_v1_crm_proto_msgTypes[22]
+	mi := &file_crm_v1_crm_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1316,7 +3219,7 @@ func (x *Lead) String() string {
 func (*Lead) ProtoMessage() {}
 
 func (x *Lead) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[22]
+	mi := &file_crm_v1_crm_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1329,7 +3232,7 @@ func (x *Lead) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Lead.ProtoReflect.Descriptor instead.
 func (*Lead) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{22}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *Lead) GetId() string {
@@ -1423,6 +3326,13 @@ func (x *Lead) GetConvertedOpportunityId() string {
 	return ""
 }
 
+func (x *Lead) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateLeadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Lead          *Lead                  `protobuf:"bytes,1,opt,name=lead,proto3" json:"lead,omitempty"`
@@ -1432,7 +3342,7 @@ type CreateLeadRequest struct {
 
 func (x *CreateLeadRequest) Reset() {
 	*x = CreateLeadRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[23]
+	mi := &file_crm_v1_crm_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1444,7 +3354,7 @@ func (x *CreateLeadRequest) String() string {
 func (*CreateLeadRequest) ProtoMessage() {}
 
 func (x *CreateLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[23]
+	mi := &file_crm_v1_crm_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1457,7 +3367,7 @@ func (x *CreateLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLeadRequest.ProtoReflect.Descriptor instead.
 func (*CreateLeadRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{23}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *CreateLeadRequest) GetLead() *Lead {
@@ -1476,7 +3386,7 @@ type CreateLeadResponse struct {
 
 func (x *CreateLeadResponse) Reset() {
 	*x = CreateLeadResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[24]
+	mi := &file_crm_v1_crm_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1488,7 +3398,7 @@ func (x *CreateLeadResponse) String() string {
 func (*CreateLeadResponse) ProtoMessage() {}
 
 func (x *CreateLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[24]
+	mi := &file_crm_v1_crm_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1501,7 +3411,7 @@ func (x *CreateLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLeadResponse.ProtoReflect.Descriptor instead.
 func (*CreateLeadResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{24}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *CreateLeadResponse) GetLead() *Lead {
@@ -1520,7 +3430,7 @@ type GetLeadRequest struct {
 
 func (x *GetLeadRequest) Reset() {
 	*x = GetLeadRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[25]
+	mi := &file_crm_v1_crm_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1532,7 +3442,7 @@ func (x *GetLeadRequest) String() string {
 func (*GetLeadRequest) ProtoMessage() {}
 
 func (x *GetLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[25]
+	mi := &file_crm_v1_crm_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1545,7 +3455,7 @@ func (x *GetLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLeadRequest.ProtoReflect.Descriptor instead.
 func (*GetLeadRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{25}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *GetLeadRequest) GetId() string {
@@ -1564,7 +3474,7 @@ type GetLeadResponse struct {
 
 func (x *GetLeadResponse) Reset() {
 	*x = GetLeadResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[26]
+	mi := &file_crm_v1_crm_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1576,7 +3486,7 @@ func (x *GetLeadResponse) String() string {
 func (*GetLeadResponse) ProtoMessage() {}
 
 func (x *GetLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[26]
+	mi := &file_crm_v1_crm_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1589,7 +3499,7 @@ func (x *GetLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLeadResponse.ProtoReflect.Descriptor instead.
 func (*GetLeadResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{26}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GetLeadResponse) GetLead() *Lead {
@@ -1609,7 +3519,7 @@ type ListLeadsRequest struct {
 
 func (x *ListLeadsRequest) Reset() {
 	*x = ListLeadsRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[27]
+	mi := &file_crm_v1_crm_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1621,7 +3531,7 @@ func (x *ListLeadsRequest) String() string {
 func (*ListLeadsRequest) ProtoMessage() {}
 
 func (x *ListLeadsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[27]
+	mi := &file_crm_v1_crm_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1634,7 +3544,7 @@ func (x *ListLeadsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLeadsRequest.ProtoReflect.Descriptor instead.
 func (*ListLeadsRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{27}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ListLeadsRequest) GetPageSize() int32 {
@@ -1661,7 +3571,7 @@ type ListLeadsResponse struct {
 
 func (x *ListLeadsResponse) Reset() {
 	*x = ListLeadsResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[28]
+	mi := &file_crm_v1_crm_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1673,7 +3583,7 @@ func (x *ListLeadsResponse) String() string {
 func (*ListLeadsResponse) ProtoMessage() {}
 
 func (x *ListLeadsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[28]
+	mi := &file_crm_v1_crm_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1686,7 +3596,7 @@ func (x *ListLeadsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLeadsResponse.ProtoReflect.Descriptor instead.
 func (*ListLeadsResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{28}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ListLeadsResponse) GetLeads() []*Lead {
@@ -1712,7 +3622,7 @@ type UpdateLeadRequest struct {
 
 func (x *UpdateLeadRequest) Reset() {
 	*x = UpdateLeadRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[29]
+	mi := &file_crm_v1_crm_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1724,7 +3634,7 @@ func (x *UpdateLeadRequest) String() string {
 func (*UpdateLeadRequest) ProtoMessage() {}
 
 func (x *UpdateLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[29]
+	mi := &file_crm_v1_crm_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1737,7 +3647,7 @@ func (x *UpdateLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLeadRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLeadRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{29}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *UpdateLeadRequest) GetLead() *Lead {
@@ -1756,7 +3666,7 @@ type UpdateLeadResponse struct {
 
 func (x *UpdateLeadResponse) Reset() {
 	*x = UpdateLeadResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[30]
+	mi := &file_crm_v1_crm_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1768,7 +3678,7 @@ func (x *UpdateLeadResponse) String() string {
 func (*UpdateLeadResponse) ProtoMessage() {}
 
 func (x *UpdateLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[30]
+	mi := &file_crm_v1_crm_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1781,7 +3691,7 @@ func (x *UpdateLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLeadResponse.ProtoReflect.Descriptor instead.
 func (*UpdateLeadResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{30}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *UpdateLeadResponse) GetLead() *Lead {
@@ -1800,7 +3710,7 @@ type DeleteLeadRequest struct {
 
 func (x *DeleteLeadRequest) Reset() {
 	*x = DeleteLeadRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[31]
+	mi := &file_crm_v1_crm_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1812,7 +3722,7 @@ func (x *DeleteLeadRequest) String() string {
 func (*DeleteLeadRequest) ProtoMessage() {}
 
 func (x *DeleteLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[31]
+	mi := &file_crm_v1_crm_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1825,7 +3735,7 @@ func (x *DeleteLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLeadRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLeadRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{31}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *DeleteLeadRequest) GetId() string {
@@ -1843,7 +3753,7 @@ type DeleteLeadResponse struct {
 
 func (x *DeleteLeadResponse) Reset() {
 	*x = DeleteLeadResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[32]
+	mi := &file_crm_v1_crm_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1855,7 +3765,7 @@ func (x *DeleteLeadResponse) String() string {
 func (*DeleteLeadResponse) ProtoMessage() {}
 
 func (x *DeleteLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[32]
+	mi := &file_crm_v1_crm_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1868,7 +3778,7 @@ func (x *DeleteLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLeadResponse.ProtoReflect.Descriptor instead.
 func (*DeleteLeadResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{32}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{66}
 }
 
 type ConvertLeadRequest struct {
@@ -1888,7 +3798,7 @@ type ConvertLeadRequest struct {
 
 func (x *ConvertLeadRequest) Reset() {
 	*x = ConvertLeadRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[33]
+	mi := &file_crm_v1_crm_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1900,7 +3810,7 @@ func (x *ConvertLeadRequest) String() string {
 func (*ConvertLeadRequest) ProtoMessage() {}
 
 func (x *ConvertLeadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[33]
+	mi := &file_crm_v1_crm_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1913,7 +3823,7 @@ func (x *ConvertLeadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConvertLeadRequest.ProtoReflect.Descriptor instead.
 func (*ConvertLeadRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{33}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *ConvertLeadRequest) GetLeadId() string {
@@ -1957,7 +3867,7 @@ type ConvertLeadResponse struct {
 
 func (x *ConvertLeadResponse) Reset() {
 	*x = ConvertLeadResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[34]
+	mi := &file_crm_v1_crm_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1969,7 +3879,7 @@ func (x *ConvertLeadResponse) String() string {
 func (*ConvertLeadResponse) ProtoMessage() {}
 
 func (x *ConvertLeadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[34]
+	mi := &file_crm_v1_crm_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1982,7 +3892,7 @@ func (x *ConvertLeadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConvertLeadResponse.ProtoReflect.Descriptor instead.
 func (*ConvertLeadResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{34}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *ConvertLeadResponse) GetLead() *Lead {
@@ -2030,15 +3940,16 @@ type Opportunity struct {
 	CloseReason string `protobuf:"bytes,10,opt,name=close_reason,json=closeReason,proto3" json:"close_reason,omitempty"`
 	// Tenant-owned pipeline and stage identifiers. `stage` remains a human-
 	// readable compatibility field for older clients and historical reports.
-	PipelineId    string `protobuf:"bytes,11,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
-	StageId       string `protobuf:"bytes,12,opt,name=stage_id,json=stageId,proto3" json:"stage_id,omitempty"`
+	PipelineId    string                  `protobuf:"bytes,11,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
+	StageId       string                  `protobuf:"bytes,12,opt,name=stage_id,json=stageId,proto3" json:"stage_id,omitempty"`
+	CustomFields  map[string]*CustomValue `protobuf:"bytes,13,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Opportunity) Reset() {
 	*x = Opportunity{}
-	mi := &file_crm_v1_crm_proto_msgTypes[35]
+	mi := &file_crm_v1_crm_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2050,7 +3961,7 @@ func (x *Opportunity) String() string {
 func (*Opportunity) ProtoMessage() {}
 
 func (x *Opportunity) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[35]
+	mi := &file_crm_v1_crm_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2063,7 +3974,7 @@ func (x *Opportunity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Opportunity.ProtoReflect.Descriptor instead.
 func (*Opportunity) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{35}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *Opportunity) GetId() string {
@@ -2150,6 +4061,13 @@ func (x *Opportunity) GetStageId() string {
 	return ""
 }
 
+func (x *Opportunity) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateOpportunityRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Opportunity   *Opportunity           `protobuf:"bytes,1,opt,name=opportunity,proto3" json:"opportunity,omitempty"`
@@ -2159,7 +4077,7 @@ type CreateOpportunityRequest struct {
 
 func (x *CreateOpportunityRequest) Reset() {
 	*x = CreateOpportunityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[36]
+	mi := &file_crm_v1_crm_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2171,7 +4089,7 @@ func (x *CreateOpportunityRequest) String() string {
 func (*CreateOpportunityRequest) ProtoMessage() {}
 
 func (x *CreateOpportunityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[36]
+	mi := &file_crm_v1_crm_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2184,7 +4102,7 @@ func (x *CreateOpportunityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOpportunityRequest.ProtoReflect.Descriptor instead.
 func (*CreateOpportunityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{36}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *CreateOpportunityRequest) GetOpportunity() *Opportunity {
@@ -2203,7 +4121,7 @@ type CreateOpportunityResponse struct {
 
 func (x *CreateOpportunityResponse) Reset() {
 	*x = CreateOpportunityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[37]
+	mi := &file_crm_v1_crm_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2215,7 +4133,7 @@ func (x *CreateOpportunityResponse) String() string {
 func (*CreateOpportunityResponse) ProtoMessage() {}
 
 func (x *CreateOpportunityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[37]
+	mi := &file_crm_v1_crm_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2228,7 +4146,7 @@ func (x *CreateOpportunityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOpportunityResponse.ProtoReflect.Descriptor instead.
 func (*CreateOpportunityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{37}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *CreateOpportunityResponse) GetOpportunity() *Opportunity {
@@ -2247,7 +4165,7 @@ type GetOpportunityRequest struct {
 
 func (x *GetOpportunityRequest) Reset() {
 	*x = GetOpportunityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[38]
+	mi := &file_crm_v1_crm_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2259,7 +4177,7 @@ func (x *GetOpportunityRequest) String() string {
 func (*GetOpportunityRequest) ProtoMessage() {}
 
 func (x *GetOpportunityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[38]
+	mi := &file_crm_v1_crm_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2272,7 +4190,7 @@ func (x *GetOpportunityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpportunityRequest.ProtoReflect.Descriptor instead.
 func (*GetOpportunityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{38}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *GetOpportunityRequest) GetId() string {
@@ -2291,7 +4209,7 @@ type GetOpportunityResponse struct {
 
 func (x *GetOpportunityResponse) Reset() {
 	*x = GetOpportunityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[39]
+	mi := &file_crm_v1_crm_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2303,7 +4221,7 @@ func (x *GetOpportunityResponse) String() string {
 func (*GetOpportunityResponse) ProtoMessage() {}
 
 func (x *GetOpportunityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[39]
+	mi := &file_crm_v1_crm_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2316,7 +4234,7 @@ func (x *GetOpportunityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOpportunityResponse.ProtoReflect.Descriptor instead.
 func (*GetOpportunityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{39}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *GetOpportunityResponse) GetOpportunity() *Opportunity {
@@ -2336,7 +4254,7 @@ type ListOpportunitiesRequest struct {
 
 func (x *ListOpportunitiesRequest) Reset() {
 	*x = ListOpportunitiesRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[40]
+	mi := &file_crm_v1_crm_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2348,7 +4266,7 @@ func (x *ListOpportunitiesRequest) String() string {
 func (*ListOpportunitiesRequest) ProtoMessage() {}
 
 func (x *ListOpportunitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[40]
+	mi := &file_crm_v1_crm_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2361,7 +4279,7 @@ func (x *ListOpportunitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOpportunitiesRequest.ProtoReflect.Descriptor instead.
 func (*ListOpportunitiesRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{40}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *ListOpportunitiesRequest) GetPageSize() int32 {
@@ -2388,7 +4306,7 @@ type ListOpportunitiesResponse struct {
 
 func (x *ListOpportunitiesResponse) Reset() {
 	*x = ListOpportunitiesResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[41]
+	mi := &file_crm_v1_crm_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2400,7 +4318,7 @@ func (x *ListOpportunitiesResponse) String() string {
 func (*ListOpportunitiesResponse) ProtoMessage() {}
 
 func (x *ListOpportunitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[41]
+	mi := &file_crm_v1_crm_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2413,7 +4331,7 @@ func (x *ListOpportunitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOpportunitiesResponse.ProtoReflect.Descriptor instead.
 func (*ListOpportunitiesResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{41}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *ListOpportunitiesResponse) GetOpportunities() []*Opportunity {
@@ -2439,7 +4357,7 @@ type UpdateOpportunityRequest struct {
 
 func (x *UpdateOpportunityRequest) Reset() {
 	*x = UpdateOpportunityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[42]
+	mi := &file_crm_v1_crm_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2451,7 +4369,7 @@ func (x *UpdateOpportunityRequest) String() string {
 func (*UpdateOpportunityRequest) ProtoMessage() {}
 
 func (x *UpdateOpportunityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[42]
+	mi := &file_crm_v1_crm_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2464,7 +4382,7 @@ func (x *UpdateOpportunityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOpportunityRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOpportunityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{42}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *UpdateOpportunityRequest) GetOpportunity() *Opportunity {
@@ -2483,7 +4401,7 @@ type UpdateOpportunityResponse struct {
 
 func (x *UpdateOpportunityResponse) Reset() {
 	*x = UpdateOpportunityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[43]
+	mi := &file_crm_v1_crm_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2495,7 +4413,7 @@ func (x *UpdateOpportunityResponse) String() string {
 func (*UpdateOpportunityResponse) ProtoMessage() {}
 
 func (x *UpdateOpportunityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[43]
+	mi := &file_crm_v1_crm_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2508,7 +4426,7 @@ func (x *UpdateOpportunityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOpportunityResponse.ProtoReflect.Descriptor instead.
 func (*UpdateOpportunityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{43}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *UpdateOpportunityResponse) GetOpportunity() *Opportunity {
@@ -2527,7 +4445,7 @@ type DeleteOpportunityRequest struct {
 
 func (x *DeleteOpportunityRequest) Reset() {
 	*x = DeleteOpportunityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[44]
+	mi := &file_crm_v1_crm_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2539,7 +4457,7 @@ func (x *DeleteOpportunityRequest) String() string {
 func (*DeleteOpportunityRequest) ProtoMessage() {}
 
 func (x *DeleteOpportunityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[44]
+	mi := &file_crm_v1_crm_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2552,7 +4470,7 @@ func (x *DeleteOpportunityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOpportunityRequest.ProtoReflect.Descriptor instead.
 func (*DeleteOpportunityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{44}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *DeleteOpportunityRequest) GetId() string {
@@ -2570,7 +4488,7 @@ type DeleteOpportunityResponse struct {
 
 func (x *DeleteOpportunityResponse) Reset() {
 	*x = DeleteOpportunityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[45]
+	mi := &file_crm_v1_crm_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2582,7 +4500,7 @@ func (x *DeleteOpportunityResponse) String() string {
 func (*DeleteOpportunityResponse) ProtoMessage() {}
 
 func (x *DeleteOpportunityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[45]
+	mi := &file_crm_v1_crm_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2595,7 +4513,7 @@ func (x *DeleteOpportunityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOpportunityResponse.ProtoReflect.Descriptor instead.
 func (*DeleteOpportunityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{45}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{79}
 }
 
 type OpportunityStageChange struct {
@@ -2611,7 +4529,7 @@ type OpportunityStageChange struct {
 
 func (x *OpportunityStageChange) Reset() {
 	*x = OpportunityStageChange{}
-	mi := &file_crm_v1_crm_proto_msgTypes[46]
+	mi := &file_crm_v1_crm_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2623,7 +4541,7 @@ func (x *OpportunityStageChange) String() string {
 func (*OpportunityStageChange) ProtoMessage() {}
 
 func (x *OpportunityStageChange) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[46]
+	mi := &file_crm_v1_crm_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2636,7 +4554,7 @@ func (x *OpportunityStageChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpportunityStageChange.ProtoReflect.Descriptor instead.
 func (*OpportunityStageChange) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{46}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *OpportunityStageChange) GetId() string {
@@ -2683,7 +4601,7 @@ type ListOpportunityStageHistoryRequest struct {
 
 func (x *ListOpportunityStageHistoryRequest) Reset() {
 	*x = ListOpportunityStageHistoryRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[47]
+	mi := &file_crm_v1_crm_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2695,7 +4613,7 @@ func (x *ListOpportunityStageHistoryRequest) String() string {
 func (*ListOpportunityStageHistoryRequest) ProtoMessage() {}
 
 func (x *ListOpportunityStageHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[47]
+	mi := &file_crm_v1_crm_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2708,7 +4626,7 @@ func (x *ListOpportunityStageHistoryRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListOpportunityStageHistoryRequest.ProtoReflect.Descriptor instead.
 func (*ListOpportunityStageHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{47}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ListOpportunityStageHistoryRequest) GetOpportunityId() string {
@@ -2727,7 +4645,7 @@ type ListOpportunityStageHistoryResponse struct {
 
 func (x *ListOpportunityStageHistoryResponse) Reset() {
 	*x = ListOpportunityStageHistoryResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[48]
+	mi := &file_crm_v1_crm_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2739,7 +4657,7 @@ func (x *ListOpportunityStageHistoryResponse) String() string {
 func (*ListOpportunityStageHistoryResponse) ProtoMessage() {}
 
 func (x *ListOpportunityStageHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[48]
+	mi := &file_crm_v1_crm_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2752,7 +4670,7 @@ func (x *ListOpportunityStageHistoryResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ListOpportunityStageHistoryResponse.ProtoReflect.Descriptor instead.
 func (*ListOpportunityStageHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{48}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *ListOpportunityStageHistoryResponse) GetChanges() []*OpportunityStageChange {
@@ -2776,7 +4694,7 @@ type Pipeline struct {
 
 func (x *Pipeline) Reset() {
 	*x = Pipeline{}
-	mi := &file_crm_v1_crm_proto_msgTypes[49]
+	mi := &file_crm_v1_crm_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2788,7 +4706,7 @@ func (x *Pipeline) String() string {
 func (*Pipeline) ProtoMessage() {}
 
 func (x *Pipeline) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[49]
+	mi := &file_crm_v1_crm_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2801,7 +4719,7 @@ func (x *Pipeline) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pipeline.ProtoReflect.Descriptor instead.
 func (*Pipeline) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{49}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *Pipeline) GetId() string {
@@ -2855,7 +4773,7 @@ type CreatePipelineRequest struct {
 
 func (x *CreatePipelineRequest) Reset() {
 	*x = CreatePipelineRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[50]
+	mi := &file_crm_v1_crm_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2867,7 +4785,7 @@ func (x *CreatePipelineRequest) String() string {
 func (*CreatePipelineRequest) ProtoMessage() {}
 
 func (x *CreatePipelineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[50]
+	mi := &file_crm_v1_crm_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2880,7 +4798,7 @@ func (x *CreatePipelineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePipelineRequest.ProtoReflect.Descriptor instead.
 func (*CreatePipelineRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{50}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *CreatePipelineRequest) GetPipeline() *Pipeline {
@@ -2899,7 +4817,7 @@ type CreatePipelineResponse struct {
 
 func (x *CreatePipelineResponse) Reset() {
 	*x = CreatePipelineResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[51]
+	mi := &file_crm_v1_crm_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2911,7 +4829,7 @@ func (x *CreatePipelineResponse) String() string {
 func (*CreatePipelineResponse) ProtoMessage() {}
 
 func (x *CreatePipelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[51]
+	mi := &file_crm_v1_crm_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2924,7 +4842,7 @@ func (x *CreatePipelineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePipelineResponse.ProtoReflect.Descriptor instead.
 func (*CreatePipelineResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{51}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *CreatePipelineResponse) GetPipeline() *Pipeline {
@@ -2943,7 +4861,7 @@ type GetPipelineRequest struct {
 
 func (x *GetPipelineRequest) Reset() {
 	*x = GetPipelineRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[52]
+	mi := &file_crm_v1_crm_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2955,7 +4873,7 @@ func (x *GetPipelineRequest) String() string {
 func (*GetPipelineRequest) ProtoMessage() {}
 
 func (x *GetPipelineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[52]
+	mi := &file_crm_v1_crm_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2968,7 +4886,7 @@ func (x *GetPipelineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPipelineRequest.ProtoReflect.Descriptor instead.
 func (*GetPipelineRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{52}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *GetPipelineRequest) GetId() string {
@@ -2987,7 +4905,7 @@ type GetPipelineResponse struct {
 
 func (x *GetPipelineResponse) Reset() {
 	*x = GetPipelineResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[53]
+	mi := &file_crm_v1_crm_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2999,7 +4917,7 @@ func (x *GetPipelineResponse) String() string {
 func (*GetPipelineResponse) ProtoMessage() {}
 
 func (x *GetPipelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[53]
+	mi := &file_crm_v1_crm_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3012,7 +4930,7 @@ func (x *GetPipelineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPipelineResponse.ProtoReflect.Descriptor instead.
 func (*GetPipelineResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{53}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *GetPipelineResponse) GetPipeline() *Pipeline {
@@ -3030,7 +4948,7 @@ type ListPipelinesRequest struct {
 
 func (x *ListPipelinesRequest) Reset() {
 	*x = ListPipelinesRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[54]
+	mi := &file_crm_v1_crm_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3042,7 +4960,7 @@ func (x *ListPipelinesRequest) String() string {
 func (*ListPipelinesRequest) ProtoMessage() {}
 
 func (x *ListPipelinesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[54]
+	mi := &file_crm_v1_crm_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3055,7 +4973,7 @@ func (x *ListPipelinesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPipelinesRequest.ProtoReflect.Descriptor instead.
 func (*ListPipelinesRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{54}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{88}
 }
 
 type ListPipelinesResponse struct {
@@ -3067,7 +4985,7 @@ type ListPipelinesResponse struct {
 
 func (x *ListPipelinesResponse) Reset() {
 	*x = ListPipelinesResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[55]
+	mi := &file_crm_v1_crm_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3079,7 +4997,7 @@ func (x *ListPipelinesResponse) String() string {
 func (*ListPipelinesResponse) ProtoMessage() {}
 
 func (x *ListPipelinesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[55]
+	mi := &file_crm_v1_crm_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3092,7 +5010,7 @@ func (x *ListPipelinesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPipelinesResponse.ProtoReflect.Descriptor instead.
 func (*ListPipelinesResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{55}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *ListPipelinesResponse) GetPipelines() []*Pipeline {
@@ -3111,7 +5029,7 @@ type UpdatePipelineRequest struct {
 
 func (x *UpdatePipelineRequest) Reset() {
 	*x = UpdatePipelineRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[56]
+	mi := &file_crm_v1_crm_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3123,7 +5041,7 @@ func (x *UpdatePipelineRequest) String() string {
 func (*UpdatePipelineRequest) ProtoMessage() {}
 
 func (x *UpdatePipelineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[56]
+	mi := &file_crm_v1_crm_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3136,7 +5054,7 @@ func (x *UpdatePipelineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePipelineRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePipelineRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{56}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *UpdatePipelineRequest) GetPipeline() *Pipeline {
@@ -3155,7 +5073,7 @@ type UpdatePipelineResponse struct {
 
 func (x *UpdatePipelineResponse) Reset() {
 	*x = UpdatePipelineResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[57]
+	mi := &file_crm_v1_crm_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3167,7 +5085,7 @@ func (x *UpdatePipelineResponse) String() string {
 func (*UpdatePipelineResponse) ProtoMessage() {}
 
 func (x *UpdatePipelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[57]
+	mi := &file_crm_v1_crm_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3180,7 +5098,7 @@ func (x *UpdatePipelineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePipelineResponse.ProtoReflect.Descriptor instead.
 func (*UpdatePipelineResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{57}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *UpdatePipelineResponse) GetPipeline() *Pipeline {
@@ -3210,7 +5128,7 @@ type PipelineStage struct {
 
 func (x *PipelineStage) Reset() {
 	*x = PipelineStage{}
-	mi := &file_crm_v1_crm_proto_msgTypes[58]
+	mi := &file_crm_v1_crm_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3222,7 +5140,7 @@ func (x *PipelineStage) String() string {
 func (*PipelineStage) ProtoMessage() {}
 
 func (x *PipelineStage) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[58]
+	mi := &file_crm_v1_crm_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3235,7 +5153,7 @@ func (x *PipelineStage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PipelineStage.ProtoReflect.Descriptor instead.
 func (*PipelineStage) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{58}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *PipelineStage) GetId() string {
@@ -3317,7 +5235,7 @@ type CreatePipelineStageRequest struct {
 
 func (x *CreatePipelineStageRequest) Reset() {
 	*x = CreatePipelineStageRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[59]
+	mi := &file_crm_v1_crm_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3329,7 +5247,7 @@ func (x *CreatePipelineStageRequest) String() string {
 func (*CreatePipelineStageRequest) ProtoMessage() {}
 
 func (x *CreatePipelineStageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[59]
+	mi := &file_crm_v1_crm_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3342,7 +5260,7 @@ func (x *CreatePipelineStageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePipelineStageRequest.ProtoReflect.Descriptor instead.
 func (*CreatePipelineStageRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{59}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *CreatePipelineStageRequest) GetStage() *PipelineStage {
@@ -3361,7 +5279,7 @@ type CreatePipelineStageResponse struct {
 
 func (x *CreatePipelineStageResponse) Reset() {
 	*x = CreatePipelineStageResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[60]
+	mi := &file_crm_v1_crm_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3373,7 +5291,7 @@ func (x *CreatePipelineStageResponse) String() string {
 func (*CreatePipelineStageResponse) ProtoMessage() {}
 
 func (x *CreatePipelineStageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[60]
+	mi := &file_crm_v1_crm_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3386,7 +5304,7 @@ func (x *CreatePipelineStageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePipelineStageResponse.ProtoReflect.Descriptor instead.
 func (*CreatePipelineStageResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{60}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *CreatePipelineStageResponse) GetStage() *PipelineStage {
@@ -3405,7 +5323,7 @@ type ListPipelineStagesRequest struct {
 
 func (x *ListPipelineStagesRequest) Reset() {
 	*x = ListPipelineStagesRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[61]
+	mi := &file_crm_v1_crm_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3417,7 +5335,7 @@ func (x *ListPipelineStagesRequest) String() string {
 func (*ListPipelineStagesRequest) ProtoMessage() {}
 
 func (x *ListPipelineStagesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[61]
+	mi := &file_crm_v1_crm_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3430,7 +5348,7 @@ func (x *ListPipelineStagesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPipelineStagesRequest.ProtoReflect.Descriptor instead.
 func (*ListPipelineStagesRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{61}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *ListPipelineStagesRequest) GetPipelineId() string {
@@ -3449,7 +5367,7 @@ type ListPipelineStagesResponse struct {
 
 func (x *ListPipelineStagesResponse) Reset() {
 	*x = ListPipelineStagesResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[62]
+	mi := &file_crm_v1_crm_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3461,7 +5379,7 @@ func (x *ListPipelineStagesResponse) String() string {
 func (*ListPipelineStagesResponse) ProtoMessage() {}
 
 func (x *ListPipelineStagesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[62]
+	mi := &file_crm_v1_crm_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3474,7 +5392,7 @@ func (x *ListPipelineStagesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPipelineStagesResponse.ProtoReflect.Descriptor instead.
 func (*ListPipelineStagesResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{62}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *ListPipelineStagesResponse) GetStages() []*PipelineStage {
@@ -3493,7 +5411,7 @@ type UpdatePipelineStageRequest struct {
 
 func (x *UpdatePipelineStageRequest) Reset() {
 	*x = UpdatePipelineStageRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[63]
+	mi := &file_crm_v1_crm_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3505,7 +5423,7 @@ func (x *UpdatePipelineStageRequest) String() string {
 func (*UpdatePipelineStageRequest) ProtoMessage() {}
 
 func (x *UpdatePipelineStageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[63]
+	mi := &file_crm_v1_crm_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3518,7 +5436,7 @@ func (x *UpdatePipelineStageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePipelineStageRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePipelineStageRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{63}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *UpdatePipelineStageRequest) GetStage() *PipelineStage {
@@ -3537,7 +5455,7 @@ type UpdatePipelineStageResponse struct {
 
 func (x *UpdatePipelineStageResponse) Reset() {
 	*x = UpdatePipelineStageResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[64]
+	mi := &file_crm_v1_crm_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3549,7 +5467,7 @@ func (x *UpdatePipelineStageResponse) String() string {
 func (*UpdatePipelineStageResponse) ProtoMessage() {}
 
 func (x *UpdatePipelineStageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[64]
+	mi := &file_crm_v1_crm_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3562,7 +5480,7 @@ func (x *UpdatePipelineStageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePipelineStageResponse.ProtoReflect.Descriptor instead.
 func (*UpdatePipelineStageResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{64}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *UpdatePipelineStageResponse) GetStage() *PipelineStage {
@@ -3582,20 +5500,21 @@ type Activity struct {
 	// subject_id must name an existing record of that type in this tenant. An
 	// unrecognized subject_type or a dangling/cross-tenant subject_id is
 	// rejected on create.
-	SubjectType   string                 `protobuf:"bytes,3,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
-	SubjectId     string                 `protobuf:"bytes,4,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
-	Notes         string                 `protobuf:"bytes,5,opt,name=notes,proto3" json:"notes,omitempty"`
-	ActorId       string                 `protobuf:"bytes,6,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
-	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	SubjectType   string                  `protobuf:"bytes,3,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
+	SubjectId     string                  `protobuf:"bytes,4,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
+	Notes         string                  `protobuf:"bytes,5,opt,name=notes,proto3" json:"notes,omitempty"`
+	ActorId       string                  `protobuf:"bytes,6,opt,name=actor_id,json=actorId,proto3" json:"actor_id,omitempty"`
+	OccurredAt    *timestamppb.Timestamp  `protobuf:"bytes,7,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp  `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp  `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CustomFields  map[string]*CustomValue `protobuf:"bytes,10,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Activity) Reset() {
 	*x = Activity{}
-	mi := &file_crm_v1_crm_proto_msgTypes[65]
+	mi := &file_crm_v1_crm_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3607,7 +5526,7 @@ func (x *Activity) String() string {
 func (*Activity) ProtoMessage() {}
 
 func (x *Activity) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[65]
+	mi := &file_crm_v1_crm_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3620,7 +5539,7 @@ func (x *Activity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Activity.ProtoReflect.Descriptor instead.
 func (*Activity) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{65}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *Activity) GetId() string {
@@ -3686,6 +5605,13 @@ func (x *Activity) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Activity) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateActivityRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Activity      *Activity              `protobuf:"bytes,1,opt,name=activity,proto3" json:"activity,omitempty"`
@@ -3695,7 +5621,7 @@ type CreateActivityRequest struct {
 
 func (x *CreateActivityRequest) Reset() {
 	*x = CreateActivityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[66]
+	mi := &file_crm_v1_crm_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3707,7 +5633,7 @@ func (x *CreateActivityRequest) String() string {
 func (*CreateActivityRequest) ProtoMessage() {}
 
 func (x *CreateActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[66]
+	mi := &file_crm_v1_crm_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3720,7 +5646,7 @@ func (x *CreateActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateActivityRequest.ProtoReflect.Descriptor instead.
 func (*CreateActivityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{66}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *CreateActivityRequest) GetActivity() *Activity {
@@ -3739,7 +5665,7 @@ type CreateActivityResponse struct {
 
 func (x *CreateActivityResponse) Reset() {
 	*x = CreateActivityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[67]
+	mi := &file_crm_v1_crm_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3751,7 +5677,7 @@ func (x *CreateActivityResponse) String() string {
 func (*CreateActivityResponse) ProtoMessage() {}
 
 func (x *CreateActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[67]
+	mi := &file_crm_v1_crm_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3764,7 +5690,7 @@ func (x *CreateActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateActivityResponse.ProtoReflect.Descriptor instead.
 func (*CreateActivityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{67}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *CreateActivityResponse) GetActivity() *Activity {
@@ -3783,7 +5709,7 @@ type GetActivityRequest struct {
 
 func (x *GetActivityRequest) Reset() {
 	*x = GetActivityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[68]
+	mi := &file_crm_v1_crm_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3795,7 +5721,7 @@ func (x *GetActivityRequest) String() string {
 func (*GetActivityRequest) ProtoMessage() {}
 
 func (x *GetActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[68]
+	mi := &file_crm_v1_crm_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3808,7 +5734,7 @@ func (x *GetActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActivityRequest.ProtoReflect.Descriptor instead.
 func (*GetActivityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{68}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *GetActivityRequest) GetId() string {
@@ -3827,7 +5753,7 @@ type GetActivityResponse struct {
 
 func (x *GetActivityResponse) Reset() {
 	*x = GetActivityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[69]
+	mi := &file_crm_v1_crm_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3839,7 +5765,7 @@ func (x *GetActivityResponse) String() string {
 func (*GetActivityResponse) ProtoMessage() {}
 
 func (x *GetActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[69]
+	mi := &file_crm_v1_crm_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3852,7 +5778,7 @@ func (x *GetActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActivityResponse.ProtoReflect.Descriptor instead.
 func (*GetActivityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{69}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *GetActivityResponse) GetActivity() *Activity {
@@ -3872,7 +5798,7 @@ type ListActivitiesRequest struct {
 
 func (x *ListActivitiesRequest) Reset() {
 	*x = ListActivitiesRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[70]
+	mi := &file_crm_v1_crm_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3884,7 +5810,7 @@ func (x *ListActivitiesRequest) String() string {
 func (*ListActivitiesRequest) ProtoMessage() {}
 
 func (x *ListActivitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[70]
+	mi := &file_crm_v1_crm_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3897,7 +5823,7 @@ func (x *ListActivitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActivitiesRequest.ProtoReflect.Descriptor instead.
 func (*ListActivitiesRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{70}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *ListActivitiesRequest) GetPageSize() int32 {
@@ -3924,7 +5850,7 @@ type ListActivitiesResponse struct {
 
 func (x *ListActivitiesResponse) Reset() {
 	*x = ListActivitiesResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[71]
+	mi := &file_crm_v1_crm_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3936,7 +5862,7 @@ func (x *ListActivitiesResponse) String() string {
 func (*ListActivitiesResponse) ProtoMessage() {}
 
 func (x *ListActivitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[71]
+	mi := &file_crm_v1_crm_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3949,7 +5875,7 @@ func (x *ListActivitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActivitiesResponse.ProtoReflect.Descriptor instead.
 func (*ListActivitiesResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{71}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *ListActivitiesResponse) GetActivities() []*Activity {
@@ -3980,7 +5906,7 @@ type UpdateActivityRequest struct {
 
 func (x *UpdateActivityRequest) Reset() {
 	*x = UpdateActivityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[72]
+	mi := &file_crm_v1_crm_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3992,7 +5918,7 @@ func (x *UpdateActivityRequest) String() string {
 func (*UpdateActivityRequest) ProtoMessage() {}
 
 func (x *UpdateActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[72]
+	mi := &file_crm_v1_crm_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4005,7 +5931,7 @@ func (x *UpdateActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateActivityRequest.ProtoReflect.Descriptor instead.
 func (*UpdateActivityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{72}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *UpdateActivityRequest) GetActivity() *Activity {
@@ -4024,7 +5950,7 @@ type UpdateActivityResponse struct {
 
 func (x *UpdateActivityResponse) Reset() {
 	*x = UpdateActivityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[73]
+	mi := &file_crm_v1_crm_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4036,7 +5962,7 @@ func (x *UpdateActivityResponse) String() string {
 func (*UpdateActivityResponse) ProtoMessage() {}
 
 func (x *UpdateActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[73]
+	mi := &file_crm_v1_crm_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4049,7 +5975,7 @@ func (x *UpdateActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateActivityResponse.ProtoReflect.Descriptor instead.
 func (*UpdateActivityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{73}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *UpdateActivityResponse) GetActivity() *Activity {
@@ -4068,7 +5994,7 @@ type DeleteActivityRequest struct {
 
 func (x *DeleteActivityRequest) Reset() {
 	*x = DeleteActivityRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[74]
+	mi := &file_crm_v1_crm_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4080,7 +6006,7 @@ func (x *DeleteActivityRequest) String() string {
 func (*DeleteActivityRequest) ProtoMessage() {}
 
 func (x *DeleteActivityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[74]
+	mi := &file_crm_v1_crm_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4093,7 +6019,7 @@ func (x *DeleteActivityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteActivityRequest.ProtoReflect.Descriptor instead.
 func (*DeleteActivityRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{74}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *DeleteActivityRequest) GetId() string {
@@ -4111,7 +6037,7 @@ type DeleteActivityResponse struct {
 
 func (x *DeleteActivityResponse) Reset() {
 	*x = DeleteActivityResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[75]
+	mi := &file_crm_v1_crm_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4123,7 +6049,7 @@ func (x *DeleteActivityResponse) String() string {
 func (*DeleteActivityResponse) ProtoMessage() {}
 
 func (x *DeleteActivityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[75]
+	mi := &file_crm_v1_crm_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4136,7 +6062,7 @@ func (x *DeleteActivityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteActivityResponse.ProtoReflect.Descriptor instead.
 func (*DeleteActivityResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{75}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{109}
 }
 
 // ListActivitiesForSubjectRequest names one polymorphic subject; both fields
@@ -4151,7 +6077,7 @@ type ListActivitiesForSubjectRequest struct {
 
 func (x *ListActivitiesForSubjectRequest) Reset() {
 	*x = ListActivitiesForSubjectRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[76]
+	mi := &file_crm_v1_crm_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4163,7 +6089,7 @@ func (x *ListActivitiesForSubjectRequest) String() string {
 func (*ListActivitiesForSubjectRequest) ProtoMessage() {}
 
 func (x *ListActivitiesForSubjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[76]
+	mi := &file_crm_v1_crm_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4176,7 +6102,7 @@ func (x *ListActivitiesForSubjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActivitiesForSubjectRequest.ProtoReflect.Descriptor instead.
 func (*ListActivitiesForSubjectRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{76}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *ListActivitiesForSubjectRequest) GetSubjectType() string {
@@ -4206,7 +6132,7 @@ type ListActivitiesForSubjectResponse struct {
 
 func (x *ListActivitiesForSubjectResponse) Reset() {
 	*x = ListActivitiesForSubjectResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[77]
+	mi := &file_crm_v1_crm_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4218,7 +6144,7 @@ func (x *ListActivitiesForSubjectResponse) String() string {
 func (*ListActivitiesForSubjectResponse) ProtoMessage() {}
 
 func (x *ListActivitiesForSubjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[77]
+	mi := &file_crm_v1_crm_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4231,7 +6157,7 @@ func (x *ListActivitiesForSubjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListActivitiesForSubjectResponse.ProtoReflect.Descriptor instead.
 func (*ListActivitiesForSubjectResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{77}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *ListActivitiesForSubjectResponse) GetActivities() []*Activity {
@@ -4249,7 +6175,7 @@ type GetSummaryRequest struct {
 
 func (x *GetSummaryRequest) Reset() {
 	*x = GetSummaryRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[78]
+	mi := &file_crm_v1_crm_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4261,7 +6187,7 @@ func (x *GetSummaryRequest) String() string {
 func (*GetSummaryRequest) ProtoMessage() {}
 
 func (x *GetSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[78]
+	mi := &file_crm_v1_crm_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4274,7 +6200,7 @@ func (x *GetSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{78}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{112}
 }
 
 type GetSummaryResponse struct {
@@ -4287,7 +6213,7 @@ type GetSummaryResponse struct {
 
 func (x *GetSummaryResponse) Reset() {
 	*x = GetSummaryResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[79]
+	mi := &file_crm_v1_crm_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4299,7 +6225,7 @@ func (x *GetSummaryResponse) String() string {
 func (*GetSummaryResponse) ProtoMessage() {}
 
 func (x *GetSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[79]
+	mi := &file_crm_v1_crm_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4312,7 +6238,7 @@ func (x *GetSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{79}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *GetSummaryResponse) GetTotal() int64 {
@@ -4356,18 +6282,19 @@ type Task struct {
 	SubjectId   string `protobuf:"bytes,9,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
 	// completed_at and completed_by are set by CompleteTask and cleared by
 	// ReopenTask. They are never writable directly.
-	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
-	CompletedBy   string                 `protobuf:"bytes,11,opt,name=completed_by,json=completedBy,proto3" json:"completed_by,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,12,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CompletedAt   *timestamppb.Timestamp  `protobuf:"bytes,10,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	CompletedBy   string                  `protobuf:"bytes,11,opt,name=completed_by,json=completedBy,proto3" json:"completed_by,omitempty"`
+	CreatedBy     string                  `protobuf:"bytes,12,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedAt     *timestamppb.Timestamp  `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp  `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CustomFields  map[string]*CustomValue `protobuf:"bytes,15,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Task) Reset() {
 	*x = Task{}
-	mi := &file_crm_v1_crm_proto_msgTypes[80]
+	mi := &file_crm_v1_crm_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4379,7 +6306,7 @@ func (x *Task) String() string {
 func (*Task) ProtoMessage() {}
 
 func (x *Task) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[80]
+	mi := &file_crm_v1_crm_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4392,7 +6319,7 @@ func (x *Task) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Task.ProtoReflect.Descriptor instead.
 func (*Task) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{80}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *Task) GetId() string {
@@ -4493,6 +6420,13 @@ func (x *Task) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Task) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Task          *Task                  `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
@@ -4502,7 +6436,7 @@ type CreateTaskRequest struct {
 
 func (x *CreateTaskRequest) Reset() {
 	*x = CreateTaskRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[81]
+	mi := &file_crm_v1_crm_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4514,7 +6448,7 @@ func (x *CreateTaskRequest) String() string {
 func (*CreateTaskRequest) ProtoMessage() {}
 
 func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[81]
+	mi := &file_crm_v1_crm_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4527,7 +6461,7 @@ func (x *CreateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{81}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *CreateTaskRequest) GetTask() *Task {
@@ -4546,7 +6480,7 @@ type CreateTaskResponse struct {
 
 func (x *CreateTaskResponse) Reset() {
 	*x = CreateTaskResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[82]
+	mi := &file_crm_v1_crm_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4558,7 +6492,7 @@ func (x *CreateTaskResponse) String() string {
 func (*CreateTaskResponse) ProtoMessage() {}
 
 func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[82]
+	mi := &file_crm_v1_crm_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4571,7 +6505,7 @@ func (x *CreateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTaskResponse.ProtoReflect.Descriptor instead.
 func (*CreateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{82}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *CreateTaskResponse) GetTask() *Task {
@@ -4590,7 +6524,7 @@ type GetTaskRequest struct {
 
 func (x *GetTaskRequest) Reset() {
 	*x = GetTaskRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[83]
+	mi := &file_crm_v1_crm_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4602,7 +6536,7 @@ func (x *GetTaskRequest) String() string {
 func (*GetTaskRequest) ProtoMessage() {}
 
 func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[83]
+	mi := &file_crm_v1_crm_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4615,7 +6549,7 @@ func (x *GetTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{83}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *GetTaskRequest) GetId() string {
@@ -4634,7 +6568,7 @@ type GetTaskResponse struct {
 
 func (x *GetTaskResponse) Reset() {
 	*x = GetTaskResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[84]
+	mi := &file_crm_v1_crm_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4646,7 +6580,7 @@ func (x *GetTaskResponse) String() string {
 func (*GetTaskResponse) ProtoMessage() {}
 
 func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[84]
+	mi := &file_crm_v1_crm_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4659,7 +6593,7 @@ func (x *GetTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{84}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *GetTaskResponse) GetTask() *Task {
@@ -4698,7 +6632,7 @@ type ListTasksRequest struct {
 
 func (x *ListTasksRequest) Reset() {
 	*x = ListTasksRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[85]
+	mi := &file_crm_v1_crm_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4710,7 +6644,7 @@ func (x *ListTasksRequest) String() string {
 func (*ListTasksRequest) ProtoMessage() {}
 
 func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[85]
+	mi := &file_crm_v1_crm_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4723,7 +6657,7 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{85}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *ListTasksRequest) GetPageSize() int32 {
@@ -4799,7 +6733,7 @@ type ListTasksResponse struct {
 
 func (x *ListTasksResponse) Reset() {
 	*x = ListTasksResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[86]
+	mi := &file_crm_v1_crm_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4811,7 +6745,7 @@ func (x *ListTasksResponse) String() string {
 func (*ListTasksResponse) ProtoMessage() {}
 
 func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[86]
+	mi := &file_crm_v1_crm_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4824,7 +6758,7 @@ func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListTasksResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{86}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *ListTasksResponse) GetTasks() []*Task {
@@ -4850,7 +6784,7 @@ type UpdateTaskRequest struct {
 
 func (x *UpdateTaskRequest) Reset() {
 	*x = UpdateTaskRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[87]
+	mi := &file_crm_v1_crm_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4862,7 +6796,7 @@ func (x *UpdateTaskRequest) String() string {
 func (*UpdateTaskRequest) ProtoMessage() {}
 
 func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[87]
+	mi := &file_crm_v1_crm_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4875,7 +6809,7 @@ func (x *UpdateTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTaskRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTaskRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{87}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *UpdateTaskRequest) GetTask() *Task {
@@ -4894,7 +6828,7 @@ type UpdateTaskResponse struct {
 
 func (x *UpdateTaskResponse) Reset() {
 	*x = UpdateTaskResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[88]
+	mi := &file_crm_v1_crm_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4906,7 +6840,7 @@ func (x *UpdateTaskResponse) String() string {
 func (*UpdateTaskResponse) ProtoMessage() {}
 
 func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[88]
+	mi := &file_crm_v1_crm_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4919,7 +6853,7 @@ func (x *UpdateTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTaskResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTaskResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{88}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *UpdateTaskResponse) GetTask() *Task {
@@ -4938,7 +6872,7 @@ type DeleteTaskRequest struct {
 
 func (x *DeleteTaskRequest) Reset() {
 	*x = DeleteTaskRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[89]
+	mi := &file_crm_v1_crm_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4950,7 +6884,7 @@ func (x *DeleteTaskRequest) String() string {
 func (*DeleteTaskRequest) ProtoMessage() {}
 
 func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[89]
+	mi := &file_crm_v1_crm_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4963,7 +6897,7 @@ func (x *DeleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{89}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *DeleteTaskRequest) GetId() string {
@@ -4981,7 +6915,7 @@ type DeleteTaskResponse struct {
 
 func (x *DeleteTaskResponse) Reset() {
 	*x = DeleteTaskResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[90]
+	mi := &file_crm_v1_crm_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4993,7 +6927,7 @@ func (x *DeleteTaskResponse) String() string {
 func (*DeleteTaskResponse) ProtoMessage() {}
 
 func (x *DeleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[90]
+	mi := &file_crm_v1_crm_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5006,7 +6940,7 @@ func (x *DeleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{90}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{124}
 }
 
 // CompleteTaskRequest marks a task done. actor_id records who completed it;
@@ -5021,7 +6955,7 @@ type CompleteTaskRequest struct {
 
 func (x *CompleteTaskRequest) Reset() {
 	*x = CompleteTaskRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[91]
+	mi := &file_crm_v1_crm_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5033,7 +6967,7 @@ func (x *CompleteTaskRequest) String() string {
 func (*CompleteTaskRequest) ProtoMessage() {}
 
 func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[91]
+	mi := &file_crm_v1_crm_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5046,7 +6980,7 @@ func (x *CompleteTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTaskRequest.ProtoReflect.Descriptor instead.
 func (*CompleteTaskRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{91}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *CompleteTaskRequest) GetId() string {
@@ -5072,7 +7006,7 @@ type CompleteTaskResponse struct {
 
 func (x *CompleteTaskResponse) Reset() {
 	*x = CompleteTaskResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[92]
+	mi := &file_crm_v1_crm_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5084,7 +7018,7 @@ func (x *CompleteTaskResponse) String() string {
 func (*CompleteTaskResponse) ProtoMessage() {}
 
 func (x *CompleteTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[92]
+	mi := &file_crm_v1_crm_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5097,7 +7031,7 @@ func (x *CompleteTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteTaskResponse.ProtoReflect.Descriptor instead.
 func (*CompleteTaskResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{92}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *CompleteTaskResponse) GetTask() *Task {
@@ -5116,7 +7050,7 @@ type ReopenTaskRequest struct {
 
 func (x *ReopenTaskRequest) Reset() {
 	*x = ReopenTaskRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[93]
+	mi := &file_crm_v1_crm_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5128,7 +7062,7 @@ func (x *ReopenTaskRequest) String() string {
 func (*ReopenTaskRequest) ProtoMessage() {}
 
 func (x *ReopenTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[93]
+	mi := &file_crm_v1_crm_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5141,7 +7075,7 @@ func (x *ReopenTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReopenTaskRequest.ProtoReflect.Descriptor instead.
 func (*ReopenTaskRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{93}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *ReopenTaskRequest) GetId() string {
@@ -5160,7 +7094,7 @@ type ReopenTaskResponse struct {
 
 func (x *ReopenTaskResponse) Reset() {
 	*x = ReopenTaskResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[94]
+	mi := &file_crm_v1_crm_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5172,7 +7106,7 @@ func (x *ReopenTaskResponse) String() string {
 func (*ReopenTaskResponse) ProtoMessage() {}
 
 func (x *ReopenTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[94]
+	mi := &file_crm_v1_crm_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5185,7 +7119,7 @@ func (x *ReopenTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReopenTaskResponse.ProtoReflect.Descriptor instead.
 func (*ReopenTaskResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{94}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *ReopenTaskResponse) GetTask() *Task {
@@ -5213,14 +7147,15 @@ type Note struct {
 	// edited_at is set the first time the body actually changes, and left
 	// alone by a write that changes nothing. A reader can tell a corrected
 	// note from an original one without diffing anything.
-	EditedAt      *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=edited_at,json=editedAt,proto3" json:"edited_at,omitempty"`
+	EditedAt      *timestamppb.Timestamp  `protobuf:"bytes,8,opt,name=edited_at,json=editedAt,proto3" json:"edited_at,omitempty"`
+	CustomFields  map[string]*CustomValue `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Note) Reset() {
 	*x = Note{}
-	mi := &file_crm_v1_crm_proto_msgTypes[95]
+	mi := &file_crm_v1_crm_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5232,7 +7167,7 @@ func (x *Note) String() string {
 func (*Note) ProtoMessage() {}
 
 func (x *Note) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[95]
+	mi := &file_crm_v1_crm_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5245,7 +7180,7 @@ func (x *Note) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Note.ProtoReflect.Descriptor instead.
 func (*Note) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{95}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *Note) GetId() string {
@@ -5304,6 +7239,13 @@ func (x *Note) GetEditedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Note) GetCustomFields() map[string]*CustomValue {
+	if x != nil {
+		return x.CustomFields
+	}
+	return nil
+}
+
 type CreateNoteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Note          *Note                  `protobuf:"bytes,1,opt,name=note,proto3" json:"note,omitempty"`
@@ -5313,7 +7255,7 @@ type CreateNoteRequest struct {
 
 func (x *CreateNoteRequest) Reset() {
 	*x = CreateNoteRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[96]
+	mi := &file_crm_v1_crm_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5325,7 +7267,7 @@ func (x *CreateNoteRequest) String() string {
 func (*CreateNoteRequest) ProtoMessage() {}
 
 func (x *CreateNoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[96]
+	mi := &file_crm_v1_crm_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5338,7 +7280,7 @@ func (x *CreateNoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNoteRequest.ProtoReflect.Descriptor instead.
 func (*CreateNoteRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{96}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *CreateNoteRequest) GetNote() *Note {
@@ -5357,7 +7299,7 @@ type CreateNoteResponse struct {
 
 func (x *CreateNoteResponse) Reset() {
 	*x = CreateNoteResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[97]
+	mi := &file_crm_v1_crm_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5369,7 +7311,7 @@ func (x *CreateNoteResponse) String() string {
 func (*CreateNoteResponse) ProtoMessage() {}
 
 func (x *CreateNoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[97]
+	mi := &file_crm_v1_crm_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5382,7 +7324,7 @@ func (x *CreateNoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNoteResponse.ProtoReflect.Descriptor instead.
 func (*CreateNoteResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{97}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *CreateNoteResponse) GetNote() *Note {
@@ -5401,7 +7343,7 @@ type GetNoteRequest struct {
 
 func (x *GetNoteRequest) Reset() {
 	*x = GetNoteRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[98]
+	mi := &file_crm_v1_crm_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5413,7 +7355,7 @@ func (x *GetNoteRequest) String() string {
 func (*GetNoteRequest) ProtoMessage() {}
 
 func (x *GetNoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[98]
+	mi := &file_crm_v1_crm_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5426,7 +7368,7 @@ func (x *GetNoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNoteRequest.ProtoReflect.Descriptor instead.
 func (*GetNoteRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{98}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *GetNoteRequest) GetId() string {
@@ -5445,7 +7387,7 @@ type GetNoteResponse struct {
 
 func (x *GetNoteResponse) Reset() {
 	*x = GetNoteResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[99]
+	mi := &file_crm_v1_crm_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5457,7 +7399,7 @@ func (x *GetNoteResponse) String() string {
 func (*GetNoteResponse) ProtoMessage() {}
 
 func (x *GetNoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[99]
+	mi := &file_crm_v1_crm_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5470,7 +7412,7 @@ func (x *GetNoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNoteResponse.ProtoReflect.Descriptor instead.
 func (*GetNoteResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{99}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *GetNoteResponse) GetNote() *Note {
@@ -5495,7 +7437,7 @@ type ListNotesRequest struct {
 
 func (x *ListNotesRequest) Reset() {
 	*x = ListNotesRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[100]
+	mi := &file_crm_v1_crm_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5507,7 +7449,7 @@ func (x *ListNotesRequest) String() string {
 func (*ListNotesRequest) ProtoMessage() {}
 
 func (x *ListNotesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[100]
+	mi := &file_crm_v1_crm_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5520,7 +7462,7 @@ func (x *ListNotesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotesRequest.ProtoReflect.Descriptor instead.
 func (*ListNotesRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{100}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *ListNotesRequest) GetPageSize() int32 {
@@ -5568,7 +7510,7 @@ type ListNotesResponse struct {
 
 func (x *ListNotesResponse) Reset() {
 	*x = ListNotesResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[101]
+	mi := &file_crm_v1_crm_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5580,7 +7522,7 @@ func (x *ListNotesResponse) String() string {
 func (*ListNotesResponse) ProtoMessage() {}
 
 func (x *ListNotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[101]
+	mi := &file_crm_v1_crm_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5593,7 +7535,7 @@ func (x *ListNotesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNotesResponse.ProtoReflect.Descriptor instead.
 func (*ListNotesResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{101}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *ListNotesResponse) GetNotes() []*Note {
@@ -5619,7 +7561,7 @@ type UpdateNoteRequest struct {
 
 func (x *UpdateNoteRequest) Reset() {
 	*x = UpdateNoteRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[102]
+	mi := &file_crm_v1_crm_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5631,7 +7573,7 @@ func (x *UpdateNoteRequest) String() string {
 func (*UpdateNoteRequest) ProtoMessage() {}
 
 func (x *UpdateNoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[102]
+	mi := &file_crm_v1_crm_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5644,7 +7586,7 @@ func (x *UpdateNoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNoteRequest.ProtoReflect.Descriptor instead.
 func (*UpdateNoteRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{102}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *UpdateNoteRequest) GetNote() *Note {
@@ -5663,7 +7605,7 @@ type UpdateNoteResponse struct {
 
 func (x *UpdateNoteResponse) Reset() {
 	*x = UpdateNoteResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[103]
+	mi := &file_crm_v1_crm_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5675,7 +7617,7 @@ func (x *UpdateNoteResponse) String() string {
 func (*UpdateNoteResponse) ProtoMessage() {}
 
 func (x *UpdateNoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[103]
+	mi := &file_crm_v1_crm_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5688,7 +7630,7 @@ func (x *UpdateNoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNoteResponse.ProtoReflect.Descriptor instead.
 func (*UpdateNoteResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{103}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *UpdateNoteResponse) GetNote() *Note {
@@ -5707,7 +7649,7 @@ type DeleteNoteRequest struct {
 
 func (x *DeleteNoteRequest) Reset() {
 	*x = DeleteNoteRequest{}
-	mi := &file_crm_v1_crm_proto_msgTypes[104]
+	mi := &file_crm_v1_crm_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5719,7 +7661,7 @@ func (x *DeleteNoteRequest) String() string {
 func (*DeleteNoteRequest) ProtoMessage() {}
 
 func (x *DeleteNoteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[104]
+	mi := &file_crm_v1_crm_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5732,7 +7674,7 @@ func (x *DeleteNoteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNoteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteNoteRequest) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{104}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *DeleteNoteRequest) GetId() string {
@@ -5750,7 +7692,7 @@ type DeleteNoteResponse struct {
 
 func (x *DeleteNoteResponse) Reset() {
 	*x = DeleteNoteResponse{}
-	mi := &file_crm_v1_crm_proto_msgTypes[105]
+	mi := &file_crm_v1_crm_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5762,7 +7704,7 @@ func (x *DeleteNoteResponse) String() string {
 func (*DeleteNoteResponse) ProtoMessage() {}
 
 func (x *DeleteNoteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_crm_v1_crm_proto_msgTypes[105]
+	mi := &file_crm_v1_crm_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5775,14 +7717,166 @@ func (x *DeleteNoteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNoteResponse.ProtoReflect.Descriptor instead.
 func (*DeleteNoteResponse) Descriptor() ([]byte, []int) {
-	return file_crm_v1_crm_proto_rawDescGZIP(), []int{105}
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{139}
 }
 
 var File_crm_v1_crm_proto protoreflect.FileDescriptor
 
 const file_crm_v1_crm_proto_rawDesc = "" +
 	"\n" +
-	"\x10crm/v1/crm.proto\x12\x06crm.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x83\x03\n" +
+	"\x10crm/v1/crm.proto\x12\x06crm.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa3\x02\n" +
+	"\vCustomValue\x12\x14\n" +
+	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12\x18\n" +
+	"\x06number\x18\x02 \x01(\x01H\x00R\x06number\x12\x1a\n" +
+	"\adecimal\x18\x03 \x01(\tH\x00R\adecimal\x12\x1a\n" +
+	"\aboolean\x18\x04 \x01(\bH\x00R\aboolean\x12:\n" +
+	"\ttimestamp\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\ttimestamp\x12\x14\n" +
+	"\x04date\x18\x06 \x01(\tH\x00R\x04date\x12\x1e\n" +
+	"\treference\x18\a \x01(\tH\x00R\treference\x121\n" +
+	"\ttext_list\x18\b \x01(\v2\x12.crm.v1.StringListH\x00R\btextListB\a\n" +
+	"\x05value\"$\n" +
+	"\n" +
+	"StringList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x9c\x02\n" +
+	"\x11CustomFieldConfig\x12\x18\n" +
+	"\aoptions\x18\x01 \x03(\tR\aoptions\x12,\n" +
+	"\x12lookup_object_type\x18\x02 \x01(\tR\x10lookupObjectType\x12\x14\n" +
+	"\x05scale\x18\x03 \x01(\x05R\x05scale\x12\x1e\n" +
+	"\n" +
+	"expression\x18\x04 \x01(\tR\n" +
+	"expression\x12(\n" +
+	"\x10visible_to_roles\x18\x05 \x03(\tR\x0evisibleToRoles\x12*\n" +
+	"\x11editable_to_roles\x18\x06 \x03(\tR\x0feditableToRoles\x123\n" +
+	"\x15validation_expression\x18\a \x01(\tR\x14validationExpression\"\x9a\x03\n" +
+	"\x15CustomFieldDefinition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
+	"\vobject_type\x18\x02 \x01(\tR\n" +
+	"objectType\x12\x1b\n" +
+	"\tfield_key\x18\x03 \x01(\tR\bfieldKey\x12\x14\n" +
+	"\x05label\x18\x04 \x01(\tR\x05label\x12\x1b\n" +
+	"\tdata_type\x18\x05 \x01(\tR\bdataType\x121\n" +
+	"\x06config\x18\x06 \x01(\v2\x19.crm.v1.CustomFieldConfigR\x06config\x12\x1a\n" +
+	"\brequired\x18\a \x01(\bR\brequired\x12;\n" +
+	"\varchived_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"archivedAt\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"c\n" +
+	"\"CreateCustomFieldDefinitionRequest\x12=\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1d.crm.v1.CustomFieldDefinitionR\n" +
+	"definition\"d\n" +
+	"#CreateCustomFieldDefinitionResponse\x12=\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1d.crm.v1.CustomFieldDefinitionR\n" +
+	"definition\"1\n" +
+	"\x1fGetCustomFieldDefinitionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"a\n" +
+	" GetCustomFieldDefinitionResponse\x12=\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1d.crm.v1.CustomFieldDefinitionR\n" +
+	"definition\"o\n" +
+	"!ListCustomFieldDefinitionsRequest\x12\x1f\n" +
+	"\vobject_type\x18\x01 \x01(\tR\n" +
+	"objectType\x12)\n" +
+	"\x10include_archived\x18\x02 \x01(\bR\x0fincludeArchived\"e\n" +
+	"\"ListCustomFieldDefinitionsResponse\x12?\n" +
+	"\vdefinitions\x18\x01 \x03(\v2\x1d.crm.v1.CustomFieldDefinitionR\vdefinitions\"c\n" +
+	"\"UpdateCustomFieldDefinitionRequest\x12=\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1d.crm.v1.CustomFieldDefinitionR\n" +
+	"definition\"d\n" +
+	"#UpdateCustomFieldDefinitionResponse\x12=\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1d.crm.v1.CustomFieldDefinitionR\n" +
+	"definition\"5\n" +
+	"#ArchiveCustomFieldDefinitionRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"e\n" +
+	"$ArchiveCustomFieldDefinitionResponse\x12=\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1d.crm.v1.CustomFieldDefinitionR\n" +
+	"definition\"\xaf\x02\n" +
+	"\x16CustomObjectDefinition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
+	"\bapi_name\x18\x02 \x01(\tR\aapiName\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12!\n" +
+	"\fplural_label\x18\x04 \x01(\tR\vpluralLabel\x12;\n" +
+	"\varchived_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"archivedAt\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xc0\x03\n" +
+	"\fCustomRecord\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
+	"\vobject_type\x18\x02 \x01(\tR\n" +
+	"objectType\x128\n" +
+	"\x06fields\x18\x03 \x03(\v2 .crm.v1.CustomRecord.FieldsEntryR\x06fields\x12A\n" +
+	"\trelations\x18\x04 \x03(\v2#.crm.v1.CustomRecord.RelationsEntryR\trelations\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1aN\n" +
+	"\vFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\x1a<\n" +
+	"\x0eRelationsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"e\n" +
+	"#CreateCustomObjectDefinitionRequest\x12>\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1e.crm.v1.CustomObjectDefinitionR\n" +
+	"definition\"f\n" +
+	"$CreateCustomObjectDefinitionResponse\x12>\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1e.crm.v1.CustomObjectDefinitionR\n" +
+	"definition\"=\n" +
+	" GetCustomObjectDefinitionRequest\x12\x19\n" +
+	"\bapi_name\x18\x01 \x01(\tR\aapiName\"c\n" +
+	"!GetCustomObjectDefinitionResponse\x12>\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1e.crm.v1.CustomObjectDefinitionR\n" +
+	"definition\"O\n" +
+	"\"ListCustomObjectDefinitionsRequest\x12)\n" +
+	"\x10include_archived\x18\x01 \x01(\bR\x0fincludeArchived\"g\n" +
+	"#ListCustomObjectDefinitionsResponse\x12@\n" +
+	"\vdefinitions\x18\x01 \x03(\v2\x1e.crm.v1.CustomObjectDefinitionR\vdefinitions\"A\n" +
+	"$ArchiveCustomObjectDefinitionRequest\x12\x19\n" +
+	"\bapi_name\x18\x01 \x01(\tR\aapiName\"g\n" +
+	"%ArchiveCustomObjectDefinitionResponse\x12>\n" +
+	"\n" +
+	"definition\x18\x01 \x01(\v2\x1e.crm.v1.CustomObjectDefinitionR\n" +
+	"definition\"I\n" +
+	"\x19CreateCustomRecordRequest\x12,\n" +
+	"\x06record\x18\x01 \x01(\v2\x14.crm.v1.CustomRecordR\x06record\"J\n" +
+	"\x1aCreateCustomRecordResponse\x12,\n" +
+	"\x06record\x18\x01 \x01(\v2\x14.crm.v1.CustomRecordR\x06record\"I\n" +
+	"\x16GetCustomRecordRequest\x12\x1f\n" +
+	"\vobject_type\x18\x01 \x01(\tR\n" +
+	"objectType\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\"G\n" +
+	"\x17GetCustomRecordResponse\x12,\n" +
+	"\x06record\x18\x01 \x01(\v2\x14.crm.v1.CustomRecordR\x06record\"w\n" +
+	"\x18ListCustomRecordsRequest\x12\x1f\n" +
+	"\vobject_type\x18\x01 \x01(\tR\n" +
+	"objectType\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"s\n" +
+	"\x19ListCustomRecordsResponse\x12.\n" +
+	"\arecords\x18\x01 \x03(\v2\x14.crm.v1.CustomRecordR\arecords\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"I\n" +
+	"\x19UpdateCustomRecordRequest\x12,\n" +
+	"\x06record\x18\x01 \x01(\v2\x14.crm.v1.CustomRecordR\x06record\"J\n" +
+	"\x1aUpdateCustomRecordResponse\x12,\n" +
+	"\x06record\x18\x01 \x01(\v2\x14.crm.v1.CustomRecordR\x06record\"L\n" +
+	"\x19DeleteCustomRecordRequest\x12\x1f\n" +
+	"\vobject_type\x18\x01 \x01(\tR\n" +
+	"objectType\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\"\x1c\n" +
+	"\x1aDeleteCustomRecordResponse\"\xa1\x04\n" +
 	"\aAccount\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -5797,7 +7891,11 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1b\n" +
 	"\tparent_id\x18\n" +
 	" \x01(\tR\bparentId\x125\n" +
-	"\x17duplicate_of_account_id\x18\v \x01(\tR\x14duplicateOfAccountId\"A\n" +
+	"\x17duplicate_of_account_id\x18\v \x01(\tR\x14duplicateOfAccountId\x12F\n" +
+	"\rcustom_fields\x18\f \x03(\v2!.crm.v1.Account.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"A\n" +
 	"\x14CreateAccountRequest\x12)\n" +
 	"\aaccount\x18\x01 \x01(\v2\x0f.crm.v1.AccountR\aaccount\"B\n" +
 	"\x15CreateAccountResponse\x12)\n" +
@@ -5824,7 +7922,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\aaccount\x18\x01 \x01(\v2\x0f.crm.v1.AccountR\aaccount\"&\n" +
 	"\x14DeleteAccountRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteAccountResponse\"\xf7\x02\n" +
+	"\x15DeleteAccountResponse\"\x95\x04\n" +
 	"\aContact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x1d\n" +
@@ -5841,7 +7939,11 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n" +
 	"\x04role\x18\n" +
 	" \x01(\tR\x04role\x125\n" +
-	"\x17duplicate_of_contact_id\x18\v \x01(\tR\x14duplicateOfContactId\"A\n" +
+	"\x17duplicate_of_contact_id\x18\v \x01(\tR\x14duplicateOfContactId\x12F\n" +
+	"\rcustom_fields\x18\f \x03(\v2!.crm.v1.Contact.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"A\n" +
 	"\x14CreateContactRequest\x12)\n" +
 	"\acontact\x18\x01 \x01(\v2\x0f.crm.v1.ContactR\acontact\"B\n" +
 	"\x15CreateContactResponse\x12)\n" +
@@ -5868,7 +7970,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\acontact\x18\x01 \x01(\v2\x0f.crm.v1.ContactR\acontact\"&\n" +
 	"\x14DeleteContactRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteContactResponse\"\x81\x04\n" +
+	"\x15DeleteContactResponse\"\x9c\x05\n" +
 	"\x04Lead\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acompany\x18\x02 \x01(\tR\acompany\x12\x16\n" +
@@ -5885,7 +7987,11 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	" \x01(\tR\x14duplicateOfContactId\x120\n" +
 	"\x14converted_contact_id\x18\v \x01(\tR\x12convertedContactId\x120\n" +
 	"\x14converted_account_id\x18\f \x01(\tR\x12convertedAccountId\x128\n" +
-	"\x18converted_opportunity_id\x18\r \x01(\tR\x16convertedOpportunityId\"5\n" +
+	"\x18converted_opportunity_id\x18\r \x01(\tR\x16convertedOpportunityId\x12C\n" +
+	"\rcustom_fields\x18\x0e \x03(\v2\x1e.crm.v1.Lead.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"5\n" +
 	"\x11CreateLeadRequest\x12 \n" +
 	"\x04lead\x18\x01 \x01(\v2\f.crm.v1.LeadR\x04lead\"6\n" +
 	"\x12CreateLeadResponse\x12 \n" +
@@ -5917,7 +8023,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x04lead\x18\x01 \x01(\v2\f.crm.v1.LeadR\x04lead\x12)\n" +
 	"\acontact\x18\x02 \x01(\v2\x0f.crm.v1.ContactR\acontact\x12)\n" +
 	"\aaccount\x18\x03 \x01(\v2\x0f.crm.v1.AccountR\aaccount\x125\n" +
-	"\vopportunity\x18\x04 \x01(\v2\x13.crm.v1.OpportunityR\vopportunity\"\xb0\x03\n" +
+	"\vopportunity\x18\x04 \x01(\v2\x13.crm.v1.OpportunityR\vopportunity\"\xd2\x04\n" +
 	"\vOpportunity\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -5936,7 +8042,11 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	" \x01(\tR\vcloseReason\x12\x1f\n" +
 	"\vpipeline_id\x18\v \x01(\tR\n" +
 	"pipelineId\x12\x19\n" +
-	"\bstage_id\x18\f \x01(\tR\astageId\"Q\n" +
+	"\bstage_id\x18\f \x01(\tR\astageId\x12J\n" +
+	"\rcustom_fields\x18\r \x03(\v2%.crm.v1.Opportunity.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"Q\n" +
 	"\x18CreateOpportunityRequest\x125\n" +
 	"\vopportunity\x18\x01 \x01(\v2\x13.crm.v1.OpportunityR\vopportunity\"R\n" +
 	"\x19CreateOpportunityResponse\x125\n" +
@@ -6025,7 +8135,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x1aUpdatePipelineStageRequest\x12+\n" +
 	"\x05stage\x18\x01 \x01(\v2\x15.crm.v1.PipelineStageR\x05stage\"J\n" +
 	"\x1bUpdatePipelineStageResponse\x12+\n" +
-	"\x05stage\x18\x01 \x01(\v2\x15.crm.v1.PipelineStageR\x05stage\"\xd4\x02\n" +
+	"\x05stage\x18\x01 \x01(\v2\x15.crm.v1.PipelineStageR\x05stage\"\xf3\x03\n" +
 	"\bActivity\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12!\n" +
@@ -6039,7 +8149,12 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"E\n" +
+	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12G\n" +
+	"\rcustom_fields\x18\n" +
+	" \x03(\v2\".crm.v1.Activity.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"E\n" +
 	"\x15CreateActivityRequest\x12,\n" +
 	"\bactivity\x18\x01 \x01(\v2\x10.crm.v1.ActivityR\bactivity\"F\n" +
 	"\x16CreateActivityResponse\x12,\n" +
@@ -6078,7 +8193,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x06counts\x18\x02 \x03(\v2&.crm.v1.GetSummaryResponse.CountsEntryR\x06counts\x1a9\n" +
 	"\vCountsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\x8f\x04\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\xaa\x05\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -6099,7 +8214,11 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"5\n" +
+	"updated_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12C\n" +
+	"\rcustom_fields\x18\x0f \x03(\v2\x1e.crm.v1.Task.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"5\n" +
 	"\x11CreateTaskRequest\x12 \n" +
 	"\x04task\x18\x01 \x01(\v2\f.crm.v1.TaskR\x04task\"6\n" +
 	"\x12CreateTaskResponse\x12 \n" +
@@ -6140,7 +8259,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x11ReopenTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"6\n" +
 	"\x12ReopenTaskResponse\x12 \n" +
-	"\x04task\x18\x01 \x01(\v2\f.crm.v1.TaskR\x04task\"\xb8\x02\n" +
+	"\x04task\x18\x01 \x01(\v2\f.crm.v1.TaskR\x04task\"\xd3\x03\n" +
 	"\x04Note\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04body\x18\x02 \x01(\tR\x04body\x12!\n" +
@@ -6152,7 +8271,11 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x127\n" +
-	"\tedited_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\beditedAt\"5\n" +
+	"\tedited_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\beditedAt\x12C\n" +
+	"\rcustom_fields\x18\t \x03(\v2\x1e.crm.v1.Note.CustomFieldsEntryR\fcustomFields\x1aT\n" +
+	"\x11CustomFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x05value\x18\x02 \x01(\v2\x13.crm.v1.CustomValueR\x05value:\x028\x01\"5\n" +
 	"\x11CreateNoteRequest\x12 \n" +
 	"\x04note\x18\x01 \x01(\v2\f.crm.v1.NoteR\x04note\"6\n" +
 	"\x12CreateNoteResponse\x12 \n" +
@@ -6178,7 +8301,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x04note\x18\x01 \x01(\v2\f.crm.v1.NoteR\x04note\"#\n" +
 	"\x11DeleteNoteRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x14\n" +
-	"\x12DeleteNoteResponse2\x85\x1d\n" +
+	"\x12DeleteNoteResponse2\xfc(\n" +
 	"\n" +
 	"CRMService\x12L\n" +
 	"\rCreateAccount\x12\x1c.crm.v1.CreateAccountRequest\x1a\x1d.crm.v1.CreateAccountResponse\x12C\n" +
@@ -6239,7 +8362,21 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\n" +
 	"UpdateNote\x12\x19.crm.v1.UpdateNoteRequest\x1a\x1a.crm.v1.UpdateNoteResponse\x12C\n" +
 	"\n" +
-	"DeleteNote\x12\x19.crm.v1.DeleteNoteRequest\x1a\x1a.crm.v1.DeleteNoteResponse\x12C\n" +
+	"DeleteNote\x12\x19.crm.v1.DeleteNoteRequest\x1a\x1a.crm.v1.DeleteNoteResponse\x12v\n" +
+	"\x1bCreateCustomFieldDefinition\x12*.crm.v1.CreateCustomFieldDefinitionRequest\x1a+.crm.v1.CreateCustomFieldDefinitionResponse\x12m\n" +
+	"\x18GetCustomFieldDefinition\x12'.crm.v1.GetCustomFieldDefinitionRequest\x1a(.crm.v1.GetCustomFieldDefinitionResponse\x12s\n" +
+	"\x1aListCustomFieldDefinitions\x12).crm.v1.ListCustomFieldDefinitionsRequest\x1a*.crm.v1.ListCustomFieldDefinitionsResponse\x12v\n" +
+	"\x1bUpdateCustomFieldDefinition\x12*.crm.v1.UpdateCustomFieldDefinitionRequest\x1a+.crm.v1.UpdateCustomFieldDefinitionResponse\x12y\n" +
+	"\x1cArchiveCustomFieldDefinition\x12+.crm.v1.ArchiveCustomFieldDefinitionRequest\x1a,.crm.v1.ArchiveCustomFieldDefinitionResponse\x12y\n" +
+	"\x1cCreateCustomObjectDefinition\x12+.crm.v1.CreateCustomObjectDefinitionRequest\x1a,.crm.v1.CreateCustomObjectDefinitionResponse\x12p\n" +
+	"\x19GetCustomObjectDefinition\x12(.crm.v1.GetCustomObjectDefinitionRequest\x1a).crm.v1.GetCustomObjectDefinitionResponse\x12v\n" +
+	"\x1bListCustomObjectDefinitions\x12*.crm.v1.ListCustomObjectDefinitionsRequest\x1a+.crm.v1.ListCustomObjectDefinitionsResponse\x12|\n" +
+	"\x1dArchiveCustomObjectDefinition\x12,.crm.v1.ArchiveCustomObjectDefinitionRequest\x1a-.crm.v1.ArchiveCustomObjectDefinitionResponse\x12[\n" +
+	"\x12CreateCustomRecord\x12!.crm.v1.CreateCustomRecordRequest\x1a\".crm.v1.CreateCustomRecordResponse\x12R\n" +
+	"\x0fGetCustomRecord\x12\x1e.crm.v1.GetCustomRecordRequest\x1a\x1f.crm.v1.GetCustomRecordResponse\x12X\n" +
+	"\x11ListCustomRecords\x12 .crm.v1.ListCustomRecordsRequest\x1a!.crm.v1.ListCustomRecordsResponse\x12[\n" +
+	"\x12UpdateCustomRecord\x12!.crm.v1.UpdateCustomRecordRequest\x1a\".crm.v1.UpdateCustomRecordResponse\x12[\n" +
+	"\x12DeleteCustomRecord\x12!.crm.v1.DeleteCustomRecordRequest\x1a\".crm.v1.DeleteCustomRecordResponse\x12C\n" +
 	"\n" +
 	"GetSummary\x12\x19.crm.v1.GetSummaryRequest\x1a\x1a.crm.v1.GetSummaryResponseB|\n" +
 	"\n" +
@@ -6257,308 +8394,425 @@ func file_crm_v1_crm_proto_rawDescGZIP() []byte {
 	return file_crm_v1_crm_proto_rawDescData
 }
 
-var file_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 107)
+var file_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 150)
 var file_crm_v1_crm_proto_goTypes = []any{
-	(*Account)(nil),                             // 0: crm.v1.Account
-	(*CreateAccountRequest)(nil),                // 1: crm.v1.CreateAccountRequest
-	(*CreateAccountResponse)(nil),               // 2: crm.v1.CreateAccountResponse
-	(*GetAccountRequest)(nil),                   // 3: crm.v1.GetAccountRequest
-	(*GetAccountResponse)(nil),                  // 4: crm.v1.GetAccountResponse
-	(*ListAccountsRequest)(nil),                 // 5: crm.v1.ListAccountsRequest
-	(*ListAccountsResponse)(nil),                // 6: crm.v1.ListAccountsResponse
-	(*UpdateAccountRequest)(nil),                // 7: crm.v1.UpdateAccountRequest
-	(*UpdateAccountResponse)(nil),               // 8: crm.v1.UpdateAccountResponse
-	(*DeleteAccountRequest)(nil),                // 9: crm.v1.DeleteAccountRequest
-	(*DeleteAccountResponse)(nil),               // 10: crm.v1.DeleteAccountResponse
-	(*Contact)(nil),                             // 11: crm.v1.Contact
-	(*CreateContactRequest)(nil),                // 12: crm.v1.CreateContactRequest
-	(*CreateContactResponse)(nil),               // 13: crm.v1.CreateContactResponse
-	(*GetContactRequest)(nil),                   // 14: crm.v1.GetContactRequest
-	(*GetContactResponse)(nil),                  // 15: crm.v1.GetContactResponse
-	(*ListContactsRequest)(nil),                 // 16: crm.v1.ListContactsRequest
-	(*ListContactsResponse)(nil),                // 17: crm.v1.ListContactsResponse
-	(*UpdateContactRequest)(nil),                // 18: crm.v1.UpdateContactRequest
-	(*UpdateContactResponse)(nil),               // 19: crm.v1.UpdateContactResponse
-	(*DeleteContactRequest)(nil),                // 20: crm.v1.DeleteContactRequest
-	(*DeleteContactResponse)(nil),               // 21: crm.v1.DeleteContactResponse
-	(*Lead)(nil),                                // 22: crm.v1.Lead
-	(*CreateLeadRequest)(nil),                   // 23: crm.v1.CreateLeadRequest
-	(*CreateLeadResponse)(nil),                  // 24: crm.v1.CreateLeadResponse
-	(*GetLeadRequest)(nil),                      // 25: crm.v1.GetLeadRequest
-	(*GetLeadResponse)(nil),                     // 26: crm.v1.GetLeadResponse
-	(*ListLeadsRequest)(nil),                    // 27: crm.v1.ListLeadsRequest
-	(*ListLeadsResponse)(nil),                   // 28: crm.v1.ListLeadsResponse
-	(*UpdateLeadRequest)(nil),                   // 29: crm.v1.UpdateLeadRequest
-	(*UpdateLeadResponse)(nil),                  // 30: crm.v1.UpdateLeadResponse
-	(*DeleteLeadRequest)(nil),                   // 31: crm.v1.DeleteLeadRequest
-	(*DeleteLeadResponse)(nil),                  // 32: crm.v1.DeleteLeadResponse
-	(*ConvertLeadRequest)(nil),                  // 33: crm.v1.ConvertLeadRequest
-	(*ConvertLeadResponse)(nil),                 // 34: crm.v1.ConvertLeadResponse
-	(*Opportunity)(nil),                         // 35: crm.v1.Opportunity
-	(*CreateOpportunityRequest)(nil),            // 36: crm.v1.CreateOpportunityRequest
-	(*CreateOpportunityResponse)(nil),           // 37: crm.v1.CreateOpportunityResponse
-	(*GetOpportunityRequest)(nil),               // 38: crm.v1.GetOpportunityRequest
-	(*GetOpportunityResponse)(nil),              // 39: crm.v1.GetOpportunityResponse
-	(*ListOpportunitiesRequest)(nil),            // 40: crm.v1.ListOpportunitiesRequest
-	(*ListOpportunitiesResponse)(nil),           // 41: crm.v1.ListOpportunitiesResponse
-	(*UpdateOpportunityRequest)(nil),            // 42: crm.v1.UpdateOpportunityRequest
-	(*UpdateOpportunityResponse)(nil),           // 43: crm.v1.UpdateOpportunityResponse
-	(*DeleteOpportunityRequest)(nil),            // 44: crm.v1.DeleteOpportunityRequest
-	(*DeleteOpportunityResponse)(nil),           // 45: crm.v1.DeleteOpportunityResponse
-	(*OpportunityStageChange)(nil),              // 46: crm.v1.OpportunityStageChange
-	(*ListOpportunityStageHistoryRequest)(nil),  // 47: crm.v1.ListOpportunityStageHistoryRequest
-	(*ListOpportunityStageHistoryResponse)(nil), // 48: crm.v1.ListOpportunityStageHistoryResponse
-	(*Pipeline)(nil),                            // 49: crm.v1.Pipeline
-	(*CreatePipelineRequest)(nil),               // 50: crm.v1.CreatePipelineRequest
-	(*CreatePipelineResponse)(nil),              // 51: crm.v1.CreatePipelineResponse
-	(*GetPipelineRequest)(nil),                  // 52: crm.v1.GetPipelineRequest
-	(*GetPipelineResponse)(nil),                 // 53: crm.v1.GetPipelineResponse
-	(*ListPipelinesRequest)(nil),                // 54: crm.v1.ListPipelinesRequest
-	(*ListPipelinesResponse)(nil),               // 55: crm.v1.ListPipelinesResponse
-	(*UpdatePipelineRequest)(nil),               // 56: crm.v1.UpdatePipelineRequest
-	(*UpdatePipelineResponse)(nil),              // 57: crm.v1.UpdatePipelineResponse
-	(*PipelineStage)(nil),                       // 58: crm.v1.PipelineStage
-	(*CreatePipelineStageRequest)(nil),          // 59: crm.v1.CreatePipelineStageRequest
-	(*CreatePipelineStageResponse)(nil),         // 60: crm.v1.CreatePipelineStageResponse
-	(*ListPipelineStagesRequest)(nil),           // 61: crm.v1.ListPipelineStagesRequest
-	(*ListPipelineStagesResponse)(nil),          // 62: crm.v1.ListPipelineStagesResponse
-	(*UpdatePipelineStageRequest)(nil),          // 63: crm.v1.UpdatePipelineStageRequest
-	(*UpdatePipelineStageResponse)(nil),         // 64: crm.v1.UpdatePipelineStageResponse
-	(*Activity)(nil),                            // 65: crm.v1.Activity
-	(*CreateActivityRequest)(nil),               // 66: crm.v1.CreateActivityRequest
-	(*CreateActivityResponse)(nil),              // 67: crm.v1.CreateActivityResponse
-	(*GetActivityRequest)(nil),                  // 68: crm.v1.GetActivityRequest
-	(*GetActivityResponse)(nil),                 // 69: crm.v1.GetActivityResponse
-	(*ListActivitiesRequest)(nil),               // 70: crm.v1.ListActivitiesRequest
-	(*ListActivitiesResponse)(nil),              // 71: crm.v1.ListActivitiesResponse
-	(*UpdateActivityRequest)(nil),               // 72: crm.v1.UpdateActivityRequest
-	(*UpdateActivityResponse)(nil),              // 73: crm.v1.UpdateActivityResponse
-	(*DeleteActivityRequest)(nil),               // 74: crm.v1.DeleteActivityRequest
-	(*DeleteActivityResponse)(nil),              // 75: crm.v1.DeleteActivityResponse
-	(*ListActivitiesForSubjectRequest)(nil),     // 76: crm.v1.ListActivitiesForSubjectRequest
-	(*ListActivitiesForSubjectResponse)(nil),    // 77: crm.v1.ListActivitiesForSubjectResponse
-	(*GetSummaryRequest)(nil),                   // 78: crm.v1.GetSummaryRequest
-	(*GetSummaryResponse)(nil),                  // 79: crm.v1.GetSummaryResponse
-	(*Task)(nil),                                // 80: crm.v1.Task
-	(*CreateTaskRequest)(nil),                   // 81: crm.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),                  // 82: crm.v1.CreateTaskResponse
-	(*GetTaskRequest)(nil),                      // 83: crm.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),                     // 84: crm.v1.GetTaskResponse
-	(*ListTasksRequest)(nil),                    // 85: crm.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),                   // 86: crm.v1.ListTasksResponse
-	(*UpdateTaskRequest)(nil),                   // 87: crm.v1.UpdateTaskRequest
-	(*UpdateTaskResponse)(nil),                  // 88: crm.v1.UpdateTaskResponse
-	(*DeleteTaskRequest)(nil),                   // 89: crm.v1.DeleteTaskRequest
-	(*DeleteTaskResponse)(nil),                  // 90: crm.v1.DeleteTaskResponse
-	(*CompleteTaskRequest)(nil),                 // 91: crm.v1.CompleteTaskRequest
-	(*CompleteTaskResponse)(nil),                // 92: crm.v1.CompleteTaskResponse
-	(*ReopenTaskRequest)(nil),                   // 93: crm.v1.ReopenTaskRequest
-	(*ReopenTaskResponse)(nil),                  // 94: crm.v1.ReopenTaskResponse
-	(*Note)(nil),                                // 95: crm.v1.Note
-	(*CreateNoteRequest)(nil),                   // 96: crm.v1.CreateNoteRequest
-	(*CreateNoteResponse)(nil),                  // 97: crm.v1.CreateNoteResponse
-	(*GetNoteRequest)(nil),                      // 98: crm.v1.GetNoteRequest
-	(*GetNoteResponse)(nil),                     // 99: crm.v1.GetNoteResponse
-	(*ListNotesRequest)(nil),                    // 100: crm.v1.ListNotesRequest
-	(*ListNotesResponse)(nil),                   // 101: crm.v1.ListNotesResponse
-	(*UpdateNoteRequest)(nil),                   // 102: crm.v1.UpdateNoteRequest
-	(*UpdateNoteResponse)(nil),                  // 103: crm.v1.UpdateNoteResponse
-	(*DeleteNoteRequest)(nil),                   // 104: crm.v1.DeleteNoteRequest
-	(*DeleteNoteResponse)(nil),                  // 105: crm.v1.DeleteNoteResponse
-	nil,                                         // 106: crm.v1.GetSummaryResponse.CountsEntry
-	(*timestamppb.Timestamp)(nil),               // 107: google.protobuf.Timestamp
+	(*CustomValue)(nil),                           // 0: crm.v1.CustomValue
+	(*StringList)(nil),                            // 1: crm.v1.StringList
+	(*CustomFieldConfig)(nil),                     // 2: crm.v1.CustomFieldConfig
+	(*CustomFieldDefinition)(nil),                 // 3: crm.v1.CustomFieldDefinition
+	(*CreateCustomFieldDefinitionRequest)(nil),    // 4: crm.v1.CreateCustomFieldDefinitionRequest
+	(*CreateCustomFieldDefinitionResponse)(nil),   // 5: crm.v1.CreateCustomFieldDefinitionResponse
+	(*GetCustomFieldDefinitionRequest)(nil),       // 6: crm.v1.GetCustomFieldDefinitionRequest
+	(*GetCustomFieldDefinitionResponse)(nil),      // 7: crm.v1.GetCustomFieldDefinitionResponse
+	(*ListCustomFieldDefinitionsRequest)(nil),     // 8: crm.v1.ListCustomFieldDefinitionsRequest
+	(*ListCustomFieldDefinitionsResponse)(nil),    // 9: crm.v1.ListCustomFieldDefinitionsResponse
+	(*UpdateCustomFieldDefinitionRequest)(nil),    // 10: crm.v1.UpdateCustomFieldDefinitionRequest
+	(*UpdateCustomFieldDefinitionResponse)(nil),   // 11: crm.v1.UpdateCustomFieldDefinitionResponse
+	(*ArchiveCustomFieldDefinitionRequest)(nil),   // 12: crm.v1.ArchiveCustomFieldDefinitionRequest
+	(*ArchiveCustomFieldDefinitionResponse)(nil),  // 13: crm.v1.ArchiveCustomFieldDefinitionResponse
+	(*CustomObjectDefinition)(nil),                // 14: crm.v1.CustomObjectDefinition
+	(*CustomRecord)(nil),                          // 15: crm.v1.CustomRecord
+	(*CreateCustomObjectDefinitionRequest)(nil),   // 16: crm.v1.CreateCustomObjectDefinitionRequest
+	(*CreateCustomObjectDefinitionResponse)(nil),  // 17: crm.v1.CreateCustomObjectDefinitionResponse
+	(*GetCustomObjectDefinitionRequest)(nil),      // 18: crm.v1.GetCustomObjectDefinitionRequest
+	(*GetCustomObjectDefinitionResponse)(nil),     // 19: crm.v1.GetCustomObjectDefinitionResponse
+	(*ListCustomObjectDefinitionsRequest)(nil),    // 20: crm.v1.ListCustomObjectDefinitionsRequest
+	(*ListCustomObjectDefinitionsResponse)(nil),   // 21: crm.v1.ListCustomObjectDefinitionsResponse
+	(*ArchiveCustomObjectDefinitionRequest)(nil),  // 22: crm.v1.ArchiveCustomObjectDefinitionRequest
+	(*ArchiveCustomObjectDefinitionResponse)(nil), // 23: crm.v1.ArchiveCustomObjectDefinitionResponse
+	(*CreateCustomRecordRequest)(nil),             // 24: crm.v1.CreateCustomRecordRequest
+	(*CreateCustomRecordResponse)(nil),            // 25: crm.v1.CreateCustomRecordResponse
+	(*GetCustomRecordRequest)(nil),                // 26: crm.v1.GetCustomRecordRequest
+	(*GetCustomRecordResponse)(nil),               // 27: crm.v1.GetCustomRecordResponse
+	(*ListCustomRecordsRequest)(nil),              // 28: crm.v1.ListCustomRecordsRequest
+	(*ListCustomRecordsResponse)(nil),             // 29: crm.v1.ListCustomRecordsResponse
+	(*UpdateCustomRecordRequest)(nil),             // 30: crm.v1.UpdateCustomRecordRequest
+	(*UpdateCustomRecordResponse)(nil),            // 31: crm.v1.UpdateCustomRecordResponse
+	(*DeleteCustomRecordRequest)(nil),             // 32: crm.v1.DeleteCustomRecordRequest
+	(*DeleteCustomRecordResponse)(nil),            // 33: crm.v1.DeleteCustomRecordResponse
+	(*Account)(nil),                               // 34: crm.v1.Account
+	(*CreateAccountRequest)(nil),                  // 35: crm.v1.CreateAccountRequest
+	(*CreateAccountResponse)(nil),                 // 36: crm.v1.CreateAccountResponse
+	(*GetAccountRequest)(nil),                     // 37: crm.v1.GetAccountRequest
+	(*GetAccountResponse)(nil),                    // 38: crm.v1.GetAccountResponse
+	(*ListAccountsRequest)(nil),                   // 39: crm.v1.ListAccountsRequest
+	(*ListAccountsResponse)(nil),                  // 40: crm.v1.ListAccountsResponse
+	(*UpdateAccountRequest)(nil),                  // 41: crm.v1.UpdateAccountRequest
+	(*UpdateAccountResponse)(nil),                 // 42: crm.v1.UpdateAccountResponse
+	(*DeleteAccountRequest)(nil),                  // 43: crm.v1.DeleteAccountRequest
+	(*DeleteAccountResponse)(nil),                 // 44: crm.v1.DeleteAccountResponse
+	(*Contact)(nil),                               // 45: crm.v1.Contact
+	(*CreateContactRequest)(nil),                  // 46: crm.v1.CreateContactRequest
+	(*CreateContactResponse)(nil),                 // 47: crm.v1.CreateContactResponse
+	(*GetContactRequest)(nil),                     // 48: crm.v1.GetContactRequest
+	(*GetContactResponse)(nil),                    // 49: crm.v1.GetContactResponse
+	(*ListContactsRequest)(nil),                   // 50: crm.v1.ListContactsRequest
+	(*ListContactsResponse)(nil),                  // 51: crm.v1.ListContactsResponse
+	(*UpdateContactRequest)(nil),                  // 52: crm.v1.UpdateContactRequest
+	(*UpdateContactResponse)(nil),                 // 53: crm.v1.UpdateContactResponse
+	(*DeleteContactRequest)(nil),                  // 54: crm.v1.DeleteContactRequest
+	(*DeleteContactResponse)(nil),                 // 55: crm.v1.DeleteContactResponse
+	(*Lead)(nil),                                  // 56: crm.v1.Lead
+	(*CreateLeadRequest)(nil),                     // 57: crm.v1.CreateLeadRequest
+	(*CreateLeadResponse)(nil),                    // 58: crm.v1.CreateLeadResponse
+	(*GetLeadRequest)(nil),                        // 59: crm.v1.GetLeadRequest
+	(*GetLeadResponse)(nil),                       // 60: crm.v1.GetLeadResponse
+	(*ListLeadsRequest)(nil),                      // 61: crm.v1.ListLeadsRequest
+	(*ListLeadsResponse)(nil),                     // 62: crm.v1.ListLeadsResponse
+	(*UpdateLeadRequest)(nil),                     // 63: crm.v1.UpdateLeadRequest
+	(*UpdateLeadResponse)(nil),                    // 64: crm.v1.UpdateLeadResponse
+	(*DeleteLeadRequest)(nil),                     // 65: crm.v1.DeleteLeadRequest
+	(*DeleteLeadResponse)(nil),                    // 66: crm.v1.DeleteLeadResponse
+	(*ConvertLeadRequest)(nil),                    // 67: crm.v1.ConvertLeadRequest
+	(*ConvertLeadResponse)(nil),                   // 68: crm.v1.ConvertLeadResponse
+	(*Opportunity)(nil),                           // 69: crm.v1.Opportunity
+	(*CreateOpportunityRequest)(nil),              // 70: crm.v1.CreateOpportunityRequest
+	(*CreateOpportunityResponse)(nil),             // 71: crm.v1.CreateOpportunityResponse
+	(*GetOpportunityRequest)(nil),                 // 72: crm.v1.GetOpportunityRequest
+	(*GetOpportunityResponse)(nil),                // 73: crm.v1.GetOpportunityResponse
+	(*ListOpportunitiesRequest)(nil),              // 74: crm.v1.ListOpportunitiesRequest
+	(*ListOpportunitiesResponse)(nil),             // 75: crm.v1.ListOpportunitiesResponse
+	(*UpdateOpportunityRequest)(nil),              // 76: crm.v1.UpdateOpportunityRequest
+	(*UpdateOpportunityResponse)(nil),             // 77: crm.v1.UpdateOpportunityResponse
+	(*DeleteOpportunityRequest)(nil),              // 78: crm.v1.DeleteOpportunityRequest
+	(*DeleteOpportunityResponse)(nil),             // 79: crm.v1.DeleteOpportunityResponse
+	(*OpportunityStageChange)(nil),                // 80: crm.v1.OpportunityStageChange
+	(*ListOpportunityStageHistoryRequest)(nil),    // 81: crm.v1.ListOpportunityStageHistoryRequest
+	(*ListOpportunityStageHistoryResponse)(nil),   // 82: crm.v1.ListOpportunityStageHistoryResponse
+	(*Pipeline)(nil),                              // 83: crm.v1.Pipeline
+	(*CreatePipelineRequest)(nil),                 // 84: crm.v1.CreatePipelineRequest
+	(*CreatePipelineResponse)(nil),                // 85: crm.v1.CreatePipelineResponse
+	(*GetPipelineRequest)(nil),                    // 86: crm.v1.GetPipelineRequest
+	(*GetPipelineResponse)(nil),                   // 87: crm.v1.GetPipelineResponse
+	(*ListPipelinesRequest)(nil),                  // 88: crm.v1.ListPipelinesRequest
+	(*ListPipelinesResponse)(nil),                 // 89: crm.v1.ListPipelinesResponse
+	(*UpdatePipelineRequest)(nil),                 // 90: crm.v1.UpdatePipelineRequest
+	(*UpdatePipelineResponse)(nil),                // 91: crm.v1.UpdatePipelineResponse
+	(*PipelineStage)(nil),                         // 92: crm.v1.PipelineStage
+	(*CreatePipelineStageRequest)(nil),            // 93: crm.v1.CreatePipelineStageRequest
+	(*CreatePipelineStageResponse)(nil),           // 94: crm.v1.CreatePipelineStageResponse
+	(*ListPipelineStagesRequest)(nil),             // 95: crm.v1.ListPipelineStagesRequest
+	(*ListPipelineStagesResponse)(nil),            // 96: crm.v1.ListPipelineStagesResponse
+	(*UpdatePipelineStageRequest)(nil),            // 97: crm.v1.UpdatePipelineStageRequest
+	(*UpdatePipelineStageResponse)(nil),           // 98: crm.v1.UpdatePipelineStageResponse
+	(*Activity)(nil),                              // 99: crm.v1.Activity
+	(*CreateActivityRequest)(nil),                 // 100: crm.v1.CreateActivityRequest
+	(*CreateActivityResponse)(nil),                // 101: crm.v1.CreateActivityResponse
+	(*GetActivityRequest)(nil),                    // 102: crm.v1.GetActivityRequest
+	(*GetActivityResponse)(nil),                   // 103: crm.v1.GetActivityResponse
+	(*ListActivitiesRequest)(nil),                 // 104: crm.v1.ListActivitiesRequest
+	(*ListActivitiesResponse)(nil),                // 105: crm.v1.ListActivitiesResponse
+	(*UpdateActivityRequest)(nil),                 // 106: crm.v1.UpdateActivityRequest
+	(*UpdateActivityResponse)(nil),                // 107: crm.v1.UpdateActivityResponse
+	(*DeleteActivityRequest)(nil),                 // 108: crm.v1.DeleteActivityRequest
+	(*DeleteActivityResponse)(nil),                // 109: crm.v1.DeleteActivityResponse
+	(*ListActivitiesForSubjectRequest)(nil),       // 110: crm.v1.ListActivitiesForSubjectRequest
+	(*ListActivitiesForSubjectResponse)(nil),      // 111: crm.v1.ListActivitiesForSubjectResponse
+	(*GetSummaryRequest)(nil),                     // 112: crm.v1.GetSummaryRequest
+	(*GetSummaryResponse)(nil),                    // 113: crm.v1.GetSummaryResponse
+	(*Task)(nil),                                  // 114: crm.v1.Task
+	(*CreateTaskRequest)(nil),                     // 115: crm.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),                    // 116: crm.v1.CreateTaskResponse
+	(*GetTaskRequest)(nil),                        // 117: crm.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),                       // 118: crm.v1.GetTaskResponse
+	(*ListTasksRequest)(nil),                      // 119: crm.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),                     // 120: crm.v1.ListTasksResponse
+	(*UpdateTaskRequest)(nil),                     // 121: crm.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil),                    // 122: crm.v1.UpdateTaskResponse
+	(*DeleteTaskRequest)(nil),                     // 123: crm.v1.DeleteTaskRequest
+	(*DeleteTaskResponse)(nil),                    // 124: crm.v1.DeleteTaskResponse
+	(*CompleteTaskRequest)(nil),                   // 125: crm.v1.CompleteTaskRequest
+	(*CompleteTaskResponse)(nil),                  // 126: crm.v1.CompleteTaskResponse
+	(*ReopenTaskRequest)(nil),                     // 127: crm.v1.ReopenTaskRequest
+	(*ReopenTaskResponse)(nil),                    // 128: crm.v1.ReopenTaskResponse
+	(*Note)(nil),                                  // 129: crm.v1.Note
+	(*CreateNoteRequest)(nil),                     // 130: crm.v1.CreateNoteRequest
+	(*CreateNoteResponse)(nil),                    // 131: crm.v1.CreateNoteResponse
+	(*GetNoteRequest)(nil),                        // 132: crm.v1.GetNoteRequest
+	(*GetNoteResponse)(nil),                       // 133: crm.v1.GetNoteResponse
+	(*ListNotesRequest)(nil),                      // 134: crm.v1.ListNotesRequest
+	(*ListNotesResponse)(nil),                     // 135: crm.v1.ListNotesResponse
+	(*UpdateNoteRequest)(nil),                     // 136: crm.v1.UpdateNoteRequest
+	(*UpdateNoteResponse)(nil),                    // 137: crm.v1.UpdateNoteResponse
+	(*DeleteNoteRequest)(nil),                     // 138: crm.v1.DeleteNoteRequest
+	(*DeleteNoteResponse)(nil),                    // 139: crm.v1.DeleteNoteResponse
+	nil,                                           // 140: crm.v1.CustomRecord.FieldsEntry
+	nil,                                           // 141: crm.v1.CustomRecord.RelationsEntry
+	nil,                                           // 142: crm.v1.Account.CustomFieldsEntry
+	nil,                                           // 143: crm.v1.Contact.CustomFieldsEntry
+	nil,                                           // 144: crm.v1.Lead.CustomFieldsEntry
+	nil,                                           // 145: crm.v1.Opportunity.CustomFieldsEntry
+	nil,                                           // 146: crm.v1.Activity.CustomFieldsEntry
+	nil,                                           // 147: crm.v1.GetSummaryResponse.CountsEntry
+	nil,                                           // 148: crm.v1.Task.CustomFieldsEntry
+	nil,                                           // 149: crm.v1.Note.CustomFieldsEntry
+	(*timestamppb.Timestamp)(nil),                 // 150: google.protobuf.Timestamp
 }
 var file_crm_v1_crm_proto_depIdxs = []int32{
-	107, // 0: crm.v1.Account.created_at:type_name -> google.protobuf.Timestamp
-	107, // 1: crm.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
-	0,   // 2: crm.v1.CreateAccountRequest.account:type_name -> crm.v1.Account
-	0,   // 3: crm.v1.CreateAccountResponse.account:type_name -> crm.v1.Account
-	0,   // 4: crm.v1.GetAccountResponse.account:type_name -> crm.v1.Account
-	0,   // 5: crm.v1.ListAccountsResponse.accounts:type_name -> crm.v1.Account
-	0,   // 6: crm.v1.UpdateAccountRequest.account:type_name -> crm.v1.Account
-	0,   // 7: crm.v1.UpdateAccountResponse.account:type_name -> crm.v1.Account
-	107, // 8: crm.v1.Contact.created_at:type_name -> google.protobuf.Timestamp
-	107, // 9: crm.v1.Contact.updated_at:type_name -> google.protobuf.Timestamp
-	11,  // 10: crm.v1.CreateContactRequest.contact:type_name -> crm.v1.Contact
-	11,  // 11: crm.v1.CreateContactResponse.contact:type_name -> crm.v1.Contact
-	11,  // 12: crm.v1.GetContactResponse.contact:type_name -> crm.v1.Contact
-	11,  // 13: crm.v1.ListContactsResponse.contacts:type_name -> crm.v1.Contact
-	11,  // 14: crm.v1.UpdateContactRequest.contact:type_name -> crm.v1.Contact
-	11,  // 15: crm.v1.UpdateContactResponse.contact:type_name -> crm.v1.Contact
-	107, // 16: crm.v1.Lead.created_at:type_name -> google.protobuf.Timestamp
-	107, // 17: crm.v1.Lead.updated_at:type_name -> google.protobuf.Timestamp
-	22,  // 18: crm.v1.CreateLeadRequest.lead:type_name -> crm.v1.Lead
-	22,  // 19: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.Lead
-	22,  // 20: crm.v1.GetLeadResponse.lead:type_name -> crm.v1.Lead
-	22,  // 21: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.Lead
-	22,  // 22: crm.v1.UpdateLeadRequest.lead:type_name -> crm.v1.Lead
-	22,  // 23: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.Lead
-	22,  // 24: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.Lead
-	11,  // 25: crm.v1.ConvertLeadResponse.contact:type_name -> crm.v1.Contact
-	0,   // 26: crm.v1.ConvertLeadResponse.account:type_name -> crm.v1.Account
-	35,  // 27: crm.v1.ConvertLeadResponse.opportunity:type_name -> crm.v1.Opportunity
-	107, // 28: crm.v1.Opportunity.close_date:type_name -> google.protobuf.Timestamp
-	107, // 29: crm.v1.Opportunity.created_at:type_name -> google.protobuf.Timestamp
-	107, // 30: crm.v1.Opportunity.updated_at:type_name -> google.protobuf.Timestamp
-	35,  // 31: crm.v1.CreateOpportunityRequest.opportunity:type_name -> crm.v1.Opportunity
-	35,  // 32: crm.v1.CreateOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
-	35,  // 33: crm.v1.GetOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
-	35,  // 34: crm.v1.ListOpportunitiesResponse.opportunities:type_name -> crm.v1.Opportunity
-	35,  // 35: crm.v1.UpdateOpportunityRequest.opportunity:type_name -> crm.v1.Opportunity
-	35,  // 36: crm.v1.UpdateOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
-	107, // 37: crm.v1.OpportunityStageChange.changed_at:type_name -> google.protobuf.Timestamp
-	46,  // 38: crm.v1.ListOpportunityStageHistoryResponse.changes:type_name -> crm.v1.OpportunityStageChange
-	107, // 39: crm.v1.Pipeline.archived_at:type_name -> google.protobuf.Timestamp
-	107, // 40: crm.v1.Pipeline.created_at:type_name -> google.protobuf.Timestamp
-	107, // 41: crm.v1.Pipeline.updated_at:type_name -> google.protobuf.Timestamp
-	49,  // 42: crm.v1.CreatePipelineRequest.pipeline:type_name -> crm.v1.Pipeline
-	49,  // 43: crm.v1.CreatePipelineResponse.pipeline:type_name -> crm.v1.Pipeline
-	49,  // 44: crm.v1.GetPipelineResponse.pipeline:type_name -> crm.v1.Pipeline
-	49,  // 45: crm.v1.ListPipelinesResponse.pipelines:type_name -> crm.v1.Pipeline
-	49,  // 46: crm.v1.UpdatePipelineRequest.pipeline:type_name -> crm.v1.Pipeline
-	49,  // 47: crm.v1.UpdatePipelineResponse.pipeline:type_name -> crm.v1.Pipeline
-	107, // 48: crm.v1.PipelineStage.archived_at:type_name -> google.protobuf.Timestamp
-	107, // 49: crm.v1.PipelineStage.created_at:type_name -> google.protobuf.Timestamp
-	107, // 50: crm.v1.PipelineStage.updated_at:type_name -> google.protobuf.Timestamp
-	58,  // 51: crm.v1.CreatePipelineStageRequest.stage:type_name -> crm.v1.PipelineStage
-	58,  // 52: crm.v1.CreatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStage
-	58,  // 53: crm.v1.ListPipelineStagesResponse.stages:type_name -> crm.v1.PipelineStage
-	58,  // 54: crm.v1.UpdatePipelineStageRequest.stage:type_name -> crm.v1.PipelineStage
-	58,  // 55: crm.v1.UpdatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStage
-	107, // 56: crm.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
-	107, // 57: crm.v1.Activity.created_at:type_name -> google.protobuf.Timestamp
-	107, // 58: crm.v1.Activity.updated_at:type_name -> google.protobuf.Timestamp
-	65,  // 59: crm.v1.CreateActivityRequest.activity:type_name -> crm.v1.Activity
-	65,  // 60: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.Activity
-	65,  // 61: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.Activity
-	65,  // 62: crm.v1.ListActivitiesResponse.activities:type_name -> crm.v1.Activity
-	65,  // 63: crm.v1.UpdateActivityRequest.activity:type_name -> crm.v1.Activity
-	65,  // 64: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.Activity
-	65,  // 65: crm.v1.ListActivitiesForSubjectResponse.activities:type_name -> crm.v1.Activity
-	106, // 66: crm.v1.GetSummaryResponse.counts:type_name -> crm.v1.GetSummaryResponse.CountsEntry
-	107, // 67: crm.v1.Task.due_at:type_name -> google.protobuf.Timestamp
-	107, // 68: crm.v1.Task.completed_at:type_name -> google.protobuf.Timestamp
-	107, // 69: crm.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	107, // 70: crm.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
-	80,  // 71: crm.v1.CreateTaskRequest.task:type_name -> crm.v1.Task
-	80,  // 72: crm.v1.CreateTaskResponse.task:type_name -> crm.v1.Task
-	80,  // 73: crm.v1.GetTaskResponse.task:type_name -> crm.v1.Task
-	107, // 74: crm.v1.ListTasksRequest.due_before:type_name -> google.protobuf.Timestamp
-	80,  // 75: crm.v1.ListTasksResponse.tasks:type_name -> crm.v1.Task
-	80,  // 76: crm.v1.UpdateTaskRequest.task:type_name -> crm.v1.Task
-	80,  // 77: crm.v1.UpdateTaskResponse.task:type_name -> crm.v1.Task
-	80,  // 78: crm.v1.CompleteTaskResponse.task:type_name -> crm.v1.Task
-	80,  // 79: crm.v1.ReopenTaskResponse.task:type_name -> crm.v1.Task
-	107, // 80: crm.v1.Note.created_at:type_name -> google.protobuf.Timestamp
-	107, // 81: crm.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
-	107, // 82: crm.v1.Note.edited_at:type_name -> google.protobuf.Timestamp
-	95,  // 83: crm.v1.CreateNoteRequest.note:type_name -> crm.v1.Note
-	95,  // 84: crm.v1.CreateNoteResponse.note:type_name -> crm.v1.Note
-	95,  // 85: crm.v1.GetNoteResponse.note:type_name -> crm.v1.Note
-	95,  // 86: crm.v1.ListNotesResponse.notes:type_name -> crm.v1.Note
-	95,  // 87: crm.v1.UpdateNoteRequest.note:type_name -> crm.v1.Note
-	95,  // 88: crm.v1.UpdateNoteResponse.note:type_name -> crm.v1.Note
-	1,   // 89: crm.v1.CRMService.CreateAccount:input_type -> crm.v1.CreateAccountRequest
-	3,   // 90: crm.v1.CRMService.GetAccount:input_type -> crm.v1.GetAccountRequest
-	5,   // 91: crm.v1.CRMService.ListAccounts:input_type -> crm.v1.ListAccountsRequest
-	7,   // 92: crm.v1.CRMService.UpdateAccount:input_type -> crm.v1.UpdateAccountRequest
-	9,   // 93: crm.v1.CRMService.DeleteAccount:input_type -> crm.v1.DeleteAccountRequest
-	12,  // 94: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
-	14,  // 95: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
-	16,  // 96: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
-	18,  // 97: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
-	20,  // 98: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
-	23,  // 99: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
-	25,  // 100: crm.v1.CRMService.GetLead:input_type -> crm.v1.GetLeadRequest
-	27,  // 101: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
-	29,  // 102: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
-	31,  // 103: crm.v1.CRMService.DeleteLead:input_type -> crm.v1.DeleteLeadRequest
-	33,  // 104: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
-	36,  // 105: crm.v1.CRMService.CreateOpportunity:input_type -> crm.v1.CreateOpportunityRequest
-	38,  // 106: crm.v1.CRMService.GetOpportunity:input_type -> crm.v1.GetOpportunityRequest
-	40,  // 107: crm.v1.CRMService.ListOpportunities:input_type -> crm.v1.ListOpportunitiesRequest
-	42,  // 108: crm.v1.CRMService.UpdateOpportunity:input_type -> crm.v1.UpdateOpportunityRequest
-	44,  // 109: crm.v1.CRMService.DeleteOpportunity:input_type -> crm.v1.DeleteOpportunityRequest
-	47,  // 110: crm.v1.CRMService.ListOpportunityStageHistory:input_type -> crm.v1.ListOpportunityStageHistoryRequest
-	50,  // 111: crm.v1.CRMService.CreatePipeline:input_type -> crm.v1.CreatePipelineRequest
-	52,  // 112: crm.v1.CRMService.GetPipeline:input_type -> crm.v1.GetPipelineRequest
-	54,  // 113: crm.v1.CRMService.ListPipelines:input_type -> crm.v1.ListPipelinesRequest
-	56,  // 114: crm.v1.CRMService.UpdatePipeline:input_type -> crm.v1.UpdatePipelineRequest
-	59,  // 115: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
-	61,  // 116: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
-	63,  // 117: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
-	66,  // 118: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
-	68,  // 119: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
-	70,  // 120: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
-	72,  // 121: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
-	74,  // 122: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
-	76,  // 123: crm.v1.CRMService.ListActivitiesForSubject:input_type -> crm.v1.ListActivitiesForSubjectRequest
-	81,  // 124: crm.v1.CRMService.CreateTask:input_type -> crm.v1.CreateTaskRequest
-	83,  // 125: crm.v1.CRMService.GetTask:input_type -> crm.v1.GetTaskRequest
-	85,  // 126: crm.v1.CRMService.ListTasks:input_type -> crm.v1.ListTasksRequest
-	87,  // 127: crm.v1.CRMService.UpdateTask:input_type -> crm.v1.UpdateTaskRequest
-	89,  // 128: crm.v1.CRMService.DeleteTask:input_type -> crm.v1.DeleteTaskRequest
-	91,  // 129: crm.v1.CRMService.CompleteTask:input_type -> crm.v1.CompleteTaskRequest
-	93,  // 130: crm.v1.CRMService.ReopenTask:input_type -> crm.v1.ReopenTaskRequest
-	96,  // 131: crm.v1.CRMService.CreateNote:input_type -> crm.v1.CreateNoteRequest
-	98,  // 132: crm.v1.CRMService.GetNote:input_type -> crm.v1.GetNoteRequest
-	100, // 133: crm.v1.CRMService.ListNotes:input_type -> crm.v1.ListNotesRequest
-	102, // 134: crm.v1.CRMService.UpdateNote:input_type -> crm.v1.UpdateNoteRequest
-	104, // 135: crm.v1.CRMService.DeleteNote:input_type -> crm.v1.DeleteNoteRequest
-	78,  // 136: crm.v1.CRMService.GetSummary:input_type -> crm.v1.GetSummaryRequest
-	2,   // 137: crm.v1.CRMService.CreateAccount:output_type -> crm.v1.CreateAccountResponse
-	4,   // 138: crm.v1.CRMService.GetAccount:output_type -> crm.v1.GetAccountResponse
-	6,   // 139: crm.v1.CRMService.ListAccounts:output_type -> crm.v1.ListAccountsResponse
-	8,   // 140: crm.v1.CRMService.UpdateAccount:output_type -> crm.v1.UpdateAccountResponse
-	10,  // 141: crm.v1.CRMService.DeleteAccount:output_type -> crm.v1.DeleteAccountResponse
-	13,  // 142: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
-	15,  // 143: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
-	17,  // 144: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
-	19,  // 145: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
-	21,  // 146: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
-	24,  // 147: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
-	26,  // 148: crm.v1.CRMService.GetLead:output_type -> crm.v1.GetLeadResponse
-	28,  // 149: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
-	30,  // 150: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
-	32,  // 151: crm.v1.CRMService.DeleteLead:output_type -> crm.v1.DeleteLeadResponse
-	34,  // 152: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
-	37,  // 153: crm.v1.CRMService.CreateOpportunity:output_type -> crm.v1.CreateOpportunityResponse
-	39,  // 154: crm.v1.CRMService.GetOpportunity:output_type -> crm.v1.GetOpportunityResponse
-	41,  // 155: crm.v1.CRMService.ListOpportunities:output_type -> crm.v1.ListOpportunitiesResponse
-	43,  // 156: crm.v1.CRMService.UpdateOpportunity:output_type -> crm.v1.UpdateOpportunityResponse
-	45,  // 157: crm.v1.CRMService.DeleteOpportunity:output_type -> crm.v1.DeleteOpportunityResponse
-	48,  // 158: crm.v1.CRMService.ListOpportunityStageHistory:output_type -> crm.v1.ListOpportunityStageHistoryResponse
-	51,  // 159: crm.v1.CRMService.CreatePipeline:output_type -> crm.v1.CreatePipelineResponse
-	53,  // 160: crm.v1.CRMService.GetPipeline:output_type -> crm.v1.GetPipelineResponse
-	55,  // 161: crm.v1.CRMService.ListPipelines:output_type -> crm.v1.ListPipelinesResponse
-	57,  // 162: crm.v1.CRMService.UpdatePipeline:output_type -> crm.v1.UpdatePipelineResponse
-	60,  // 163: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
-	62,  // 164: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
-	64,  // 165: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
-	67,  // 166: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
-	69,  // 167: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
-	71,  // 168: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
-	73,  // 169: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
-	75,  // 170: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
-	77,  // 171: crm.v1.CRMService.ListActivitiesForSubject:output_type -> crm.v1.ListActivitiesForSubjectResponse
-	82,  // 172: crm.v1.CRMService.CreateTask:output_type -> crm.v1.CreateTaskResponse
-	84,  // 173: crm.v1.CRMService.GetTask:output_type -> crm.v1.GetTaskResponse
-	86,  // 174: crm.v1.CRMService.ListTasks:output_type -> crm.v1.ListTasksResponse
-	88,  // 175: crm.v1.CRMService.UpdateTask:output_type -> crm.v1.UpdateTaskResponse
-	90,  // 176: crm.v1.CRMService.DeleteTask:output_type -> crm.v1.DeleteTaskResponse
-	92,  // 177: crm.v1.CRMService.CompleteTask:output_type -> crm.v1.CompleteTaskResponse
-	94,  // 178: crm.v1.CRMService.ReopenTask:output_type -> crm.v1.ReopenTaskResponse
-	97,  // 179: crm.v1.CRMService.CreateNote:output_type -> crm.v1.CreateNoteResponse
-	99,  // 180: crm.v1.CRMService.GetNote:output_type -> crm.v1.GetNoteResponse
-	101, // 181: crm.v1.CRMService.ListNotes:output_type -> crm.v1.ListNotesResponse
-	103, // 182: crm.v1.CRMService.UpdateNote:output_type -> crm.v1.UpdateNoteResponse
-	105, // 183: crm.v1.CRMService.DeleteNote:output_type -> crm.v1.DeleteNoteResponse
-	79,  // 184: crm.v1.CRMService.GetSummary:output_type -> crm.v1.GetSummaryResponse
-	137, // [137:185] is the sub-list for method output_type
-	89,  // [89:137] is the sub-list for method input_type
-	89,  // [89:89] is the sub-list for extension type_name
-	89,  // [89:89] is the sub-list for extension extendee
-	0,   // [0:89] is the sub-list for field type_name
+	150, // 0: crm.v1.CustomValue.timestamp:type_name -> google.protobuf.Timestamp
+	1,   // 1: crm.v1.CustomValue.text_list:type_name -> crm.v1.StringList
+	2,   // 2: crm.v1.CustomFieldDefinition.config:type_name -> crm.v1.CustomFieldConfig
+	150, // 3: crm.v1.CustomFieldDefinition.archived_at:type_name -> google.protobuf.Timestamp
+	150, // 4: crm.v1.CustomFieldDefinition.created_at:type_name -> google.protobuf.Timestamp
+	150, // 5: crm.v1.CustomFieldDefinition.updated_at:type_name -> google.protobuf.Timestamp
+	3,   // 6: crm.v1.CreateCustomFieldDefinitionRequest.definition:type_name -> crm.v1.CustomFieldDefinition
+	3,   // 7: crm.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
+	3,   // 8: crm.v1.GetCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
+	3,   // 9: crm.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> crm.v1.CustomFieldDefinition
+	3,   // 10: crm.v1.UpdateCustomFieldDefinitionRequest.definition:type_name -> crm.v1.CustomFieldDefinition
+	3,   // 11: crm.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
+	3,   // 12: crm.v1.ArchiveCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
+	150, // 13: crm.v1.CustomObjectDefinition.archived_at:type_name -> google.protobuf.Timestamp
+	150, // 14: crm.v1.CustomObjectDefinition.created_at:type_name -> google.protobuf.Timestamp
+	150, // 15: crm.v1.CustomObjectDefinition.updated_at:type_name -> google.protobuf.Timestamp
+	140, // 16: crm.v1.CustomRecord.fields:type_name -> crm.v1.CustomRecord.FieldsEntry
+	141, // 17: crm.v1.CustomRecord.relations:type_name -> crm.v1.CustomRecord.RelationsEntry
+	150, // 18: crm.v1.CustomRecord.created_at:type_name -> google.protobuf.Timestamp
+	150, // 19: crm.v1.CustomRecord.updated_at:type_name -> google.protobuf.Timestamp
+	14,  // 20: crm.v1.CreateCustomObjectDefinitionRequest.definition:type_name -> crm.v1.CustomObjectDefinition
+	14,  // 21: crm.v1.CreateCustomObjectDefinitionResponse.definition:type_name -> crm.v1.CustomObjectDefinition
+	14,  // 22: crm.v1.GetCustomObjectDefinitionResponse.definition:type_name -> crm.v1.CustomObjectDefinition
+	14,  // 23: crm.v1.ListCustomObjectDefinitionsResponse.definitions:type_name -> crm.v1.CustomObjectDefinition
+	14,  // 24: crm.v1.ArchiveCustomObjectDefinitionResponse.definition:type_name -> crm.v1.CustomObjectDefinition
+	15,  // 25: crm.v1.CreateCustomRecordRequest.record:type_name -> crm.v1.CustomRecord
+	15,  // 26: crm.v1.CreateCustomRecordResponse.record:type_name -> crm.v1.CustomRecord
+	15,  // 27: crm.v1.GetCustomRecordResponse.record:type_name -> crm.v1.CustomRecord
+	15,  // 28: crm.v1.ListCustomRecordsResponse.records:type_name -> crm.v1.CustomRecord
+	15,  // 29: crm.v1.UpdateCustomRecordRequest.record:type_name -> crm.v1.CustomRecord
+	15,  // 30: crm.v1.UpdateCustomRecordResponse.record:type_name -> crm.v1.CustomRecord
+	150, // 31: crm.v1.Account.created_at:type_name -> google.protobuf.Timestamp
+	150, // 32: crm.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
+	142, // 33: crm.v1.Account.custom_fields:type_name -> crm.v1.Account.CustomFieldsEntry
+	34,  // 34: crm.v1.CreateAccountRequest.account:type_name -> crm.v1.Account
+	34,  // 35: crm.v1.CreateAccountResponse.account:type_name -> crm.v1.Account
+	34,  // 36: crm.v1.GetAccountResponse.account:type_name -> crm.v1.Account
+	34,  // 37: crm.v1.ListAccountsResponse.accounts:type_name -> crm.v1.Account
+	34,  // 38: crm.v1.UpdateAccountRequest.account:type_name -> crm.v1.Account
+	34,  // 39: crm.v1.UpdateAccountResponse.account:type_name -> crm.v1.Account
+	150, // 40: crm.v1.Contact.created_at:type_name -> google.protobuf.Timestamp
+	150, // 41: crm.v1.Contact.updated_at:type_name -> google.protobuf.Timestamp
+	143, // 42: crm.v1.Contact.custom_fields:type_name -> crm.v1.Contact.CustomFieldsEntry
+	45,  // 43: crm.v1.CreateContactRequest.contact:type_name -> crm.v1.Contact
+	45,  // 44: crm.v1.CreateContactResponse.contact:type_name -> crm.v1.Contact
+	45,  // 45: crm.v1.GetContactResponse.contact:type_name -> crm.v1.Contact
+	45,  // 46: crm.v1.ListContactsResponse.contacts:type_name -> crm.v1.Contact
+	45,  // 47: crm.v1.UpdateContactRequest.contact:type_name -> crm.v1.Contact
+	45,  // 48: crm.v1.UpdateContactResponse.contact:type_name -> crm.v1.Contact
+	150, // 49: crm.v1.Lead.created_at:type_name -> google.protobuf.Timestamp
+	150, // 50: crm.v1.Lead.updated_at:type_name -> google.protobuf.Timestamp
+	144, // 51: crm.v1.Lead.custom_fields:type_name -> crm.v1.Lead.CustomFieldsEntry
+	56,  // 52: crm.v1.CreateLeadRequest.lead:type_name -> crm.v1.Lead
+	56,  // 53: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.Lead
+	56,  // 54: crm.v1.GetLeadResponse.lead:type_name -> crm.v1.Lead
+	56,  // 55: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.Lead
+	56,  // 56: crm.v1.UpdateLeadRequest.lead:type_name -> crm.v1.Lead
+	56,  // 57: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.Lead
+	56,  // 58: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.Lead
+	45,  // 59: crm.v1.ConvertLeadResponse.contact:type_name -> crm.v1.Contact
+	34,  // 60: crm.v1.ConvertLeadResponse.account:type_name -> crm.v1.Account
+	69,  // 61: crm.v1.ConvertLeadResponse.opportunity:type_name -> crm.v1.Opportunity
+	150, // 62: crm.v1.Opportunity.close_date:type_name -> google.protobuf.Timestamp
+	150, // 63: crm.v1.Opportunity.created_at:type_name -> google.protobuf.Timestamp
+	150, // 64: crm.v1.Opportunity.updated_at:type_name -> google.protobuf.Timestamp
+	145, // 65: crm.v1.Opportunity.custom_fields:type_name -> crm.v1.Opportunity.CustomFieldsEntry
+	69,  // 66: crm.v1.CreateOpportunityRequest.opportunity:type_name -> crm.v1.Opportunity
+	69,  // 67: crm.v1.CreateOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
+	69,  // 68: crm.v1.GetOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
+	69,  // 69: crm.v1.ListOpportunitiesResponse.opportunities:type_name -> crm.v1.Opportunity
+	69,  // 70: crm.v1.UpdateOpportunityRequest.opportunity:type_name -> crm.v1.Opportunity
+	69,  // 71: crm.v1.UpdateOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
+	150, // 72: crm.v1.OpportunityStageChange.changed_at:type_name -> google.protobuf.Timestamp
+	80,  // 73: crm.v1.ListOpportunityStageHistoryResponse.changes:type_name -> crm.v1.OpportunityStageChange
+	150, // 74: crm.v1.Pipeline.archived_at:type_name -> google.protobuf.Timestamp
+	150, // 75: crm.v1.Pipeline.created_at:type_name -> google.protobuf.Timestamp
+	150, // 76: crm.v1.Pipeline.updated_at:type_name -> google.protobuf.Timestamp
+	83,  // 77: crm.v1.CreatePipelineRequest.pipeline:type_name -> crm.v1.Pipeline
+	83,  // 78: crm.v1.CreatePipelineResponse.pipeline:type_name -> crm.v1.Pipeline
+	83,  // 79: crm.v1.GetPipelineResponse.pipeline:type_name -> crm.v1.Pipeline
+	83,  // 80: crm.v1.ListPipelinesResponse.pipelines:type_name -> crm.v1.Pipeline
+	83,  // 81: crm.v1.UpdatePipelineRequest.pipeline:type_name -> crm.v1.Pipeline
+	83,  // 82: crm.v1.UpdatePipelineResponse.pipeline:type_name -> crm.v1.Pipeline
+	150, // 83: crm.v1.PipelineStage.archived_at:type_name -> google.protobuf.Timestamp
+	150, // 84: crm.v1.PipelineStage.created_at:type_name -> google.protobuf.Timestamp
+	150, // 85: crm.v1.PipelineStage.updated_at:type_name -> google.protobuf.Timestamp
+	92,  // 86: crm.v1.CreatePipelineStageRequest.stage:type_name -> crm.v1.PipelineStage
+	92,  // 87: crm.v1.CreatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStage
+	92,  // 88: crm.v1.ListPipelineStagesResponse.stages:type_name -> crm.v1.PipelineStage
+	92,  // 89: crm.v1.UpdatePipelineStageRequest.stage:type_name -> crm.v1.PipelineStage
+	92,  // 90: crm.v1.UpdatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStage
+	150, // 91: crm.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
+	150, // 92: crm.v1.Activity.created_at:type_name -> google.protobuf.Timestamp
+	150, // 93: crm.v1.Activity.updated_at:type_name -> google.protobuf.Timestamp
+	146, // 94: crm.v1.Activity.custom_fields:type_name -> crm.v1.Activity.CustomFieldsEntry
+	99,  // 95: crm.v1.CreateActivityRequest.activity:type_name -> crm.v1.Activity
+	99,  // 96: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.Activity
+	99,  // 97: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.Activity
+	99,  // 98: crm.v1.ListActivitiesResponse.activities:type_name -> crm.v1.Activity
+	99,  // 99: crm.v1.UpdateActivityRequest.activity:type_name -> crm.v1.Activity
+	99,  // 100: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.Activity
+	99,  // 101: crm.v1.ListActivitiesForSubjectResponse.activities:type_name -> crm.v1.Activity
+	147, // 102: crm.v1.GetSummaryResponse.counts:type_name -> crm.v1.GetSummaryResponse.CountsEntry
+	150, // 103: crm.v1.Task.due_at:type_name -> google.protobuf.Timestamp
+	150, // 104: crm.v1.Task.completed_at:type_name -> google.protobuf.Timestamp
+	150, // 105: crm.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	150, // 106: crm.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
+	148, // 107: crm.v1.Task.custom_fields:type_name -> crm.v1.Task.CustomFieldsEntry
+	114, // 108: crm.v1.CreateTaskRequest.task:type_name -> crm.v1.Task
+	114, // 109: crm.v1.CreateTaskResponse.task:type_name -> crm.v1.Task
+	114, // 110: crm.v1.GetTaskResponse.task:type_name -> crm.v1.Task
+	150, // 111: crm.v1.ListTasksRequest.due_before:type_name -> google.protobuf.Timestamp
+	114, // 112: crm.v1.ListTasksResponse.tasks:type_name -> crm.v1.Task
+	114, // 113: crm.v1.UpdateTaskRequest.task:type_name -> crm.v1.Task
+	114, // 114: crm.v1.UpdateTaskResponse.task:type_name -> crm.v1.Task
+	114, // 115: crm.v1.CompleteTaskResponse.task:type_name -> crm.v1.Task
+	114, // 116: crm.v1.ReopenTaskResponse.task:type_name -> crm.v1.Task
+	150, // 117: crm.v1.Note.created_at:type_name -> google.protobuf.Timestamp
+	150, // 118: crm.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
+	150, // 119: crm.v1.Note.edited_at:type_name -> google.protobuf.Timestamp
+	149, // 120: crm.v1.Note.custom_fields:type_name -> crm.v1.Note.CustomFieldsEntry
+	129, // 121: crm.v1.CreateNoteRequest.note:type_name -> crm.v1.Note
+	129, // 122: crm.v1.CreateNoteResponse.note:type_name -> crm.v1.Note
+	129, // 123: crm.v1.GetNoteResponse.note:type_name -> crm.v1.Note
+	129, // 124: crm.v1.ListNotesResponse.notes:type_name -> crm.v1.Note
+	129, // 125: crm.v1.UpdateNoteRequest.note:type_name -> crm.v1.Note
+	129, // 126: crm.v1.UpdateNoteResponse.note:type_name -> crm.v1.Note
+	0,   // 127: crm.v1.CustomRecord.FieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 128: crm.v1.Account.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 129: crm.v1.Contact.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 130: crm.v1.Lead.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 131: crm.v1.Opportunity.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 132: crm.v1.Activity.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 133: crm.v1.Task.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 134: crm.v1.Note.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	35,  // 135: crm.v1.CRMService.CreateAccount:input_type -> crm.v1.CreateAccountRequest
+	37,  // 136: crm.v1.CRMService.GetAccount:input_type -> crm.v1.GetAccountRequest
+	39,  // 137: crm.v1.CRMService.ListAccounts:input_type -> crm.v1.ListAccountsRequest
+	41,  // 138: crm.v1.CRMService.UpdateAccount:input_type -> crm.v1.UpdateAccountRequest
+	43,  // 139: crm.v1.CRMService.DeleteAccount:input_type -> crm.v1.DeleteAccountRequest
+	46,  // 140: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
+	48,  // 141: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
+	50,  // 142: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
+	52,  // 143: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
+	54,  // 144: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
+	57,  // 145: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
+	59,  // 146: crm.v1.CRMService.GetLead:input_type -> crm.v1.GetLeadRequest
+	61,  // 147: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
+	63,  // 148: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
+	65,  // 149: crm.v1.CRMService.DeleteLead:input_type -> crm.v1.DeleteLeadRequest
+	67,  // 150: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
+	70,  // 151: crm.v1.CRMService.CreateOpportunity:input_type -> crm.v1.CreateOpportunityRequest
+	72,  // 152: crm.v1.CRMService.GetOpportunity:input_type -> crm.v1.GetOpportunityRequest
+	74,  // 153: crm.v1.CRMService.ListOpportunities:input_type -> crm.v1.ListOpportunitiesRequest
+	76,  // 154: crm.v1.CRMService.UpdateOpportunity:input_type -> crm.v1.UpdateOpportunityRequest
+	78,  // 155: crm.v1.CRMService.DeleteOpportunity:input_type -> crm.v1.DeleteOpportunityRequest
+	81,  // 156: crm.v1.CRMService.ListOpportunityStageHistory:input_type -> crm.v1.ListOpportunityStageHistoryRequest
+	84,  // 157: crm.v1.CRMService.CreatePipeline:input_type -> crm.v1.CreatePipelineRequest
+	86,  // 158: crm.v1.CRMService.GetPipeline:input_type -> crm.v1.GetPipelineRequest
+	88,  // 159: crm.v1.CRMService.ListPipelines:input_type -> crm.v1.ListPipelinesRequest
+	90,  // 160: crm.v1.CRMService.UpdatePipeline:input_type -> crm.v1.UpdatePipelineRequest
+	93,  // 161: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
+	95,  // 162: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
+	97,  // 163: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
+	100, // 164: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
+	102, // 165: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
+	104, // 166: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
+	106, // 167: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
+	108, // 168: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
+	110, // 169: crm.v1.CRMService.ListActivitiesForSubject:input_type -> crm.v1.ListActivitiesForSubjectRequest
+	115, // 170: crm.v1.CRMService.CreateTask:input_type -> crm.v1.CreateTaskRequest
+	117, // 171: crm.v1.CRMService.GetTask:input_type -> crm.v1.GetTaskRequest
+	119, // 172: crm.v1.CRMService.ListTasks:input_type -> crm.v1.ListTasksRequest
+	121, // 173: crm.v1.CRMService.UpdateTask:input_type -> crm.v1.UpdateTaskRequest
+	123, // 174: crm.v1.CRMService.DeleteTask:input_type -> crm.v1.DeleteTaskRequest
+	125, // 175: crm.v1.CRMService.CompleteTask:input_type -> crm.v1.CompleteTaskRequest
+	127, // 176: crm.v1.CRMService.ReopenTask:input_type -> crm.v1.ReopenTaskRequest
+	130, // 177: crm.v1.CRMService.CreateNote:input_type -> crm.v1.CreateNoteRequest
+	132, // 178: crm.v1.CRMService.GetNote:input_type -> crm.v1.GetNoteRequest
+	134, // 179: crm.v1.CRMService.ListNotes:input_type -> crm.v1.ListNotesRequest
+	136, // 180: crm.v1.CRMService.UpdateNote:input_type -> crm.v1.UpdateNoteRequest
+	138, // 181: crm.v1.CRMService.DeleteNote:input_type -> crm.v1.DeleteNoteRequest
+	4,   // 182: crm.v1.CRMService.CreateCustomFieldDefinition:input_type -> crm.v1.CreateCustomFieldDefinitionRequest
+	6,   // 183: crm.v1.CRMService.GetCustomFieldDefinition:input_type -> crm.v1.GetCustomFieldDefinitionRequest
+	8,   // 184: crm.v1.CRMService.ListCustomFieldDefinitions:input_type -> crm.v1.ListCustomFieldDefinitionsRequest
+	10,  // 185: crm.v1.CRMService.UpdateCustomFieldDefinition:input_type -> crm.v1.UpdateCustomFieldDefinitionRequest
+	12,  // 186: crm.v1.CRMService.ArchiveCustomFieldDefinition:input_type -> crm.v1.ArchiveCustomFieldDefinitionRequest
+	16,  // 187: crm.v1.CRMService.CreateCustomObjectDefinition:input_type -> crm.v1.CreateCustomObjectDefinitionRequest
+	18,  // 188: crm.v1.CRMService.GetCustomObjectDefinition:input_type -> crm.v1.GetCustomObjectDefinitionRequest
+	20,  // 189: crm.v1.CRMService.ListCustomObjectDefinitions:input_type -> crm.v1.ListCustomObjectDefinitionsRequest
+	22,  // 190: crm.v1.CRMService.ArchiveCustomObjectDefinition:input_type -> crm.v1.ArchiveCustomObjectDefinitionRequest
+	24,  // 191: crm.v1.CRMService.CreateCustomRecord:input_type -> crm.v1.CreateCustomRecordRequest
+	26,  // 192: crm.v1.CRMService.GetCustomRecord:input_type -> crm.v1.GetCustomRecordRequest
+	28,  // 193: crm.v1.CRMService.ListCustomRecords:input_type -> crm.v1.ListCustomRecordsRequest
+	30,  // 194: crm.v1.CRMService.UpdateCustomRecord:input_type -> crm.v1.UpdateCustomRecordRequest
+	32,  // 195: crm.v1.CRMService.DeleteCustomRecord:input_type -> crm.v1.DeleteCustomRecordRequest
+	112, // 196: crm.v1.CRMService.GetSummary:input_type -> crm.v1.GetSummaryRequest
+	36,  // 197: crm.v1.CRMService.CreateAccount:output_type -> crm.v1.CreateAccountResponse
+	38,  // 198: crm.v1.CRMService.GetAccount:output_type -> crm.v1.GetAccountResponse
+	40,  // 199: crm.v1.CRMService.ListAccounts:output_type -> crm.v1.ListAccountsResponse
+	42,  // 200: crm.v1.CRMService.UpdateAccount:output_type -> crm.v1.UpdateAccountResponse
+	44,  // 201: crm.v1.CRMService.DeleteAccount:output_type -> crm.v1.DeleteAccountResponse
+	47,  // 202: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
+	49,  // 203: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
+	51,  // 204: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
+	53,  // 205: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
+	55,  // 206: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
+	58,  // 207: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
+	60,  // 208: crm.v1.CRMService.GetLead:output_type -> crm.v1.GetLeadResponse
+	62,  // 209: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
+	64,  // 210: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
+	66,  // 211: crm.v1.CRMService.DeleteLead:output_type -> crm.v1.DeleteLeadResponse
+	68,  // 212: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
+	71,  // 213: crm.v1.CRMService.CreateOpportunity:output_type -> crm.v1.CreateOpportunityResponse
+	73,  // 214: crm.v1.CRMService.GetOpportunity:output_type -> crm.v1.GetOpportunityResponse
+	75,  // 215: crm.v1.CRMService.ListOpportunities:output_type -> crm.v1.ListOpportunitiesResponse
+	77,  // 216: crm.v1.CRMService.UpdateOpportunity:output_type -> crm.v1.UpdateOpportunityResponse
+	79,  // 217: crm.v1.CRMService.DeleteOpportunity:output_type -> crm.v1.DeleteOpportunityResponse
+	82,  // 218: crm.v1.CRMService.ListOpportunityStageHistory:output_type -> crm.v1.ListOpportunityStageHistoryResponse
+	85,  // 219: crm.v1.CRMService.CreatePipeline:output_type -> crm.v1.CreatePipelineResponse
+	87,  // 220: crm.v1.CRMService.GetPipeline:output_type -> crm.v1.GetPipelineResponse
+	89,  // 221: crm.v1.CRMService.ListPipelines:output_type -> crm.v1.ListPipelinesResponse
+	91,  // 222: crm.v1.CRMService.UpdatePipeline:output_type -> crm.v1.UpdatePipelineResponse
+	94,  // 223: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
+	96,  // 224: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
+	98,  // 225: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
+	101, // 226: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
+	103, // 227: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
+	105, // 228: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
+	107, // 229: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
+	109, // 230: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
+	111, // 231: crm.v1.CRMService.ListActivitiesForSubject:output_type -> crm.v1.ListActivitiesForSubjectResponse
+	116, // 232: crm.v1.CRMService.CreateTask:output_type -> crm.v1.CreateTaskResponse
+	118, // 233: crm.v1.CRMService.GetTask:output_type -> crm.v1.GetTaskResponse
+	120, // 234: crm.v1.CRMService.ListTasks:output_type -> crm.v1.ListTasksResponse
+	122, // 235: crm.v1.CRMService.UpdateTask:output_type -> crm.v1.UpdateTaskResponse
+	124, // 236: crm.v1.CRMService.DeleteTask:output_type -> crm.v1.DeleteTaskResponse
+	126, // 237: crm.v1.CRMService.CompleteTask:output_type -> crm.v1.CompleteTaskResponse
+	128, // 238: crm.v1.CRMService.ReopenTask:output_type -> crm.v1.ReopenTaskResponse
+	131, // 239: crm.v1.CRMService.CreateNote:output_type -> crm.v1.CreateNoteResponse
+	133, // 240: crm.v1.CRMService.GetNote:output_type -> crm.v1.GetNoteResponse
+	135, // 241: crm.v1.CRMService.ListNotes:output_type -> crm.v1.ListNotesResponse
+	137, // 242: crm.v1.CRMService.UpdateNote:output_type -> crm.v1.UpdateNoteResponse
+	139, // 243: crm.v1.CRMService.DeleteNote:output_type -> crm.v1.DeleteNoteResponse
+	5,   // 244: crm.v1.CRMService.CreateCustomFieldDefinition:output_type -> crm.v1.CreateCustomFieldDefinitionResponse
+	7,   // 245: crm.v1.CRMService.GetCustomFieldDefinition:output_type -> crm.v1.GetCustomFieldDefinitionResponse
+	9,   // 246: crm.v1.CRMService.ListCustomFieldDefinitions:output_type -> crm.v1.ListCustomFieldDefinitionsResponse
+	11,  // 247: crm.v1.CRMService.UpdateCustomFieldDefinition:output_type -> crm.v1.UpdateCustomFieldDefinitionResponse
+	13,  // 248: crm.v1.CRMService.ArchiveCustomFieldDefinition:output_type -> crm.v1.ArchiveCustomFieldDefinitionResponse
+	17,  // 249: crm.v1.CRMService.CreateCustomObjectDefinition:output_type -> crm.v1.CreateCustomObjectDefinitionResponse
+	19,  // 250: crm.v1.CRMService.GetCustomObjectDefinition:output_type -> crm.v1.GetCustomObjectDefinitionResponse
+	21,  // 251: crm.v1.CRMService.ListCustomObjectDefinitions:output_type -> crm.v1.ListCustomObjectDefinitionsResponse
+	23,  // 252: crm.v1.CRMService.ArchiveCustomObjectDefinition:output_type -> crm.v1.ArchiveCustomObjectDefinitionResponse
+	25,  // 253: crm.v1.CRMService.CreateCustomRecord:output_type -> crm.v1.CreateCustomRecordResponse
+	27,  // 254: crm.v1.CRMService.GetCustomRecord:output_type -> crm.v1.GetCustomRecordResponse
+	29,  // 255: crm.v1.CRMService.ListCustomRecords:output_type -> crm.v1.ListCustomRecordsResponse
+	31,  // 256: crm.v1.CRMService.UpdateCustomRecord:output_type -> crm.v1.UpdateCustomRecordResponse
+	33,  // 257: crm.v1.CRMService.DeleteCustomRecord:output_type -> crm.v1.DeleteCustomRecordResponse
+	113, // 258: crm.v1.CRMService.GetSummary:output_type -> crm.v1.GetSummaryResponse
+	197, // [197:259] is the sub-list for method output_type
+	135, // [135:197] is the sub-list for method input_type
+	135, // [135:135] is the sub-list for extension type_name
+	135, // [135:135] is the sub-list for extension extendee
+	0,   // [0:135] is the sub-list for field type_name
 }
 
 func init() { file_crm_v1_crm_proto_init() }
@@ -6566,13 +8820,23 @@ func file_crm_v1_crm_proto_init() {
 	if File_crm_v1_crm_proto != nil {
 		return
 	}
+	file_crm_v1_crm_proto_msgTypes[0].OneofWrappers = []any{
+		(*CustomValue_Text)(nil),
+		(*CustomValue_Number)(nil),
+		(*CustomValue_Decimal)(nil),
+		(*CustomValue_Boolean)(nil),
+		(*CustomValue_Timestamp)(nil),
+		(*CustomValue_Date)(nil),
+		(*CustomValue_Reference)(nil),
+		(*CustomValue_TextList)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_crm_v1_crm_proto_rawDesc), len(file_crm_v1_crm_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   107,
+			NumMessages:   150,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -33,17 +33,20 @@ import (
 // apiFixture is one organization's record set, created through the RPC
 // surface exactly as a real client would.
 type apiFixture struct {
-	ctx           context.Context
-	accountID     string
-	contactID     string
-	contactEmail  string
-	leadID        string
-	opportunityID string
-	activityID    string
-	pipelineID    string
-	stageID       string
-	taskID        string
-	noteID        string
+	ctx             context.Context
+	accountID       string
+	contactID       string
+	contactEmail    string
+	leadID          string
+	opportunityID   string
+	activityID      string
+	pipelineID      string
+	stageID         string
+	taskID          string
+	noteID          string
+	customFieldID   string
+	customObjectAPI string
+	customRecordID  string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -145,6 +148,29 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] create pipeline stage: %v", label, err)
 	}
 	f.stageID = stage.Msg.GetStage().GetId()
+
+	field, err := s.CreateCustomFieldDefinition(f.ctx, connect.NewRequest(&crmv1.CreateCustomFieldDefinitionRequest{
+		Definition: &crmv1.CustomFieldDefinition{
+			ObjectType: "account", FieldKey: "region", Label: label + " Region", DataType: "text",
+		},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] create custom field: %v", label, err)
+	}
+	f.customFieldID = field.Msg.GetDefinition().GetId()
+	object, err := s.CreateCustomObjectDefinition(f.ctx, connect.NewRequest(&crmv1.CreateCustomObjectDefinitionRequest{Definition: &crmv1.CustomObjectDefinition{ApiName: "asset_" + label, Label: label + " Asset", PluralLabel: label + " Assets"}}))
+	if err != nil {
+		t.Fatalf("[%s] create custom object: %v", label, err)
+	}
+	f.customObjectAPI = object.Msg.GetDefinition().GetApiName()
+	if _, err := s.CreateCustomFieldDefinition(f.ctx, connect.NewRequest(&crmv1.CreateCustomFieldDefinitionRequest{Definition: &crmv1.CustomFieldDefinition{ObjectType: f.customObjectAPI, FieldKey: "serial", Label: "Serial", DataType: "text"}})); err != nil {
+		t.Fatalf("[%s] create custom object field: %v", label, err)
+	}
+	record, err := s.CreateCustomRecord(f.ctx, connect.NewRequest(&crmv1.CreateCustomRecordRequest{Record: &crmv1.CustomRecord{ObjectType: f.customObjectAPI, Fields: map[string]*crmv1.CustomValue{"serial": {Value: &crmv1.CustomValue_Text{Text: label}}}}}))
+	if err != nil {
+		t.Fatalf("[%s] create custom record: %v", label, err)
+	}
+	f.customRecordID = record.Msg.GetRecord().GetId()
 
 	return f
 }
@@ -411,6 +437,96 @@ var crossTenantProbes = map[string]isolationProbe{
 		}
 		if n := len(res.Msg.GetStages()); n != 0 {
 			t.Errorf("ListPipelineStages leaked %d stages of organization A's pipeline", n)
+		}
+	},
+	"GetCustomFieldDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetCustomFieldDefinition(ctxB, connect.NewRequest(&crmv1.GetCustomFieldDefinitionRequest{Id: a.customFieldID}))
+		wantNotFound(t, "GetCustomFieldDefinition", err)
+	},
+	"GetCustomObjectDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetCustomObjectDefinition(ctxB, connect.NewRequest(&crmv1.GetCustomObjectDefinitionRequest{ApiName: a.customObjectAPI}))
+		wantNotFound(t, "GetCustomObjectDefinition", err)
+	},
+	"ArchiveCustomObjectDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.ArchiveCustomObjectDefinition(ctxB, connect.NewRequest(&crmv1.ArchiveCustomObjectDefinitionRequest{ApiName: a.customObjectAPI}))
+		wantNotFound(t, "ArchiveCustomObjectDefinition", err)
+	},
+	"ListCustomObjectDefinitions": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListCustomObjectDefinitions(ctxB, connect.NewRequest(&crmv1.ListCustomObjectDefinitionsRequest{IncludeArchived: true}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range res.Msg.GetDefinitions() {
+			if v.GetApiName() == a.customObjectAPI {
+				t.Error("custom object definition leaked")
+			}
+		}
+	},
+	"CreateCustomObjectDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, _ apiFixture) {
+		_, err := s.CreateCustomObjectDefinition(ctxB, connect.NewRequest(&crmv1.CreateCustomObjectDefinitionRequest{Definition: &crmv1.CustomObjectDefinition{ApiName: "b_object", Label: "B", PluralLabel: "Bs"}}))
+		if err != nil {
+			t.Fatal(err)
+		}
+	},
+	"GetCustomRecord": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetCustomRecord(ctxB, connect.NewRequest(&crmv1.GetCustomRecordRequest{ObjectType: a.customObjectAPI, Id: a.customRecordID}))
+		wantNotFound(t, "GetCustomRecord", err)
+	},
+	"UpdateCustomRecord": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateCustomRecord(ctxB, connect.NewRequest(&crmv1.UpdateCustomRecordRequest{Record: &crmv1.CustomRecord{ObjectType: a.customObjectAPI, Id: a.customRecordID}}))
+		wantNotFound(t, "UpdateCustomRecord", err)
+	},
+	"DeleteCustomRecord": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteCustomRecord(ctxB, connect.NewRequest(&crmv1.DeleteCustomRecordRequest{ObjectType: a.customObjectAPI, Id: a.customRecordID}))
+		wantNotFound(t, "DeleteCustomRecord", err)
+	},
+	"ListCustomRecords": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListCustomRecords(ctxB, connect.NewRequest(&crmv1.ListCustomRecordsRequest{ObjectType: a.customObjectAPI}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, v := range res.Msg.GetRecords() {
+			if v.GetId() == a.customRecordID {
+				t.Error("custom record leaked")
+			}
+		}
+	},
+	"CreateCustomRecord": func(t *testing.T, s *CRMService, ctxB context.Context, _ apiFixture) {
+		_, err := s.CreateCustomRecord(ctxB, connect.NewRequest(&crmv1.CreateCustomRecordRequest{Record: &crmv1.CustomRecord{ObjectType: "missing"}}))
+		if err == nil {
+			t.Error("created record on unknown object")
+		}
+	},
+	"UpdateCustomFieldDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateCustomFieldDefinition(ctxB, connect.NewRequest(&crmv1.UpdateCustomFieldDefinitionRequest{
+			Definition: &crmv1.CustomFieldDefinition{Id: a.customFieldID, Label: "Seized"},
+		}))
+		wantNotFound(t, "UpdateCustomFieldDefinition", err)
+	},
+	"ArchiveCustomFieldDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.ArchiveCustomFieldDefinition(ctxB, connect.NewRequest(&crmv1.ArchiveCustomFieldDefinitionRequest{Id: a.customFieldID}))
+		wantNotFound(t, "ArchiveCustomFieldDefinition", err)
+	},
+	"ListCustomFieldDefinitions": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListCustomFieldDefinitions(ctxB, connect.NewRequest(&crmv1.ListCustomFieldDefinitionsRequest{ObjectType: "account", IncludeArchived: true}))
+		if err != nil {
+			t.Fatalf("ListCustomFieldDefinitions: %v", err)
+		}
+		for _, row := range res.Msg.GetDefinitions() {
+			if row.GetId() == a.customFieldID {
+				t.Error("ListCustomFieldDefinitions returned organization A's field")
+			}
+		}
+	},
+	"CreateCustomFieldDefinition": func(t *testing.T, s *CRMService, ctxB context.Context, _ apiFixture) {
+		created, err := s.CreateCustomFieldDefinition(ctxB, connect.NewRequest(&crmv1.CreateCustomFieldDefinitionRequest{
+			Definition: &crmv1.CustomFieldDefinition{ObjectType: "account", FieldKey: "b_only", Label: "B only", DataType: "text"},
+		}))
+		if err != nil {
+			t.Fatalf("CreateCustomFieldDefinition: %v", err)
+		}
+		if created.Msg.GetDefinition().GetId() == "" {
+			t.Error("CreateCustomFieldDefinition returned no id")
 		}
 	},
 	"GetActivity": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {

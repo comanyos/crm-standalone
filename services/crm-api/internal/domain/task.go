@@ -45,9 +45,10 @@ type Task struct {
 	CompletedAt time.Time `json:"completed_at"`
 	CompletedBy string    `json:"completed_by"`
 
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedBy    string       `json:"created_by"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	CustomFields CustomValues `json:"custom_fields"`
 }
 
 // Task.Status values.
@@ -146,6 +147,7 @@ func cloneTask(v *Task) *Task {
 		return nil
 	}
 	c := *v
+	c.CustomFields = v.CustomFields.Clone()
 	return &c
 }
 

@@ -1,8 +1,17 @@
 # Design — the metadata layer (task_v2 Phase 1)
 
-Status: **accepted** (2026-08-22). Both owner decisions are made: §1 storage
-is JSONB values with relational definitions, and §5 wire contract is
-`map<string, CustomValue>` with a typed oneof. Implementation follows §8.
+Status: **accepted and partially implemented** (2026-08-22). Both owner
+decisions are made: §1 storage is JSONB values with relational definitions,
+and §5 wire contract is `map<string, CustomValue>` with a typed oneof.
+
+Implemented: tenant-scoped custom field definitions and values on every
+shipped object; typed Connect contracts; administrator field/object screens;
+shared-table custom objects and records; bounded formula evaluation;
+per-field validation expressions; and server-side field visibility/editability.
+The domain, API, authorization, real-Postgres RLS, and web-build checks cover
+these paths. Filtering, reporting, search, and automation integration remain
+deliberately open: those are the Phase 3–5 systems this design was created to
+support, and their acceptance must not be claimed before those systems exist.
 
 ## Why this document exists first
 

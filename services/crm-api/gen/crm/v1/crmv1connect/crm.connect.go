@@ -150,6 +150,48 @@ const (
 	CRMServiceUpdateNoteProcedure = "/crm.v1.CRMService/UpdateNote"
 	// CRMServiceDeleteNoteProcedure is the fully-qualified name of the CRMService's DeleteNote RPC.
 	CRMServiceDeleteNoteProcedure = "/crm.v1.CRMService/DeleteNote"
+	// CRMServiceCreateCustomFieldDefinitionProcedure is the fully-qualified name of the CRMService's
+	// CreateCustomFieldDefinition RPC.
+	CRMServiceCreateCustomFieldDefinitionProcedure = "/crm.v1.CRMService/CreateCustomFieldDefinition"
+	// CRMServiceGetCustomFieldDefinitionProcedure is the fully-qualified name of the CRMService's
+	// GetCustomFieldDefinition RPC.
+	CRMServiceGetCustomFieldDefinitionProcedure = "/crm.v1.CRMService/GetCustomFieldDefinition"
+	// CRMServiceListCustomFieldDefinitionsProcedure is the fully-qualified name of the CRMService's
+	// ListCustomFieldDefinitions RPC.
+	CRMServiceListCustomFieldDefinitionsProcedure = "/crm.v1.CRMService/ListCustomFieldDefinitions"
+	// CRMServiceUpdateCustomFieldDefinitionProcedure is the fully-qualified name of the CRMService's
+	// UpdateCustomFieldDefinition RPC.
+	CRMServiceUpdateCustomFieldDefinitionProcedure = "/crm.v1.CRMService/UpdateCustomFieldDefinition"
+	// CRMServiceArchiveCustomFieldDefinitionProcedure is the fully-qualified name of the CRMService's
+	// ArchiveCustomFieldDefinition RPC.
+	CRMServiceArchiveCustomFieldDefinitionProcedure = "/crm.v1.CRMService/ArchiveCustomFieldDefinition"
+	// CRMServiceCreateCustomObjectDefinitionProcedure is the fully-qualified name of the CRMService's
+	// CreateCustomObjectDefinition RPC.
+	CRMServiceCreateCustomObjectDefinitionProcedure = "/crm.v1.CRMService/CreateCustomObjectDefinition"
+	// CRMServiceGetCustomObjectDefinitionProcedure is the fully-qualified name of the CRMService's
+	// GetCustomObjectDefinition RPC.
+	CRMServiceGetCustomObjectDefinitionProcedure = "/crm.v1.CRMService/GetCustomObjectDefinition"
+	// CRMServiceListCustomObjectDefinitionsProcedure is the fully-qualified name of the CRMService's
+	// ListCustomObjectDefinitions RPC.
+	CRMServiceListCustomObjectDefinitionsProcedure = "/crm.v1.CRMService/ListCustomObjectDefinitions"
+	// CRMServiceArchiveCustomObjectDefinitionProcedure is the fully-qualified name of the CRMService's
+	// ArchiveCustomObjectDefinition RPC.
+	CRMServiceArchiveCustomObjectDefinitionProcedure = "/crm.v1.CRMService/ArchiveCustomObjectDefinition"
+	// CRMServiceCreateCustomRecordProcedure is the fully-qualified name of the CRMService's
+	// CreateCustomRecord RPC.
+	CRMServiceCreateCustomRecordProcedure = "/crm.v1.CRMService/CreateCustomRecord"
+	// CRMServiceGetCustomRecordProcedure is the fully-qualified name of the CRMService's
+	// GetCustomRecord RPC.
+	CRMServiceGetCustomRecordProcedure = "/crm.v1.CRMService/GetCustomRecord"
+	// CRMServiceListCustomRecordsProcedure is the fully-qualified name of the CRMService's
+	// ListCustomRecords RPC.
+	CRMServiceListCustomRecordsProcedure = "/crm.v1.CRMService/ListCustomRecords"
+	// CRMServiceUpdateCustomRecordProcedure is the fully-qualified name of the CRMService's
+	// UpdateCustomRecord RPC.
+	CRMServiceUpdateCustomRecordProcedure = "/crm.v1.CRMService/UpdateCustomRecord"
+	// CRMServiceDeleteCustomRecordProcedure is the fully-qualified name of the CRMService's
+	// DeleteCustomRecord RPC.
+	CRMServiceDeleteCustomRecordProcedure = "/crm.v1.CRMService/DeleteCustomRecord"
 	// CRMServiceGetSummaryProcedure is the fully-qualified name of the CRMService's GetSummary RPC.
 	CRMServiceGetSummaryProcedure = "/crm.v1.CRMService/GetSummary"
 )
@@ -231,6 +273,23 @@ type CRMServiceClient interface {
 	ListNotes(context.Context, *connect.Request[v1.ListNotesRequest]) (*connect.Response[v1.ListNotesResponse], error)
 	UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error)
 	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
+	// Custom-field definitions are tenant administration data. Values travel on
+	// the shipped record messages above, but a definition is the authority for
+	// their type, requiredness, picklist options, and lookup target.
+	CreateCustomFieldDefinition(context.Context, *connect.Request[v1.CreateCustomFieldDefinitionRequest]) (*connect.Response[v1.CreateCustomFieldDefinitionResponse], error)
+	GetCustomFieldDefinition(context.Context, *connect.Request[v1.GetCustomFieldDefinitionRequest]) (*connect.Response[v1.GetCustomFieldDefinitionResponse], error)
+	ListCustomFieldDefinitions(context.Context, *connect.Request[v1.ListCustomFieldDefinitionsRequest]) (*connect.Response[v1.ListCustomFieldDefinitionsResponse], error)
+	UpdateCustomFieldDefinition(context.Context, *connect.Request[v1.UpdateCustomFieldDefinitionRequest]) (*connect.Response[v1.UpdateCustomFieldDefinitionResponse], error)
+	ArchiveCustomFieldDefinition(context.Context, *connect.Request[v1.ArchiveCustomFieldDefinitionRequest]) (*connect.Response[v1.ArchiveCustomFieldDefinitionResponse], error)
+	CreateCustomObjectDefinition(context.Context, *connect.Request[v1.CreateCustomObjectDefinitionRequest]) (*connect.Response[v1.CreateCustomObjectDefinitionResponse], error)
+	GetCustomObjectDefinition(context.Context, *connect.Request[v1.GetCustomObjectDefinitionRequest]) (*connect.Response[v1.GetCustomObjectDefinitionResponse], error)
+	ListCustomObjectDefinitions(context.Context, *connect.Request[v1.ListCustomObjectDefinitionsRequest]) (*connect.Response[v1.ListCustomObjectDefinitionsResponse], error)
+	ArchiveCustomObjectDefinition(context.Context, *connect.Request[v1.ArchiveCustomObjectDefinitionRequest]) (*connect.Response[v1.ArchiveCustomObjectDefinitionResponse], error)
+	CreateCustomRecord(context.Context, *connect.Request[v1.CreateCustomRecordRequest]) (*connect.Response[v1.CreateCustomRecordResponse], error)
+	GetCustomRecord(context.Context, *connect.Request[v1.GetCustomRecordRequest]) (*connect.Response[v1.GetCustomRecordResponse], error)
+	ListCustomRecords(context.Context, *connect.Request[v1.ListCustomRecordsRequest]) (*connect.Response[v1.ListCustomRecordsResponse], error)
+	UpdateCustomRecord(context.Context, *connect.Request[v1.UpdateCustomRecordRequest]) (*connect.Response[v1.UpdateCustomRecordResponse], error)
+	DeleteCustomRecord(context.Context, *connect.Request[v1.DeleteCustomRecordRequest]) (*connect.Response[v1.DeleteCustomRecordResponse], error)
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
 }
 
@@ -527,6 +586,90 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("DeleteNote")),
 			connect.WithClientOptions(opts...),
 		),
+		createCustomFieldDefinition: connect.NewClient[v1.CreateCustomFieldDefinitionRequest, v1.CreateCustomFieldDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceCreateCustomFieldDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateCustomFieldDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		getCustomFieldDefinition: connect.NewClient[v1.GetCustomFieldDefinitionRequest, v1.GetCustomFieldDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceGetCustomFieldDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetCustomFieldDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		listCustomFieldDefinitions: connect.NewClient[v1.ListCustomFieldDefinitionsRequest, v1.ListCustomFieldDefinitionsResponse](
+			httpClient,
+			baseURL+CRMServiceListCustomFieldDefinitionsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListCustomFieldDefinitions")),
+			connect.WithClientOptions(opts...),
+		),
+		updateCustomFieldDefinition: connect.NewClient[v1.UpdateCustomFieldDefinitionRequest, v1.UpdateCustomFieldDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateCustomFieldDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateCustomFieldDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		archiveCustomFieldDefinition: connect.NewClient[v1.ArchiveCustomFieldDefinitionRequest, v1.ArchiveCustomFieldDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceArchiveCustomFieldDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ArchiveCustomFieldDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		createCustomObjectDefinition: connect.NewClient[v1.CreateCustomObjectDefinitionRequest, v1.CreateCustomObjectDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceCreateCustomObjectDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateCustomObjectDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		getCustomObjectDefinition: connect.NewClient[v1.GetCustomObjectDefinitionRequest, v1.GetCustomObjectDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceGetCustomObjectDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetCustomObjectDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		listCustomObjectDefinitions: connect.NewClient[v1.ListCustomObjectDefinitionsRequest, v1.ListCustomObjectDefinitionsResponse](
+			httpClient,
+			baseURL+CRMServiceListCustomObjectDefinitionsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListCustomObjectDefinitions")),
+			connect.WithClientOptions(opts...),
+		),
+		archiveCustomObjectDefinition: connect.NewClient[v1.ArchiveCustomObjectDefinitionRequest, v1.ArchiveCustomObjectDefinitionResponse](
+			httpClient,
+			baseURL+CRMServiceArchiveCustomObjectDefinitionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ArchiveCustomObjectDefinition")),
+			connect.WithClientOptions(opts...),
+		),
+		createCustomRecord: connect.NewClient[v1.CreateCustomRecordRequest, v1.CreateCustomRecordResponse](
+			httpClient,
+			baseURL+CRMServiceCreateCustomRecordProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateCustomRecord")),
+			connect.WithClientOptions(opts...),
+		),
+		getCustomRecord: connect.NewClient[v1.GetCustomRecordRequest, v1.GetCustomRecordResponse](
+			httpClient,
+			baseURL+CRMServiceGetCustomRecordProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetCustomRecord")),
+			connect.WithClientOptions(opts...),
+		),
+		listCustomRecords: connect.NewClient[v1.ListCustomRecordsRequest, v1.ListCustomRecordsResponse](
+			httpClient,
+			baseURL+CRMServiceListCustomRecordsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListCustomRecords")),
+			connect.WithClientOptions(opts...),
+		),
+		updateCustomRecord: connect.NewClient[v1.UpdateCustomRecordRequest, v1.UpdateCustomRecordResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateCustomRecordProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateCustomRecord")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteCustomRecord: connect.NewClient[v1.DeleteCustomRecordRequest, v1.DeleteCustomRecordResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteCustomRecordProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteCustomRecord")),
+			connect.WithClientOptions(opts...),
+		),
 		getSummary: connect.NewClient[v1.GetSummaryRequest, v1.GetSummaryResponse](
 			httpClient,
 			baseURL+CRMServiceGetSummaryProcedure,
@@ -538,54 +681,68 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 
 // cRMServiceClient implements CRMServiceClient.
 type cRMServiceClient struct {
-	createAccount               *connect.Client[v1.CreateAccountRequest, v1.CreateAccountResponse]
-	getAccount                  *connect.Client[v1.GetAccountRequest, v1.GetAccountResponse]
-	listAccounts                *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
-	updateAccount               *connect.Client[v1.UpdateAccountRequest, v1.UpdateAccountResponse]
-	deleteAccount               *connect.Client[v1.DeleteAccountRequest, v1.DeleteAccountResponse]
-	createContact               *connect.Client[v1.CreateContactRequest, v1.CreateContactResponse]
-	getContact                  *connect.Client[v1.GetContactRequest, v1.GetContactResponse]
-	listContacts                *connect.Client[v1.ListContactsRequest, v1.ListContactsResponse]
-	updateContact               *connect.Client[v1.UpdateContactRequest, v1.UpdateContactResponse]
-	deleteContact               *connect.Client[v1.DeleteContactRequest, v1.DeleteContactResponse]
-	createLead                  *connect.Client[v1.CreateLeadRequest, v1.CreateLeadResponse]
-	getLead                     *connect.Client[v1.GetLeadRequest, v1.GetLeadResponse]
-	listLeads                   *connect.Client[v1.ListLeadsRequest, v1.ListLeadsResponse]
-	updateLead                  *connect.Client[v1.UpdateLeadRequest, v1.UpdateLeadResponse]
-	deleteLead                  *connect.Client[v1.DeleteLeadRequest, v1.DeleteLeadResponse]
-	convertLead                 *connect.Client[v1.ConvertLeadRequest, v1.ConvertLeadResponse]
-	createOpportunity           *connect.Client[v1.CreateOpportunityRequest, v1.CreateOpportunityResponse]
-	getOpportunity              *connect.Client[v1.GetOpportunityRequest, v1.GetOpportunityResponse]
-	listOpportunities           *connect.Client[v1.ListOpportunitiesRequest, v1.ListOpportunitiesResponse]
-	updateOpportunity           *connect.Client[v1.UpdateOpportunityRequest, v1.UpdateOpportunityResponse]
-	deleteOpportunity           *connect.Client[v1.DeleteOpportunityRequest, v1.DeleteOpportunityResponse]
-	listOpportunityStageHistory *connect.Client[v1.ListOpportunityStageHistoryRequest, v1.ListOpportunityStageHistoryResponse]
-	createPipeline              *connect.Client[v1.CreatePipelineRequest, v1.CreatePipelineResponse]
-	getPipeline                 *connect.Client[v1.GetPipelineRequest, v1.GetPipelineResponse]
-	listPipelines               *connect.Client[v1.ListPipelinesRequest, v1.ListPipelinesResponse]
-	updatePipeline              *connect.Client[v1.UpdatePipelineRequest, v1.UpdatePipelineResponse]
-	createPipelineStage         *connect.Client[v1.CreatePipelineStageRequest, v1.CreatePipelineStageResponse]
-	listPipelineStages          *connect.Client[v1.ListPipelineStagesRequest, v1.ListPipelineStagesResponse]
-	updatePipelineStage         *connect.Client[v1.UpdatePipelineStageRequest, v1.UpdatePipelineStageResponse]
-	createActivity              *connect.Client[v1.CreateActivityRequest, v1.CreateActivityResponse]
-	getActivity                 *connect.Client[v1.GetActivityRequest, v1.GetActivityResponse]
-	listActivities              *connect.Client[v1.ListActivitiesRequest, v1.ListActivitiesResponse]
-	updateActivity              *connect.Client[v1.UpdateActivityRequest, v1.UpdateActivityResponse]
-	deleteActivity              *connect.Client[v1.DeleteActivityRequest, v1.DeleteActivityResponse]
-	listActivitiesForSubject    *connect.Client[v1.ListActivitiesForSubjectRequest, v1.ListActivitiesForSubjectResponse]
-	createTask                  *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
-	getTask                     *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
-	listTasks                   *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
-	updateTask                  *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
-	deleteTask                  *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
-	completeTask                *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
-	reopenTask                  *connect.Client[v1.ReopenTaskRequest, v1.ReopenTaskResponse]
-	createNote                  *connect.Client[v1.CreateNoteRequest, v1.CreateNoteResponse]
-	getNote                     *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
-	listNotes                   *connect.Client[v1.ListNotesRequest, v1.ListNotesResponse]
-	updateNote                  *connect.Client[v1.UpdateNoteRequest, v1.UpdateNoteResponse]
-	deleteNote                  *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
-	getSummary                  *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
+	createAccount                 *connect.Client[v1.CreateAccountRequest, v1.CreateAccountResponse]
+	getAccount                    *connect.Client[v1.GetAccountRequest, v1.GetAccountResponse]
+	listAccounts                  *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
+	updateAccount                 *connect.Client[v1.UpdateAccountRequest, v1.UpdateAccountResponse]
+	deleteAccount                 *connect.Client[v1.DeleteAccountRequest, v1.DeleteAccountResponse]
+	createContact                 *connect.Client[v1.CreateContactRequest, v1.CreateContactResponse]
+	getContact                    *connect.Client[v1.GetContactRequest, v1.GetContactResponse]
+	listContacts                  *connect.Client[v1.ListContactsRequest, v1.ListContactsResponse]
+	updateContact                 *connect.Client[v1.UpdateContactRequest, v1.UpdateContactResponse]
+	deleteContact                 *connect.Client[v1.DeleteContactRequest, v1.DeleteContactResponse]
+	createLead                    *connect.Client[v1.CreateLeadRequest, v1.CreateLeadResponse]
+	getLead                       *connect.Client[v1.GetLeadRequest, v1.GetLeadResponse]
+	listLeads                     *connect.Client[v1.ListLeadsRequest, v1.ListLeadsResponse]
+	updateLead                    *connect.Client[v1.UpdateLeadRequest, v1.UpdateLeadResponse]
+	deleteLead                    *connect.Client[v1.DeleteLeadRequest, v1.DeleteLeadResponse]
+	convertLead                   *connect.Client[v1.ConvertLeadRequest, v1.ConvertLeadResponse]
+	createOpportunity             *connect.Client[v1.CreateOpportunityRequest, v1.CreateOpportunityResponse]
+	getOpportunity                *connect.Client[v1.GetOpportunityRequest, v1.GetOpportunityResponse]
+	listOpportunities             *connect.Client[v1.ListOpportunitiesRequest, v1.ListOpportunitiesResponse]
+	updateOpportunity             *connect.Client[v1.UpdateOpportunityRequest, v1.UpdateOpportunityResponse]
+	deleteOpportunity             *connect.Client[v1.DeleteOpportunityRequest, v1.DeleteOpportunityResponse]
+	listOpportunityStageHistory   *connect.Client[v1.ListOpportunityStageHistoryRequest, v1.ListOpportunityStageHistoryResponse]
+	createPipeline                *connect.Client[v1.CreatePipelineRequest, v1.CreatePipelineResponse]
+	getPipeline                   *connect.Client[v1.GetPipelineRequest, v1.GetPipelineResponse]
+	listPipelines                 *connect.Client[v1.ListPipelinesRequest, v1.ListPipelinesResponse]
+	updatePipeline                *connect.Client[v1.UpdatePipelineRequest, v1.UpdatePipelineResponse]
+	createPipelineStage           *connect.Client[v1.CreatePipelineStageRequest, v1.CreatePipelineStageResponse]
+	listPipelineStages            *connect.Client[v1.ListPipelineStagesRequest, v1.ListPipelineStagesResponse]
+	updatePipelineStage           *connect.Client[v1.UpdatePipelineStageRequest, v1.UpdatePipelineStageResponse]
+	createActivity                *connect.Client[v1.CreateActivityRequest, v1.CreateActivityResponse]
+	getActivity                   *connect.Client[v1.GetActivityRequest, v1.GetActivityResponse]
+	listActivities                *connect.Client[v1.ListActivitiesRequest, v1.ListActivitiesResponse]
+	updateActivity                *connect.Client[v1.UpdateActivityRequest, v1.UpdateActivityResponse]
+	deleteActivity                *connect.Client[v1.DeleteActivityRequest, v1.DeleteActivityResponse]
+	listActivitiesForSubject      *connect.Client[v1.ListActivitiesForSubjectRequest, v1.ListActivitiesForSubjectResponse]
+	createTask                    *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
+	getTask                       *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
+	listTasks                     *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	updateTask                    *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
+	deleteTask                    *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
+	completeTask                  *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
+	reopenTask                    *connect.Client[v1.ReopenTaskRequest, v1.ReopenTaskResponse]
+	createNote                    *connect.Client[v1.CreateNoteRequest, v1.CreateNoteResponse]
+	getNote                       *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
+	listNotes                     *connect.Client[v1.ListNotesRequest, v1.ListNotesResponse]
+	updateNote                    *connect.Client[v1.UpdateNoteRequest, v1.UpdateNoteResponse]
+	deleteNote                    *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
+	createCustomFieldDefinition   *connect.Client[v1.CreateCustomFieldDefinitionRequest, v1.CreateCustomFieldDefinitionResponse]
+	getCustomFieldDefinition      *connect.Client[v1.GetCustomFieldDefinitionRequest, v1.GetCustomFieldDefinitionResponse]
+	listCustomFieldDefinitions    *connect.Client[v1.ListCustomFieldDefinitionsRequest, v1.ListCustomFieldDefinitionsResponse]
+	updateCustomFieldDefinition   *connect.Client[v1.UpdateCustomFieldDefinitionRequest, v1.UpdateCustomFieldDefinitionResponse]
+	archiveCustomFieldDefinition  *connect.Client[v1.ArchiveCustomFieldDefinitionRequest, v1.ArchiveCustomFieldDefinitionResponse]
+	createCustomObjectDefinition  *connect.Client[v1.CreateCustomObjectDefinitionRequest, v1.CreateCustomObjectDefinitionResponse]
+	getCustomObjectDefinition     *connect.Client[v1.GetCustomObjectDefinitionRequest, v1.GetCustomObjectDefinitionResponse]
+	listCustomObjectDefinitions   *connect.Client[v1.ListCustomObjectDefinitionsRequest, v1.ListCustomObjectDefinitionsResponse]
+	archiveCustomObjectDefinition *connect.Client[v1.ArchiveCustomObjectDefinitionRequest, v1.ArchiveCustomObjectDefinitionResponse]
+	createCustomRecord            *connect.Client[v1.CreateCustomRecordRequest, v1.CreateCustomRecordResponse]
+	getCustomRecord               *connect.Client[v1.GetCustomRecordRequest, v1.GetCustomRecordResponse]
+	listCustomRecords             *connect.Client[v1.ListCustomRecordsRequest, v1.ListCustomRecordsResponse]
+	updateCustomRecord            *connect.Client[v1.UpdateCustomRecordRequest, v1.UpdateCustomRecordResponse]
+	deleteCustomRecord            *connect.Client[v1.DeleteCustomRecordRequest, v1.DeleteCustomRecordResponse]
+	getSummary                    *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -823,6 +980,76 @@ func (c *cRMServiceClient) DeleteNote(ctx context.Context, req *connect.Request[
 	return c.deleteNote.CallUnary(ctx, req)
 }
 
+// CreateCustomFieldDefinition calls crm.v1.CRMService.CreateCustomFieldDefinition.
+func (c *cRMServiceClient) CreateCustomFieldDefinition(ctx context.Context, req *connect.Request[v1.CreateCustomFieldDefinitionRequest]) (*connect.Response[v1.CreateCustomFieldDefinitionResponse], error) {
+	return c.createCustomFieldDefinition.CallUnary(ctx, req)
+}
+
+// GetCustomFieldDefinition calls crm.v1.CRMService.GetCustomFieldDefinition.
+func (c *cRMServiceClient) GetCustomFieldDefinition(ctx context.Context, req *connect.Request[v1.GetCustomFieldDefinitionRequest]) (*connect.Response[v1.GetCustomFieldDefinitionResponse], error) {
+	return c.getCustomFieldDefinition.CallUnary(ctx, req)
+}
+
+// ListCustomFieldDefinitions calls crm.v1.CRMService.ListCustomFieldDefinitions.
+func (c *cRMServiceClient) ListCustomFieldDefinitions(ctx context.Context, req *connect.Request[v1.ListCustomFieldDefinitionsRequest]) (*connect.Response[v1.ListCustomFieldDefinitionsResponse], error) {
+	return c.listCustomFieldDefinitions.CallUnary(ctx, req)
+}
+
+// UpdateCustomFieldDefinition calls crm.v1.CRMService.UpdateCustomFieldDefinition.
+func (c *cRMServiceClient) UpdateCustomFieldDefinition(ctx context.Context, req *connect.Request[v1.UpdateCustomFieldDefinitionRequest]) (*connect.Response[v1.UpdateCustomFieldDefinitionResponse], error) {
+	return c.updateCustomFieldDefinition.CallUnary(ctx, req)
+}
+
+// ArchiveCustomFieldDefinition calls crm.v1.CRMService.ArchiveCustomFieldDefinition.
+func (c *cRMServiceClient) ArchiveCustomFieldDefinition(ctx context.Context, req *connect.Request[v1.ArchiveCustomFieldDefinitionRequest]) (*connect.Response[v1.ArchiveCustomFieldDefinitionResponse], error) {
+	return c.archiveCustomFieldDefinition.CallUnary(ctx, req)
+}
+
+// CreateCustomObjectDefinition calls crm.v1.CRMService.CreateCustomObjectDefinition.
+func (c *cRMServiceClient) CreateCustomObjectDefinition(ctx context.Context, req *connect.Request[v1.CreateCustomObjectDefinitionRequest]) (*connect.Response[v1.CreateCustomObjectDefinitionResponse], error) {
+	return c.createCustomObjectDefinition.CallUnary(ctx, req)
+}
+
+// GetCustomObjectDefinition calls crm.v1.CRMService.GetCustomObjectDefinition.
+func (c *cRMServiceClient) GetCustomObjectDefinition(ctx context.Context, req *connect.Request[v1.GetCustomObjectDefinitionRequest]) (*connect.Response[v1.GetCustomObjectDefinitionResponse], error) {
+	return c.getCustomObjectDefinition.CallUnary(ctx, req)
+}
+
+// ListCustomObjectDefinitions calls crm.v1.CRMService.ListCustomObjectDefinitions.
+func (c *cRMServiceClient) ListCustomObjectDefinitions(ctx context.Context, req *connect.Request[v1.ListCustomObjectDefinitionsRequest]) (*connect.Response[v1.ListCustomObjectDefinitionsResponse], error) {
+	return c.listCustomObjectDefinitions.CallUnary(ctx, req)
+}
+
+// ArchiveCustomObjectDefinition calls crm.v1.CRMService.ArchiveCustomObjectDefinition.
+func (c *cRMServiceClient) ArchiveCustomObjectDefinition(ctx context.Context, req *connect.Request[v1.ArchiveCustomObjectDefinitionRequest]) (*connect.Response[v1.ArchiveCustomObjectDefinitionResponse], error) {
+	return c.archiveCustomObjectDefinition.CallUnary(ctx, req)
+}
+
+// CreateCustomRecord calls crm.v1.CRMService.CreateCustomRecord.
+func (c *cRMServiceClient) CreateCustomRecord(ctx context.Context, req *connect.Request[v1.CreateCustomRecordRequest]) (*connect.Response[v1.CreateCustomRecordResponse], error) {
+	return c.createCustomRecord.CallUnary(ctx, req)
+}
+
+// GetCustomRecord calls crm.v1.CRMService.GetCustomRecord.
+func (c *cRMServiceClient) GetCustomRecord(ctx context.Context, req *connect.Request[v1.GetCustomRecordRequest]) (*connect.Response[v1.GetCustomRecordResponse], error) {
+	return c.getCustomRecord.CallUnary(ctx, req)
+}
+
+// ListCustomRecords calls crm.v1.CRMService.ListCustomRecords.
+func (c *cRMServiceClient) ListCustomRecords(ctx context.Context, req *connect.Request[v1.ListCustomRecordsRequest]) (*connect.Response[v1.ListCustomRecordsResponse], error) {
+	return c.listCustomRecords.CallUnary(ctx, req)
+}
+
+// UpdateCustomRecord calls crm.v1.CRMService.UpdateCustomRecord.
+func (c *cRMServiceClient) UpdateCustomRecord(ctx context.Context, req *connect.Request[v1.UpdateCustomRecordRequest]) (*connect.Response[v1.UpdateCustomRecordResponse], error) {
+	return c.updateCustomRecord.CallUnary(ctx, req)
+}
+
+// DeleteCustomRecord calls crm.v1.CRMService.DeleteCustomRecord.
+func (c *cRMServiceClient) DeleteCustomRecord(ctx context.Context, req *connect.Request[v1.DeleteCustomRecordRequest]) (*connect.Response[v1.DeleteCustomRecordResponse], error) {
+	return c.deleteCustomRecord.CallUnary(ctx, req)
+}
+
 // GetSummary calls crm.v1.CRMService.GetSummary.
 func (c *cRMServiceClient) GetSummary(ctx context.Context, req *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error) {
 	return c.getSummary.CallUnary(ctx, req)
@@ -905,6 +1132,23 @@ type CRMServiceHandler interface {
 	ListNotes(context.Context, *connect.Request[v1.ListNotesRequest]) (*connect.Response[v1.ListNotesResponse], error)
 	UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error)
 	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
+	// Custom-field definitions are tenant administration data. Values travel on
+	// the shipped record messages above, but a definition is the authority for
+	// their type, requiredness, picklist options, and lookup target.
+	CreateCustomFieldDefinition(context.Context, *connect.Request[v1.CreateCustomFieldDefinitionRequest]) (*connect.Response[v1.CreateCustomFieldDefinitionResponse], error)
+	GetCustomFieldDefinition(context.Context, *connect.Request[v1.GetCustomFieldDefinitionRequest]) (*connect.Response[v1.GetCustomFieldDefinitionResponse], error)
+	ListCustomFieldDefinitions(context.Context, *connect.Request[v1.ListCustomFieldDefinitionsRequest]) (*connect.Response[v1.ListCustomFieldDefinitionsResponse], error)
+	UpdateCustomFieldDefinition(context.Context, *connect.Request[v1.UpdateCustomFieldDefinitionRequest]) (*connect.Response[v1.UpdateCustomFieldDefinitionResponse], error)
+	ArchiveCustomFieldDefinition(context.Context, *connect.Request[v1.ArchiveCustomFieldDefinitionRequest]) (*connect.Response[v1.ArchiveCustomFieldDefinitionResponse], error)
+	CreateCustomObjectDefinition(context.Context, *connect.Request[v1.CreateCustomObjectDefinitionRequest]) (*connect.Response[v1.CreateCustomObjectDefinitionResponse], error)
+	GetCustomObjectDefinition(context.Context, *connect.Request[v1.GetCustomObjectDefinitionRequest]) (*connect.Response[v1.GetCustomObjectDefinitionResponse], error)
+	ListCustomObjectDefinitions(context.Context, *connect.Request[v1.ListCustomObjectDefinitionsRequest]) (*connect.Response[v1.ListCustomObjectDefinitionsResponse], error)
+	ArchiveCustomObjectDefinition(context.Context, *connect.Request[v1.ArchiveCustomObjectDefinitionRequest]) (*connect.Response[v1.ArchiveCustomObjectDefinitionResponse], error)
+	CreateCustomRecord(context.Context, *connect.Request[v1.CreateCustomRecordRequest]) (*connect.Response[v1.CreateCustomRecordResponse], error)
+	GetCustomRecord(context.Context, *connect.Request[v1.GetCustomRecordRequest]) (*connect.Response[v1.GetCustomRecordResponse], error)
+	ListCustomRecords(context.Context, *connect.Request[v1.ListCustomRecordsRequest]) (*connect.Response[v1.ListCustomRecordsResponse], error)
+	UpdateCustomRecord(context.Context, *connect.Request[v1.UpdateCustomRecordRequest]) (*connect.Response[v1.UpdateCustomRecordResponse], error)
+	DeleteCustomRecord(context.Context, *connect.Request[v1.DeleteCustomRecordRequest]) (*connect.Response[v1.DeleteCustomRecordResponse], error)
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
 }
 
@@ -1197,6 +1441,90 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("DeleteNote")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateCustomFieldDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceCreateCustomFieldDefinitionProcedure,
+		svc.CreateCustomFieldDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateCustomFieldDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetCustomFieldDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceGetCustomFieldDefinitionProcedure,
+		svc.GetCustomFieldDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("GetCustomFieldDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListCustomFieldDefinitionsHandler := connect.NewUnaryHandler(
+		CRMServiceListCustomFieldDefinitionsProcedure,
+		svc.ListCustomFieldDefinitions,
+		connect.WithSchema(cRMServiceMethods.ByName("ListCustomFieldDefinitions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateCustomFieldDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateCustomFieldDefinitionProcedure,
+		svc.UpdateCustomFieldDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateCustomFieldDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceArchiveCustomFieldDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceArchiveCustomFieldDefinitionProcedure,
+		svc.ArchiveCustomFieldDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("ArchiveCustomFieldDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCreateCustomObjectDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceCreateCustomObjectDefinitionProcedure,
+		svc.CreateCustomObjectDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateCustomObjectDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetCustomObjectDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceGetCustomObjectDefinitionProcedure,
+		svc.GetCustomObjectDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("GetCustomObjectDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListCustomObjectDefinitionsHandler := connect.NewUnaryHandler(
+		CRMServiceListCustomObjectDefinitionsProcedure,
+		svc.ListCustomObjectDefinitions,
+		connect.WithSchema(cRMServiceMethods.ByName("ListCustomObjectDefinitions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceArchiveCustomObjectDefinitionHandler := connect.NewUnaryHandler(
+		CRMServiceArchiveCustomObjectDefinitionProcedure,
+		svc.ArchiveCustomObjectDefinition,
+		connect.WithSchema(cRMServiceMethods.ByName("ArchiveCustomObjectDefinition")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCreateCustomRecordHandler := connect.NewUnaryHandler(
+		CRMServiceCreateCustomRecordProcedure,
+		svc.CreateCustomRecord,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateCustomRecord")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetCustomRecordHandler := connect.NewUnaryHandler(
+		CRMServiceGetCustomRecordProcedure,
+		svc.GetCustomRecord,
+		connect.WithSchema(cRMServiceMethods.ByName("GetCustomRecord")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListCustomRecordsHandler := connect.NewUnaryHandler(
+		CRMServiceListCustomRecordsProcedure,
+		svc.ListCustomRecords,
+		connect.WithSchema(cRMServiceMethods.ByName("ListCustomRecords")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateCustomRecordHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateCustomRecordProcedure,
+		svc.UpdateCustomRecord,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateCustomRecord")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteCustomRecordHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteCustomRecordProcedure,
+		svc.DeleteCustomRecord,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteCustomRecord")),
+		connect.WithHandlerOptions(opts...),
+	)
 	cRMServiceGetSummaryHandler := connect.NewUnaryHandler(
 		CRMServiceGetSummaryProcedure,
 		svc.GetSummary,
@@ -1299,6 +1627,34 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceUpdateNoteHandler.ServeHTTP(w, r)
 		case CRMServiceDeleteNoteProcedure:
 			cRMServiceDeleteNoteHandler.ServeHTTP(w, r)
+		case CRMServiceCreateCustomFieldDefinitionProcedure:
+			cRMServiceCreateCustomFieldDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceGetCustomFieldDefinitionProcedure:
+			cRMServiceGetCustomFieldDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceListCustomFieldDefinitionsProcedure:
+			cRMServiceListCustomFieldDefinitionsHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateCustomFieldDefinitionProcedure:
+			cRMServiceUpdateCustomFieldDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceArchiveCustomFieldDefinitionProcedure:
+			cRMServiceArchiveCustomFieldDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceCreateCustomObjectDefinitionProcedure:
+			cRMServiceCreateCustomObjectDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceGetCustomObjectDefinitionProcedure:
+			cRMServiceGetCustomObjectDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceListCustomObjectDefinitionsProcedure:
+			cRMServiceListCustomObjectDefinitionsHandler.ServeHTTP(w, r)
+		case CRMServiceArchiveCustomObjectDefinitionProcedure:
+			cRMServiceArchiveCustomObjectDefinitionHandler.ServeHTTP(w, r)
+		case CRMServiceCreateCustomRecordProcedure:
+			cRMServiceCreateCustomRecordHandler.ServeHTTP(w, r)
+		case CRMServiceGetCustomRecordProcedure:
+			cRMServiceGetCustomRecordHandler.ServeHTTP(w, r)
+		case CRMServiceListCustomRecordsProcedure:
+			cRMServiceListCustomRecordsHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateCustomRecordProcedure:
+			cRMServiceUpdateCustomRecordHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteCustomRecordProcedure:
+			cRMServiceDeleteCustomRecordHandler.ServeHTTP(w, r)
 		case CRMServiceGetSummaryProcedure:
 			cRMServiceGetSummaryHandler.ServeHTTP(w, r)
 		default:
@@ -1496,6 +1852,62 @@ func (UnimplementedCRMServiceHandler) UpdateNote(context.Context, *connect.Reque
 
 func (UnimplementedCRMServiceHandler) DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteNote is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateCustomFieldDefinition(context.Context, *connect.Request[v1.CreateCustomFieldDefinitionRequest]) (*connect.Response[v1.CreateCustomFieldDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateCustomFieldDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetCustomFieldDefinition(context.Context, *connect.Request[v1.GetCustomFieldDefinitionRequest]) (*connect.Response[v1.GetCustomFieldDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetCustomFieldDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListCustomFieldDefinitions(context.Context, *connect.Request[v1.ListCustomFieldDefinitionsRequest]) (*connect.Response[v1.ListCustomFieldDefinitionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListCustomFieldDefinitions is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateCustomFieldDefinition(context.Context, *connect.Request[v1.UpdateCustomFieldDefinitionRequest]) (*connect.Response[v1.UpdateCustomFieldDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateCustomFieldDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ArchiveCustomFieldDefinition(context.Context, *connect.Request[v1.ArchiveCustomFieldDefinitionRequest]) (*connect.Response[v1.ArchiveCustomFieldDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ArchiveCustomFieldDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateCustomObjectDefinition(context.Context, *connect.Request[v1.CreateCustomObjectDefinitionRequest]) (*connect.Response[v1.CreateCustomObjectDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateCustomObjectDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetCustomObjectDefinition(context.Context, *connect.Request[v1.GetCustomObjectDefinitionRequest]) (*connect.Response[v1.GetCustomObjectDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetCustomObjectDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListCustomObjectDefinitions(context.Context, *connect.Request[v1.ListCustomObjectDefinitionsRequest]) (*connect.Response[v1.ListCustomObjectDefinitionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListCustomObjectDefinitions is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ArchiveCustomObjectDefinition(context.Context, *connect.Request[v1.ArchiveCustomObjectDefinitionRequest]) (*connect.Response[v1.ArchiveCustomObjectDefinitionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ArchiveCustomObjectDefinition is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateCustomRecord(context.Context, *connect.Request[v1.CreateCustomRecordRequest]) (*connect.Response[v1.CreateCustomRecordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateCustomRecord is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetCustomRecord(context.Context, *connect.Request[v1.GetCustomRecordRequest]) (*connect.Response[v1.GetCustomRecordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetCustomRecord is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListCustomRecords(context.Context, *connect.Request[v1.ListCustomRecordsRequest]) (*connect.Response[v1.ListCustomRecordsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListCustomRecords is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateCustomRecord(context.Context, *connect.Request[v1.UpdateCustomRecordRequest]) (*connect.Response[v1.UpdateCustomRecordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateCustomRecord is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteCustomRecord(context.Context, *connect.Request[v1.DeleteCustomRecordRequest]) (*connect.Response[v1.DeleteCustomRecordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteCustomRecord is not implemented"))
 }
 
 func (UnimplementedCRMServiceHandler) GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error) {

@@ -118,6 +118,16 @@ type Store interface {
 	// into rows under its key. Idempotent.
 	ArchiveCustomFieldDefinition(ctx context.Context, scope Scope, id string) (*CustomFieldDefinition, error)
 
+	CreateCustomObjectDefinition(ctx context.Context, scope Scope, v *CustomObjectDefinition) (*CustomObjectDefinition, error)
+	GetCustomObjectDefinition(ctx context.Context, scope Scope, apiName string) (*CustomObjectDefinition, error)
+	ListCustomObjectDefinitions(ctx context.Context, scope Scope, includeArchived bool) ([]*CustomObjectDefinition, error)
+	ArchiveCustomObjectDefinition(ctx context.Context, scope Scope, apiName string) (*CustomObjectDefinition, error)
+	CreateCustomRecord(ctx context.Context, scope Scope, v *CustomRecord) (*CustomRecord, error)
+	GetCustomRecord(ctx context.Context, scope Scope, objectType, id string) (*CustomRecord, error)
+	ListCustomRecords(ctx context.Context, scope Scope, objectType string, page Page) ([]*CustomRecord, string, error)
+	UpdateCustomRecord(ctx context.Context, scope Scope, v *CustomRecord) (*CustomRecord, error)
+	DeleteCustomRecord(ctx context.Context, scope Scope, objectType, id string) error
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 

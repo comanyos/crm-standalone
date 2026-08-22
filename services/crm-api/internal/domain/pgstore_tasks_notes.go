@@ -18,14 +18,15 @@ import (
 // against Postgres, which is the environment where it is hardest to see.
 
 const taskColumns = `id, title, description, status, priority, assignee_id, due_at,
-	subject_type, subject_id, completed_at, completed_by, created_by, created_at, updated_at`
+	subject_type, subject_id, completed_at, completed_by, created_by, created_at, updated_at, custom_fields`
 
 func scanTask(row pgx.Row) (*Task, error) {
 	v := &Task{}
 	var dueAt, completedAt *time.Time
+	var customFields []byte
 	err := row.Scan(&v.ID, &v.Title, &v.Description, &v.Status, &v.Priority, &v.AssigneeID,
 		&dueAt, &v.SubjectType, &v.SubjectID, &completedAt, &v.CompletedBy,
-		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt)
+		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &customFields)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -38,6 +39,11 @@ func scanTask(row pgx.Row) (*Task, error) {
 	if completedAt != nil {
 		v.CompletedAt = *completedAt
 	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = values
 	return v, nil
 }
 
@@ -67,18 +73,27 @@ func (s *PgStore) CreateTask(ctx context.Context, scope Scope, v *Task) (*Task, 
 	if v.Status == TaskCompleted {
 		applyTaskCompletion(v, v.CreatedBy, now)
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "task", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
 	v.CreatedAt, v.UpdatedAt = now, now
 
-	_, err := s.db.Exec(ctx, scope,
+	_, err = s.db.Exec(ctx, scope,
 		`INSERT INTO tasks (tenant_id, id, title, description, status, priority, assignee_id,
-		     due_at, subject_type, subject_id, completed_at, completed_by, created_by, created_at, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		     due_at, subject_type, subject_id, completed_at, completed_by, created_by, created_at, updated_at, custom_fields)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		scope.TenantID, v.ID, v.Title, v.Description, v.Status, v.Priority, v.AssigneeID,
 		nullTimeValue(v.DueAt), v.SubjectType, v.SubjectID,
-		nullTimeValue(v.CompletedAt), v.CompletedBy, v.CreatedBy, v.CreatedAt, v.UpdatedAt)
+		nullTimeValue(v.CompletedAt), v.CompletedBy, v.CreatedBy, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("create task: %w", err)
 	}
@@ -225,16 +240,25 @@ func (s *PgStore) UpdateTask(ctx context.Context, scope Scope, v *Task) (*Task, 
 		v.CompletedAt = time.Time{}
 		v.CompletedBy = ""
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "task", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = now
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE tasks SET title=$3, description=$4, status=$5, priority=$6, assignee_id=$7,
 		     due_at=$8, subject_type=$9, subject_id=$10, completed_at=$11, completed_by=$12,
-		     updated_at=$13
+		     updated_at=$13, custom_fields=$14
 		 WHERE tenant_id=$1 AND id=$2`,
 		scope.TenantID, v.ID, v.Title, v.Description, v.Status, v.Priority, v.AssigneeID,
 		nullTimeValue(v.DueAt), v.SubjectType, v.SubjectID,
-		nullTimeValue(v.CompletedAt), v.CompletedBy, v.UpdatedAt)
+		nullTimeValue(v.CompletedAt), v.CompletedBy, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
 	}
@@ -310,13 +334,14 @@ func (s *PgStore) ReopenTask(ctx context.Context, scope Scope, id string) (*Task
 	return s.GetTask(ctx, scope, id)
 }
 
-const noteColumns = `id, body, subject_type, subject_id, author_id, created_at, updated_at, edited_at`
+const noteColumns = `id, body, subject_type, subject_id, author_id, created_at, updated_at, edited_at, custom_fields`
 
 func scanNote(row pgx.Row) (*Note, error) {
 	v := &Note{}
 	var editedAt *time.Time
+	var customFields []byte
 	err := row.Scan(&v.ID, &v.Body, &v.SubjectType, &v.SubjectID, &v.AuthorID,
-		&v.CreatedAt, &v.UpdatedAt, &editedAt)
+		&v.CreatedAt, &v.UpdatedAt, &editedAt, &customFields)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -326,6 +351,11 @@ func scanNote(row pgx.Row) (*Note, error) {
 	if editedAt != nil {
 		v.EditedAt = *editedAt
 	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = values
 	return v, nil
 }
 
@@ -341,16 +371,25 @@ func (s *PgStore) CreateNote(ctx context.Context, scope Scope, v *Note) (*Note, 
 		return nil, err
 	}
 	v.EditedAt = time.Time{}
+	custom, err := CoerceCustomValues(ctx, s, scope, "note", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
-	_, err := s.db.Exec(ctx, scope,
-		`INSERT INTO notes (tenant_id, id, body, subject_type, subject_id, author_id, created_at, updated_at, edited_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULL)`,
-		scope.TenantID, v.ID, v.Body, v.SubjectType, v.SubjectID, v.AuthorID, v.CreatedAt, v.UpdatedAt)
+	_, err = s.db.Exec(ctx, scope,
+		`INSERT INTO notes (tenant_id, id, body, subject_type, subject_id, author_id, created_at, updated_at, edited_at, custom_fields)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NULL,$9)`,
+		scope.TenantID, v.ID, v.Body, v.SubjectType, v.SubjectID, v.AuthorID, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
 	}
@@ -452,11 +491,20 @@ func (s *PgStore) UpdateNote(ctx context.Context, scope Scope, v *Note) (*Note, 
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "note", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = now
 
 	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE notes SET body=$3, updated_at=$4, edited_at=$5 WHERE tenant_id=$1 AND id=$2`,
-		scope.TenantID, v.ID, v.Body, v.UpdatedAt, nullTimeValue(v.EditedAt))
+		`UPDATE notes SET body=$3, updated_at=$4, edited_at=$5, custom_fields=$6 WHERE tenant_id=$1 AND id=$2`,
+		scope.TenantID, v.ID, v.Body, v.UpdatedAt, nullTimeValue(v.EditedAt), document)
 	if err != nil {
 		return nil, fmt.Errorf("update note: %w", err)
 	}

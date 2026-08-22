@@ -193,13 +193,22 @@ func (s *PgStore) txCreateContact(ctx context.Context, tx pgx.Tx, scope Scope, e
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "contact", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.ID = newID()
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
-	_, err := tx.Exec(ctx,
-		`INSERT INTO contacts (tenant_id, id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, '', '', '', '', '', '', $5, $6)`,
-		scope.TenantID, v.ID, v.Email, v.AccountID, v.CreatedAt, v.UpdatedAt)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO contacts (tenant_id, id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at, custom_fields)
+		 VALUES ($1, $2, $3, $4, '', '', '', '', '', '', $5, $6, $7)`,
+		scope.TenantID, v.ID, v.Email, v.AccountID, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("insert contact: %w", err)
 	}
@@ -208,10 +217,9 @@ func (s *PgStore) txCreateContact(ctx context.Context, tx pgx.Tx, scope Scope, e
 
 func (s *PgStore) txGetAccount(ctx context.Context, tx pgx.Tx, scope Scope, id string) (*Account, error) {
 	v := &Account{}
-	err := tx.QueryRow(ctx,
-		`SELECT id, name, industry, tier, owner_id, website, annual_revenue, parent_id, created_at, updated_at FROM accounts
-		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, id).Scan(&v.ID, &v.Name, &v.Industry, &v.Tier, &v.OwnerID, &v.Website, &v.AnnualRevenue, &v.ParentID, &v.CreatedAt, &v.UpdatedAt)
+	err := scanAccount(tx.QueryRow(ctx,
+		`SELECT `+accountColumns+` FROM accounts WHERE tenant_id = $1 AND id = $2`,
+		scope.TenantID, id), v)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -225,7 +233,7 @@ func (s *PgStore) txGetAccount(ctx context.Context, tx pgx.Tx, scope Scope, id s
 // open tx instead of a fresh scopedDB call.
 func (s *PgStore) txFindAccountByDomain(ctx context.Context, tx pgx.Tx, scope Scope, domain string) (*Account, error) {
 	rows, err := tx.Query(ctx,
-		`SELECT id, name, industry, tier, owner_id, website, annual_revenue, parent_id, created_at, updated_at FROM accounts
+		`SELECT `+accountColumns+` FROM accounts
 		 WHERE tenant_id = $1
 		 ORDER BY id`,
 		scope.TenantID)
@@ -236,7 +244,7 @@ func (s *PgStore) txFindAccountByDomain(ctx context.Context, tx pgx.Tx, scope Sc
 
 	for rows.Next() {
 		v := &Account{}
-		if err := rows.Scan(&v.ID, &v.Name, &v.Industry, &v.Tier, &v.OwnerID, &v.Website, &v.AnnualRevenue, &v.ParentID, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		if err := scanAccount(rows, v); err != nil {
 			return nil, fmt.Errorf("scan account: %w", err)
 		}
 		if sameDomain(websiteDomain(v.Website), domain) {
@@ -253,13 +261,22 @@ func (s *PgStore) txCreateAccount(ctx context.Context, tx pgx.Tx, scope Scope, v
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "account", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.ID = newID()
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
-	_, err := tx.Exec(ctx,
-		`INSERT INTO accounts (tenant_id, id, name, industry, tier, owner_id, website, annual_revenue, parent_id, created_at, updated_at)
-		 VALUES ($1, $2, $3, '', '', '', $4, 0, '', $5, $6)`,
-		scope.TenantID, v.ID, v.Name, v.Website, v.CreatedAt, v.UpdatedAt)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO accounts (tenant_id, id, name, industry, tier, owner_id, website, annual_revenue, parent_id, created_at, updated_at, custom_fields)
+		 VALUES ($1, $2, $3, '', '', '', $4, 0, '', $5, $6, $7)`,
+		scope.TenantID, v.ID, v.Name, v.Website, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("insert account: %w", err)
 	}
@@ -279,6 +296,15 @@ func (s *PgStore) txCreateConversionOpportunity(
 	}
 	v.PipelineID, v.StageID = pipeline.ID, stage.ID
 	v.Stage = stageDisplay(v.PipelineID, stage)
+	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.ID = newID()
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
@@ -288,9 +314,9 @@ func (s *PgStore) txCreateConversionOpportunity(
 	// convention PgStore.CreateOpportunity uses, so GetOpportunity's
 	// non-pointer time.Time scan target never has to handle an actual NULL.
 	_, err = tx.Exec(ctx,
-		`INSERT INTO opportunities (tenant_id, id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, '', $10, $11)`,
-		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.CloseDate, v.CreatedAt, v.UpdatedAt)
+		`INSERT INTO opportunities (tenant_id, id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at, custom_fields)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, '', $10, $11, $12)`,
+		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.CloseDate, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("insert conversion opportunity: %w", err)
 	}
@@ -366,10 +392,9 @@ func (s *PgStore) txGetContact(ctx context.Context, tx pgx.Tx, scope Scope, id s
 
 func (s *PgStore) txGetOpportunity(ctx context.Context, tx pgx.Tx, scope Scope, id string) (*Opportunity, error) {
 	v := &Opportunity{}
-	err := tx.QueryRow(ctx,
-		`SELECT id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at FROM opportunities
-		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, id).Scan(&v.ID, &v.Name, &v.AccountID, &v.Stage, &v.PipelineID, &v.StageID, &v.Amount, &v.Probability, &v.CloseDate, &v.CloseReason, &v.CreatedAt, &v.UpdatedAt)
+	err := scanOpportunity(tx.QueryRow(ctx,
+		`SELECT `+opportunityColumns+` FROM opportunities WHERE tenant_id = $1 AND id = $2`,
+		scope.TenantID, id), v)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}

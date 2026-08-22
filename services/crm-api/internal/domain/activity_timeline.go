@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"reflect"
 )
 
 // Activity chronological timeline query and immutability (B5 —
@@ -54,7 +55,8 @@ func checkActivityImmutable(existing, v *Activity) error {
 		existing.SubjectID == v.SubjectID &&
 		existing.Notes == v.Notes &&
 		existing.ActorID == v.ActorID &&
-		existing.OccurredAt.Equal(v.OccurredAt) {
+		existing.OccurredAt.Equal(v.OccurredAt) &&
+		reflect.DeepEqual(existing.CustomFields, v.CustomFields) {
 		return nil
 	}
 	return fmt.Errorf(

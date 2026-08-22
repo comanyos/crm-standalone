@@ -19,12 +19,15 @@ import (
 
 // CreateCustomFieldDefinition stores a new field definition.
 func (s *MemStore) CreateCustomFieldDefinition(
-	_ context.Context, scope Scope, v *CustomFieldDefinition,
+	ctx context.Context, scope Scope, v *CustomFieldDefinition,
 ) (*CustomFieldDefinition, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
 	if err := v.Validate(); err != nil {
+		return nil, err
+	}
+	if err := requireKnownCustomObject(ctx, s, scope, v.ObjectType); err != nil {
 		return nil, err
 	}
 

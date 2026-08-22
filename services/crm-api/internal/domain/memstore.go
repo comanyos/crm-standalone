@@ -188,6 +188,8 @@ type MemStore struct {
 	stageHistory     *memTable[*OpportunityStageChange]
 	ownershipHistory *memTable[*AccountOwnershipHistory]
 	customField      *memTable[*CustomFieldDefinition]
+	customObject     *memTable[*CustomObjectDefinition]
+	customRecord     *memTable[*CustomRecord]
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -206,6 +208,8 @@ func NewMemStore() *MemStore {
 		stageHistory:     newMemTable(cloneOpportunityStageChange),
 		ownershipHistory: newMemTable(cloneAccountOwnershipHistory),
 		customField:      newMemTable(cloneCustomFieldDefinition),
+		customObject:     newMemTable(cloneCustomObjectDefinition),
+		customRecord:     newMemTable(cloneCustomRecord),
 	}
 }
 
@@ -240,6 +244,11 @@ func (s *MemStore) createAccount(ctx context.Context, scope Scope, v *Account, r
 	if err := applyAccountDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "account", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.account.create(scope, v)
 }
 
@@ -375,6 +384,11 @@ func (s *MemStore) UpdateAccount(ctx context.Context, scope Scope, v *Account) (
 	if err := applyAccountDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "account", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 
 	updated, err := s.account.update(scope, v)
 	if err != nil {
@@ -442,6 +456,11 @@ func (s *MemStore) CreateContact(ctx context.Context, scope Scope, v *Contact) (
 	if err := applyContactDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "contact", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.contact.create(scope, v)
 }
 
@@ -564,6 +583,11 @@ func (s *MemStore) UpdateContact(ctx context.Context, scope Scope, v *Contact) (
 	if err := applyContactDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "contact", v.CustomFields, existingContact.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.contact.update(scope, v)
 }
 
@@ -593,6 +617,11 @@ func (s *MemStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead,
 	if err := applyLeadDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "lead", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.lead.create(scope, v)
 }
 
@@ -634,6 +663,11 @@ func (s *MemStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead,
 	if err := applyLeadDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "lead", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.lead.update(scope, v)
 }
 
@@ -863,6 +897,11 @@ func (s *MemStore) CreateOpportunity(ctx context.Context, scope Scope, v *Opport
 			return nil, err
 		}
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.opportunity.create(scope, v)
 }
 
@@ -916,6 +955,11 @@ func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opport
 			return nil, err
 		}
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 
 	updated, err := s.opportunity.update(scope, v)
 	if err != nil {
@@ -1122,6 +1166,11 @@ func (s *MemStore) CreateActivity(ctx context.Context, scope Scope, v *Activity)
 	if err := requireActivitySubject(ctx, s, scope, v.SubjectType, v.SubjectID); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "activity", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.activity.create(scope, v)
 }
 
@@ -1140,7 +1189,7 @@ func (s *MemStore) ListActivities(_ context.Context, scope Scope, page Page) ([]
 // activity_timeline.go): any real change to kind, subject_type, subject_id,
 // notes, actor_id or occurred_at is ErrInvalidTransition. Record a
 // correction as a new Activity instead.
-func (s *MemStore) UpdateActivity(_ context.Context, scope Scope, v *Activity) (*Activity, error) {
+func (s *MemStore) UpdateActivity(ctx context.Context, scope Scope, v *Activity) (*Activity, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
@@ -1148,6 +1197,14 @@ func (s *MemStore) UpdateActivity(_ context.Context, scope Scope, v *Activity) (
 	if err != nil {
 		return nil, err
 	}
+	if err := checkActivityImmutable(existing, v); err != nil {
+		return nil, err
+	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "activity", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	if err := checkActivityImmutable(existing, v); err != nil {
 		return nil, err
 	}

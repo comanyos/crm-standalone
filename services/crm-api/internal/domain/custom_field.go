@@ -147,6 +147,13 @@ type FieldConfig struct {
 	// accepting an expression before there is something safe to run it in
 	// would be storing an unvalidated program.
 	Expression string `json:"expression,omitempty"`
+
+	// VisibleToRoles and EditableToRoles are allowlists of AuthinCore role
+	// keys. Empty means all roles. They are intentionally metadata rather than
+	// browser state: API handlers apply them to every read and write.
+	VisibleToRoles       []string `json:"visible_to_roles,omitempty"`
+	EditableToRoles      []string `json:"editable_to_roles,omitempty"`
+	ValidationExpression string   `json:"validation_expression,omitempty"`
 }
 
 // MaxDecimalScale bounds currency/percent precision.
@@ -186,8 +193,8 @@ func (d *CustomFieldDefinition) Validate() error {
 	d.Label = strings.TrimSpace(d.Label)
 	d.DataType = strings.ToLower(strings.TrimSpace(d.DataType))
 
-	if !customObjectTypes[d.ObjectType] {
-		return fmt.Errorf("%w: unknown object type %q", ErrInvalid, d.ObjectType)
+	if !fieldKeyPattern.MatchString(d.ObjectType) {
+		return fmt.Errorf("%w: invalid object type %q", ErrInvalid, d.ObjectType)
 	}
 	if !fieldKeyPattern.MatchString(d.FieldKey) {
 		return fmt.Errorf(
@@ -247,6 +254,18 @@ func validateFieldConfig(d *CustomFieldDefinition) error {
 	if !usesExpression && c.Expression != "" {
 		return invalid("a %s field takes no expression", d.DataType)
 	}
+	if err := normalizeRoleAllowlist(&c.VisibleToRoles, "visible_to_roles", invalid); err != nil {
+		return err
+	}
+	if err := normalizeRoleAllowlist(&c.EditableToRoles, "editable_to_roles", invalid); err != nil {
+		return err
+	}
+	if strings.TrimSpace(c.ValidationExpression) != "" {
+		if err := ValidateExpression(c.ValidationExpression); err != nil {
+			return invalid("invalid validation expression")
+		}
+		c.ValidationExpression = strings.TrimSpace(c.ValidationExpression)
+	}
 
 	switch {
 	case usesOptions:
@@ -295,13 +314,38 @@ func validateFieldConfig(d *CustomFieldDefinition) error {
 		if strings.TrimSpace(c.Expression) == "" {
 			return invalid("a %s field needs an expression", d.DataType)
 		}
-		// The sandboxed evaluator is step 6 of docs/DESIGN_METADATA_LAYER.md
-		// §8. Until it exists there is nothing that can safely decide whether
-		// an expression is well formed, and accepting one anyway would store
-		// an unvalidated program for a future release to execute.
-		return invalid("formula and rollup fields are not available yet")
+		if d.DataType == FieldRollup {
+			return invalid("rollup fields require the reporting aggregation layer and are not available yet")
+		}
+		if err := ValidateExpression(c.Expression); err != nil {
+			return invalid("invalid formula expression")
+		}
 	}
 
+	return nil
+}
+
+// normalizeRoleAllowlist keeps policy configuration bounded and unambiguous.
+// Role keys are identity-system data, not caller-supplied expressions, so the
+// narrow shape also prevents arbitrary strings becoming durable access rules.
+func normalizeRoleAllowlist(values *[]string, name string, invalid func(string, ...any) error) error {
+	if len(*values) > 50 {
+		return invalid("%s has more than 50 roles", name)
+	}
+	seen := make(map[string]bool, len(*values))
+	normalized := make([]string, 0, len(*values))
+	for _, role := range *values {
+		role = strings.TrimSpace(role)
+		if !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(role) {
+			return invalid("%s has invalid role %q", name, role)
+		}
+		if seen[role] {
+			return invalid("%s lists role %q twice", name, role)
+		}
+		seen[role] = true
+		normalized = append(normalized, role)
+	}
+	*values = normalized
 	return nil
 }
 
@@ -329,6 +373,13 @@ func cloneCustomFieldDefinition(v *CustomFieldDefinition) *CustomFieldDefinition
 	if v.Config.Options != nil {
 		c.Config.Options = append([]string(nil), v.Config.Options...)
 	}
+	if v.Config.VisibleToRoles != nil {
+		c.Config.VisibleToRoles = append([]string(nil), v.Config.VisibleToRoles...)
+	}
+	if v.Config.EditableToRoles != nil {
+		c.Config.EditableToRoles = append([]string(nil), v.Config.EditableToRoles...)
+	}
+	c.Config.ValidationExpression = v.Config.ValidationExpression
 	return &c
 }
 

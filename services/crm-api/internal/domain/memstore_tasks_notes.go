@@ -85,6 +85,11 @@ func (s *MemStore) CreateTask(ctx context.Context, scope Scope, v *Task) (*Task,
 	if v.Status == TaskCompleted {
 		applyTaskCompletion(v, v.CreatedBy, nowStamp())
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "task", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.task.create(scope, v)
 }
 
@@ -172,6 +177,11 @@ func (s *MemStore) UpdateTask(ctx context.Context, scope Scope, v *Task) (*Task,
 		v.CompletedAt = time.Time{}
 		v.CompletedBy = ""
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "task", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.task.update(scope, v)
 }
 
@@ -229,6 +239,11 @@ func (s *MemStore) CreateNote(ctx context.Context, scope Scope, v *Note) (*Note,
 		return nil, err
 	}
 	v.EditedAt = time.Time{}
+	custom, err := CoerceCustomValues(ctx, s, scope, "note", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.note.create(scope, v)
 }
 
@@ -290,7 +305,7 @@ func (s *MemStore) ListNotes(_ context.Context, scope Scope, page Page, filter N
 
 // UpdateNote edits a Note's body. Subject and author are carried over from
 // the stored record — see applyNoteEdit for why neither may move.
-func (s *MemStore) UpdateNote(_ context.Context, scope Scope, v *Note) (*Note, error) {
+func (s *MemStore) UpdateNote(ctx context.Context, scope Scope, v *Note) (*Note, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
@@ -308,6 +323,11 @@ func (s *MemStore) UpdateNote(_ context.Context, scope Scope, v *Note) (*Note, e
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "note", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
 	return s.note.update(scope, v)
 }
 

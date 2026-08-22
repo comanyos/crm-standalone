@@ -40,6 +40,10 @@
     "crm:task:write",
     "crm:note:read",
     "crm:note:write",
+    "crm:custom_field:read",
+    "crm:custom_field:write",
+    "crm:custom_object:read",
+    "crm:custom_object:write",
     "crm:summary:read"
   ],
   "roles": [

@@ -396,3 +396,16 @@ func TestUpdateReplacesLiveFieldsAndClearsOmittedOnes(t *testing.T) {
 		t.Fatalf("round-tripping the stored document lost values: %#v", same)
 	}
 }
+
+func TestCustomFieldValidationExpressionRejectsInvalidRecord(t *testing.T) {
+	s, ctx, scope := valueFixture(t,
+		def("amount", FieldNumber, FieldConfig{}),
+		def("approval", FieldText, FieldConfig{ValidationExpression: "amount <= 100"}),
+	)
+	if _, err := CoerceCustomValues(ctx, s, scope, "account", CustomValues{"amount": float64(101)}, nil); err == nil {
+		t.Fatal("validation expression accepted amount above its cap")
+	}
+	if got, err := CoerceCustomValues(ctx, s, scope, "account", CustomValues{"amount": float64(100)}, nil); err != nil || got["amount"] != float64(100) {
+		t.Fatalf("validation expression rejected valid record: %#v, %v", got, err)
+	}
+}

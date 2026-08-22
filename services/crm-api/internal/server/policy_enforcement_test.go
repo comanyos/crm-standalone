@@ -250,6 +250,14 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.DeleteNote(ctx, withToken(&crmv1.DeleteNoteRequest{Id: "x"}, tok))
 			return err
 		},
+		"crm:custom_field:write": func(tok string) error {
+			_, err := client.ArchiveCustomFieldDefinition(ctx, withToken(&crmv1.ArchiveCustomFieldDefinitionRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:custom_object:write": func(tok string) error {
+			_, err := client.CreateCustomObjectDefinition(ctx, withToken(&crmv1.CreateCustomObjectDefinitionRequest{Definition: &crmv1.CustomObjectDefinition{ApiName: "asset", Label: "Asset", PluralLabel: "Assets"}}, tok))
+			return err
+		},
 	}
 
 	// Every write scope this service demands needs a probe here.
@@ -275,6 +283,8 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 				"crm:opportunity:read", "crm:opportunity:write",
 				"crm:pipeline:read", "crm:pipeline:write",
 				"crm:activity:read", "crm:activity:write",
+				"crm:custom_field:read", "crm:custom_field:write",
+				"crm:custom_object:read", "crm:custom_object:write",
 				"crm:summary:read",
 			} {
 				if scope != withheld {

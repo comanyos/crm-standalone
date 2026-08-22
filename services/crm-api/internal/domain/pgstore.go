@@ -97,11 +97,20 @@ func NewPgStoreWithDrain(ctx context.Context, dsn, drainDSN string) (*PgStore, e
 // FindAccountByDomain queries directly (migrations/0010) — never read back
 // into an Account, so it cannot drift from being the sole reason for
 // Website's own value.
-const accountColumns = `id, name, industry, tier, owner_id, website, annual_revenue, parent_id, duplicate_of_account_id, created_at, updated_at`
+const accountColumns = `id, name, industry, tier, owner_id, website, annual_revenue, parent_id, duplicate_of_account_id, created_at, updated_at, custom_fields`
 
 func scanAccount(row pgx.Row, v *Account) error {
-	return row.Scan(&v.ID, &v.Name, &v.Industry, &v.Tier, &v.OwnerID, &v.Website, &v.AnnualRevenue,
-		&v.ParentID, &v.DuplicateOfAccountID, &v.CreatedAt, &v.UpdatedAt)
+	var customFields []byte
+	if err := row.Scan(&v.ID, &v.Name, &v.Industry, &v.Tier, &v.OwnerID, &v.Website, &v.AnnualRevenue,
+		&v.ParentID, &v.DuplicateOfAccountID, &v.CreatedAt, &v.UpdatedAt, &customFields); err != nil {
+		return err
+	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return err
+	}
+	v.CustomFields = values
+	return nil
 }
 
 // queryBuilder accumulates WHERE-clause fragments and their positional
@@ -136,15 +145,24 @@ func (s *PgStore) CreateAccount(ctx context.Context, scope Scope, v *Account) (*
 	if err := applyAccountDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "account", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
-	_, err := s.db.Exec(ctx, scope,
-		`INSERT INTO accounts (tenant_id, id, name, industry, tier, owner_id, website, annual_revenue, parent_id, duplicate_of_account_id, created_at, updated_at, website_domain) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-		scope.TenantID, v.ID, v.Name, v.Industry, v.Tier, v.OwnerID, v.Website, v.AnnualRevenue, v.ParentID, v.DuplicateOfAccountID, v.CreatedAt, v.UpdatedAt, websiteDomain(v.Website))
+	_, err = s.db.Exec(ctx, scope,
+		`INSERT INTO accounts (tenant_id, id, name, industry, tier, owner_id, website, annual_revenue, parent_id, duplicate_of_account_id, created_at, updated_at, website_domain, custom_fields) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+		scope.TenantID, v.ID, v.Name, v.Industry, v.Tier, v.OwnerID, v.Website, v.AnnualRevenue, v.ParentID, v.DuplicateOfAccountID, v.CreatedAt, v.UpdatedAt, websiteDomain(v.Website), document)
 	if err != nil {
 		return nil, fmt.Errorf("create account: %w", err)
 	}
@@ -298,12 +316,21 @@ func (s *PgStore) UpdateAccount(ctx context.Context, scope Scope, v *Account) (*
 	if err := applyAccountDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "account", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE accounts SET name = $3, industry = $4, tier = $5, owner_id = $6, website = $7, annual_revenue = $8, parent_id = $9, duplicate_of_account_id = $10, updated_at = $11, website_domain = $12
+		`UPDATE accounts SET name = $3, industry = $4, tier = $5, owner_id = $6, website = $7, annual_revenue = $8, parent_id = $9, duplicate_of_account_id = $10, updated_at = $11, website_domain = $12, custom_fields = $13
 		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, v.ID, v.Name, v.Industry, v.Tier, v.OwnerID, v.Website, v.AnnualRevenue, v.ParentID, v.DuplicateOfAccountID, v.UpdatedAt, websiteDomain(v.Website))
+		scope.TenantID, v.ID, v.Name, v.Industry, v.Tier, v.OwnerID, v.Website, v.AnnualRevenue, v.ParentID, v.DuplicateOfAccountID, v.UpdatedAt, websiteDomain(v.Website), document)
 	if err != nil {
 		return nil, fmt.Errorf("update account: %w", err)
 	}
@@ -387,11 +414,20 @@ func (s *PgStore) DeleteAccount(ctx context.Context, scope Scope, id string) err
 // contactColumns is the column list (in scan order) shared by
 // GetContact/ListContacts/FindContactByEmail — one list so the read paths
 // cannot drift on which columns come back.
-const contactColumns = `id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at`
+const contactColumns = `id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at, custom_fields`
 
 func scanContact(row pgx.Row, v *Contact) error {
-	return row.Scan(&v.ID, &v.Email, &v.AccountID, &v.FirstName, &v.LastName, &v.Phone, &v.Title,
-		&v.Role, &v.DuplicateOfContactID, &v.CreatedAt, &v.UpdatedAt)
+	var customFields []byte
+	if err := row.Scan(&v.ID, &v.Email, &v.AccountID, &v.FirstName, &v.LastName, &v.Phone, &v.Title,
+		&v.Role, &v.DuplicateOfContactID, &v.CreatedAt, &v.UpdatedAt, &customFields); err != nil {
+		return err
+	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return err
+	}
+	v.CustomFields = values
+	return nil
 }
 
 // CreateContact inserts a Contact for the scope's tenant. It rejects a
@@ -414,15 +450,24 @@ func (s *PgStore) CreateContact(ctx context.Context, scope Scope, v *Contact) (*
 	if err := applyContactDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "contact", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
-	_, err := s.db.Exec(ctx, scope,
-		`INSERT INTO contacts (tenant_id, id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		scope.TenantID, v.ID, v.Email, v.AccountID, v.FirstName, v.LastName, v.Phone, v.Title, v.Role, v.DuplicateOfContactID, v.CreatedAt, v.UpdatedAt)
+	_, err = s.db.Exec(ctx, scope,
+		`INSERT INTO contacts (tenant_id, id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at, custom_fields) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		scope.TenantID, v.ID, v.Email, v.AccountID, v.FirstName, v.LastName, v.Phone, v.Title, v.Role, v.DuplicateOfContactID, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("create contact: %w", err)
 	}
@@ -568,12 +613,21 @@ func (s *PgStore) UpdateContact(ctx context.Context, scope Scope, v *Contact) (*
 	if err := applyContactDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "contact", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE contacts SET email = $3, account_id = $4, first_name = $5, last_name = $6, phone = $7, title = $8, role = $9, duplicate_of_contact_id = $10, updated_at = $11
+		`UPDATE contacts SET email = $3, account_id = $4, first_name = $5, last_name = $6, phone = $7, title = $8, role = $9, duplicate_of_contact_id = $10, updated_at = $11, custom_fields = $12
 		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, v.ID, v.Email, v.AccountID, v.FirstName, v.LastName, v.Phone, v.Title, v.Role, v.DuplicateOfContactID, v.UpdatedAt)
+		scope.TenantID, v.ID, v.Email, v.AccountID, v.FirstName, v.LastName, v.Phone, v.Title, v.Role, v.DuplicateOfContactID, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("update contact: %w", err)
 	}
@@ -605,12 +659,21 @@ func (s *PgStore) DeleteContact(ctx context.Context, scope Scope, id string) err
 // which columns come back.
 const leadColumns = `id, company, source, contact_email, status, score, owner_id,
 	duplicate_of_contact_id, converted_contact_id, converted_account_id, converted_opportunity_id,
-	created_at, updated_at`
+	created_at, updated_at, custom_fields`
 
 func scanLead(row pgx.Row, v *Lead) error {
-	return row.Scan(&v.ID, &v.Company, &v.Source, &v.ContactEmail, &v.Status, &v.Score, &v.OwnerID,
+	var customFields []byte
+	if err := row.Scan(&v.ID, &v.Company, &v.Source, &v.ContactEmail, &v.Status, &v.Score, &v.OwnerID,
 		&v.DuplicateOfContactID, &v.ConvertedContactID, &v.ConvertedAccountID, &v.ConvertedOpportunityID,
-		&v.CreatedAt, &v.UpdatedAt)
+		&v.CreatedAt, &v.UpdatedAt, &customFields); err != nil {
+		return err
+	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return err
+	}
+	v.CustomFields = values
+	return nil
 }
 
 // CreateLead inserts a Lead for the scope's tenant. It defaults and
@@ -634,20 +697,29 @@ func (s *PgStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	if err := applyLeadDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "lead", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
-	_, err := s.db.Exec(ctx, scope,
+	_, err = s.db.Exec(ctx, scope,
 		`INSERT INTO leads (tenant_id, id, company, source, contact_email, status, score, owner_id,
 			duplicate_of_contact_id, converted_contact_id, converted_account_id, converted_opportunity_id,
-			created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			created_at, updated_at, custom_fields)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
 		scope.TenantID, v.ID, v.Company, v.Source, v.ContactEmail, v.Status, v.Score, v.OwnerID,
 		v.DuplicateOfContactID, v.ConvertedContactID, v.ConvertedAccountID, v.ConvertedOpportunityID,
-		v.CreatedAt, v.UpdatedAt)
+		v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("create lead: %w", err)
 	}
@@ -739,15 +811,24 @@ func (s *PgStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	if err := applyLeadDuplicateFlag(ctx, s, scope, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "lead", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE leads SET company = $3, source = $4, contact_email = $5, status = $6, score = $7, owner_id = $8,
 			duplicate_of_contact_id = $9, converted_contact_id = $10, converted_account_id = $11,
-			converted_opportunity_id = $12, updated_at = $13
+			converted_opportunity_id = $12, updated_at = $13, custom_fields = $14
 		 WHERE tenant_id = $1 AND id = $2`,
 		scope.TenantID, v.ID, v.Company, v.Source, v.ContactEmail, v.Status, v.Score, v.OwnerID,
-		v.DuplicateOfContactID, v.ConvertedContactID, v.ConvertedAccountID, v.ConvertedOpportunityID, v.UpdatedAt)
+		v.DuplicateOfContactID, v.ConvertedContactID, v.ConvertedAccountID, v.ConvertedOpportunityID, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("update lead: %w", err)
 	}
@@ -829,6 +910,22 @@ func (s *PgStore) FindAccountByDomain(ctx context.Context, scope Scope, domain s
 	return v, nil
 }
 
+const opportunityColumns = `id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at, custom_fields`
+
+func scanOpportunity(row pgx.Row, v *Opportunity) error {
+	var customFields []byte
+	if err := row.Scan(&v.ID, &v.Name, &v.AccountID, &v.Stage, &v.PipelineID, &v.StageID,
+		&v.Amount, &v.Probability, &v.CloseDate, &v.CloseReason, &v.CreatedAt, &v.UpdatedAt, &customFields); err != nil {
+		return err
+	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return err
+	}
+	v.CustomFields = values
+	return nil
+}
+
 // CreateOpportunity inserts a Opportunity for the scope's tenant. It
 // defaults and validates the initial stage, rejects a dangling account_id,
 // and — if created directly in a closed stage — enforces the win/loss rule
@@ -852,6 +949,15 @@ func (s *PgStore) CreateOpportunity(ctx context.Context, scope Scope, v *Opportu
 			return nil, err
 		}
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
@@ -859,8 +965,8 @@ func (s *PgStore) CreateOpportunity(ctx context.Context, scope Scope, v *Opportu
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err = s.db.Exec(ctx, scope,
-		`INSERT INTO opportunities (tenant_id, id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.Probability, v.CloseDate, v.CloseReason, v.CreatedAt, v.UpdatedAt)
+		`INSERT INTO opportunities (tenant_id, id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at, custom_fields) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.Probability, v.CloseDate, v.CloseReason, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("create opportunity: %w", err)
 	}
@@ -873,9 +979,9 @@ func (s *PgStore) GetOpportunity(ctx context.Context, scope Scope, id string) (*
 		return nil, ErrNoTenant
 	}
 	v := &Opportunity{}
-	err := s.db.QueryRow(ctx, scope,
-		`SELECT id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at FROM opportunities WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, id).Scan(&v.ID, &v.Name, &v.AccountID, &v.Stage, &v.PipelineID, &v.StageID, &v.Amount, &v.Probability, &v.CloseDate, &v.CloseReason, &v.CreatedAt, &v.UpdatedAt)
+	err := scanOpportunity(s.db.QueryRow(ctx, scope,
+		`SELECT `+opportunityColumns+` FROM opportunities WHERE tenant_id = $1 AND id = $2`,
+		scope.TenantID, id), v)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -891,7 +997,7 @@ func (s *PgStore) ListOpportunities(ctx context.Context, scope Scope, page Page)
 		return nil, "", ErrNoTenant
 	}
 	rows, err := s.db.Query(ctx, scope,
-		`SELECT id, name, account_id, stage, pipeline_id, stage_id, amount, probability, close_date, close_reason, created_at, updated_at FROM opportunities
+		`SELECT `+opportunityColumns+` FROM opportunities
 		 WHERE tenant_id = $1 AND id > $2
 		 ORDER BY id LIMIT $3`,
 		scope.TenantID, page.Token, page.size()+1)
@@ -903,7 +1009,7 @@ func (s *PgStore) ListOpportunities(ctx context.Context, scope Scope, page Page)
 	out := make([]*Opportunity, 0, page.size())
 	for rows.Next() {
 		v := &Opportunity{}
-		if err := rows.Scan(&v.ID, &v.Name, &v.AccountID, &v.Stage, &v.PipelineID, &v.StageID, &v.Amount, &v.Probability, &v.CloseDate, &v.CloseReason, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		if err := scanOpportunity(rows, v); err != nil {
 			return nil, "", fmt.Errorf("scan opportunity: %w", err)
 		}
 		out = append(out, v)
@@ -963,12 +1069,21 @@ func (s *PgStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportu
 			return nil, err
 		}
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "opportunity", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE opportunities SET name = $3, account_id = $4, stage = $5, pipeline_id = $6, stage_id = $7, amount = $8, probability = $9, close_date = $10, close_reason = $11, updated_at = $12
+		`UPDATE opportunities SET name = $3, account_id = $4, stage = $5, pipeline_id = $6, stage_id = $7, amount = $8, probability = $9, close_date = $10, close_reason = $11, updated_at = $12, custom_fields = $13
 		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.Probability, v.CloseDate, v.CloseReason, v.UpdatedAt)
+		scope.TenantID, v.ID, v.Name, v.AccountID, v.Stage, v.PipelineID, v.StageID, v.Amount, v.Probability, v.CloseDate, v.CloseReason, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("update opportunity: %w", err)
 	}
@@ -1097,6 +1212,22 @@ func (s *PgStore) DeleteOpportunity(ctx context.Context, scope Scope, id string)
 	return nil
 }
 
+const activityColumns = `id, kind, subject_type, subject_id, notes, actor_id, occurred_at, created_at, updated_at, custom_fields`
+
+func scanActivity(row pgx.Row, v *Activity) error {
+	var customFields []byte
+	if err := row.Scan(&v.ID, &v.Kind, &v.SubjectType, &v.SubjectID, &v.Notes, &v.ActorID,
+		&v.OccurredAt, &v.CreatedAt, &v.UpdatedAt, &customFields); err != nil {
+		return err
+	}
+	values, err := parseCustomValues(customFields)
+	if err != nil {
+		return err
+	}
+	v.CustomFields = values
+	return nil
+}
+
 // CreateActivity inserts a Activity for the scope's tenant. It rejects an
 // unrecognized subject_type and a dangling/cross-tenant subject_id (B5 —
 // activity_timeline.go): the polymorphic subject must resolve to a real,
@@ -1111,15 +1242,24 @@ func (s *PgStore) CreateActivity(ctx context.Context, scope Scope, v *Activity) 
 	if err := requireActivitySubject(ctx, s, scope, v.SubjectType, v.SubjectID); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "activity", v.CustomFields, nil)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		v.ID = newID()
 	}
 	now := nowStamp()
 	v.CreatedAt, v.UpdatedAt = now, now
 
-	_, err := s.db.Exec(ctx, scope,
-		`INSERT INTO activities (tenant_id, id, kind, subject_type, subject_id, notes, actor_id, occurred_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		scope.TenantID, v.ID, v.Kind, v.SubjectType, v.SubjectID, v.Notes, v.ActorID, v.OccurredAt, v.CreatedAt, v.UpdatedAt)
+	_, err = s.db.Exec(ctx, scope,
+		`INSERT INTO activities (tenant_id, id, kind, subject_type, subject_id, notes, actor_id, occurred_at, created_at, updated_at, custom_fields) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		scope.TenantID, v.ID, v.Kind, v.SubjectType, v.SubjectID, v.Notes, v.ActorID, v.OccurredAt, v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("create activity: %w", err)
 	}
@@ -1132,9 +1272,9 @@ func (s *PgStore) GetActivity(ctx context.Context, scope Scope, id string) (*Act
 		return nil, ErrNoTenant
 	}
 	v := &Activity{}
-	err := s.db.QueryRow(ctx, scope,
-		`SELECT id, kind, subject_type, subject_id, notes, actor_id, occurred_at, created_at, updated_at FROM activities WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, id).Scan(&v.ID, &v.Kind, &v.SubjectType, &v.SubjectID, &v.Notes, &v.ActorID, &v.OccurredAt, &v.CreatedAt, &v.UpdatedAt)
+	err := scanActivity(s.db.QueryRow(ctx, scope,
+		`SELECT `+activityColumns+` FROM activities WHERE tenant_id = $1 AND id = $2`,
+		scope.TenantID, id), v)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -1150,7 +1290,7 @@ func (s *PgStore) ListActivities(ctx context.Context, scope Scope, page Page) ([
 		return nil, "", ErrNoTenant
 	}
 	rows, err := s.db.Query(ctx, scope,
-		`SELECT id, kind, subject_type, subject_id, notes, actor_id, occurred_at, created_at, updated_at FROM activities
+		`SELECT `+activityColumns+` FROM activities
 		 WHERE tenant_id = $1 AND id > $2
 		 ORDER BY id LIMIT $3`,
 		scope.TenantID, page.Token, page.size()+1)
@@ -1162,7 +1302,7 @@ func (s *PgStore) ListActivities(ctx context.Context, scope Scope, page Page) ([
 	out := make([]*Activity, 0, page.size())
 	for rows.Next() {
 		v := &Activity{}
-		if err := rows.Scan(&v.ID, &v.Kind, &v.SubjectType, &v.SubjectID, &v.Notes, &v.ActorID, &v.OccurredAt, &v.CreatedAt, &v.UpdatedAt); err != nil {
+		if err := scanActivity(rows, v); err != nil {
 			return nil, "", fmt.Errorf("scan activity: %w", err)
 		}
 		out = append(out, v)
@@ -1201,12 +1341,24 @@ func (s *PgStore) UpdateActivity(ctx context.Context, scope Scope, v *Activity) 
 	if err := checkActivityImmutable(existing, v); err != nil {
 		return nil, err
 	}
+	custom, err := CoerceCustomValues(ctx, s, scope, "activity", v.CustomFields, existing.CustomFields)
+	if err != nil {
+		return nil, err
+	}
+	v.CustomFields = custom
+	if err := checkActivityImmutable(existing, v); err != nil {
+		return nil, err
+	}
+	document, err := custom.MarshalDocument()
+	if err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE activities SET kind = $3, subject_type = $4, subject_id = $5, notes = $6, actor_id = $7, occurred_at = $8, updated_at = $9
+		`UPDATE activities SET kind = $3, subject_type = $4, subject_id = $5, notes = $6, actor_id = $7, occurred_at = $8, updated_at = $9, custom_fields = $10
 		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, v.ID, v.Kind, v.SubjectType, v.SubjectID, v.Notes, v.ActorID, v.OccurredAt, v.UpdatedAt)
+		scope.TenantID, v.ID, v.Kind, v.SubjectType, v.SubjectID, v.Notes, v.ActorID, v.OccurredAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("update activity: %w", err)
 	}

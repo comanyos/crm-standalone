@@ -55,6 +55,9 @@ func (s *PgStore) CreateCustomFieldDefinition(
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+	if err := requireKnownCustomObject(ctx, s, scope, v.ObjectType); err != nil {
+		return nil, err
+	}
 	config, err := v.MarshalConfig()
 	if err != nil {
 		return nil, err

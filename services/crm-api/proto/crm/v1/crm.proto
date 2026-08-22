@@ -92,8 +92,108 @@ service CRMService {
   rpc UpdateNote(UpdateNoteRequest) returns (UpdateNoteResponse);
   rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
 
+  // Custom-field definitions are tenant administration data. Values travel on
+  // the shipped record messages above, but a definition is the authority for
+  // their type, requiredness, picklist options, and lookup target.
+  rpc CreateCustomFieldDefinition(CreateCustomFieldDefinitionRequest) returns (CreateCustomFieldDefinitionResponse);
+  rpc GetCustomFieldDefinition(GetCustomFieldDefinitionRequest) returns (GetCustomFieldDefinitionResponse);
+  rpc ListCustomFieldDefinitions(ListCustomFieldDefinitionsRequest) returns (ListCustomFieldDefinitionsResponse);
+  rpc UpdateCustomFieldDefinition(UpdateCustomFieldDefinitionRequest) returns (UpdateCustomFieldDefinitionResponse);
+  rpc ArchiveCustomFieldDefinition(ArchiveCustomFieldDefinitionRequest) returns (ArchiveCustomFieldDefinitionResponse);
+
+  rpc CreateCustomObjectDefinition(CreateCustomObjectDefinitionRequest) returns (CreateCustomObjectDefinitionResponse);
+  rpc GetCustomObjectDefinition(GetCustomObjectDefinitionRequest) returns (GetCustomObjectDefinitionResponse);
+  rpc ListCustomObjectDefinitions(ListCustomObjectDefinitionsRequest) returns (ListCustomObjectDefinitionsResponse);
+  rpc ArchiveCustomObjectDefinition(ArchiveCustomObjectDefinitionRequest) returns (ArchiveCustomObjectDefinitionResponse);
+  rpc CreateCustomRecord(CreateCustomRecordRequest) returns (CreateCustomRecordResponse);
+  rpc GetCustomRecord(GetCustomRecordRequest) returns (GetCustomRecordResponse);
+  rpc ListCustomRecords(ListCustomRecordsRequest) returns (ListCustomRecordsResponse);
+  rpc UpdateCustomRecord(UpdateCustomRecordRequest) returns (UpdateCustomRecordResponse);
+  rpc DeleteCustomRecord(DeleteCustomRecordRequest) returns (DeleteCustomRecordResponse);
+
   rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
 }
+
+// CustomValue carries one tenant-defined field value without weakening the
+// type safety of the fixed CRM schema. Exact decimals remain strings rather
+// than protobuf doubles, so currency and percent values never round in transit.
+message CustomValue {
+  oneof value {
+    string text = 1;
+    double number = 2;
+    string decimal = 3;
+    bool boolean = 4;
+    google.protobuf.Timestamp timestamp = 5;
+    string date = 6;
+    string reference = 7;
+    StringList text_list = 8;
+  }
+}
+
+message StringList { repeated string values = 1; }
+
+message CustomFieldConfig {
+  repeated string options = 1;
+  string lookup_object_type = 2;
+  int32 scale = 3;
+  string expression = 4;
+  // Empty means every role. Non-empty lists name the AuthinCore role keys
+  // permitted to see or edit this field; crm administrators always retain
+  // access so a misconfiguration remains recoverable.
+  repeated string visible_to_roles = 5;
+  repeated string editable_to_roles = 6;
+  // A bounded expression evaluated against the full custom-field document on
+  // write. It must yield true; false rejects the write.
+  string validation_expression = 7;
+}
+
+message CustomFieldDefinition {
+  string id = 1;
+  string object_type = 2;
+  string field_key = 3;
+  string label = 4;
+  string data_type = 5;
+  CustomFieldConfig config = 6;
+  bool required = 7;
+  google.protobuf.Timestamp archived_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CreateCustomFieldDefinitionRequest { CustomFieldDefinition definition = 1; }
+message CreateCustomFieldDefinitionResponse { CustomFieldDefinition definition = 1; }
+message GetCustomFieldDefinitionRequest { string id = 1; }
+message GetCustomFieldDefinitionResponse { CustomFieldDefinition definition = 1; }
+message ListCustomFieldDefinitionsRequest {
+  string object_type = 1;
+  bool include_archived = 2;
+}
+message ListCustomFieldDefinitionsResponse { repeated CustomFieldDefinition definitions = 1; }
+message UpdateCustomFieldDefinitionRequest { CustomFieldDefinition definition = 1; }
+message UpdateCustomFieldDefinitionResponse { CustomFieldDefinition definition = 1; }
+message ArchiveCustomFieldDefinitionRequest { string id = 1; }
+message ArchiveCustomFieldDefinitionResponse { CustomFieldDefinition definition = 1; }
+
+message CustomObjectDefinition { string id = 1; string api_name = 2; string label = 3; string plural_label = 4; google.protobuf.Timestamp archived_at = 5; google.protobuf.Timestamp created_at = 6; google.protobuf.Timestamp updated_at = 7; }
+message CustomRecord { string id = 1; string object_type = 2; map<string, CustomValue> fields = 3; map<string, string> relations = 4; google.protobuf.Timestamp created_at = 5; google.protobuf.Timestamp updated_at = 6; }
+message CreateCustomObjectDefinitionRequest { CustomObjectDefinition definition = 1; }
+message CreateCustomObjectDefinitionResponse { CustomObjectDefinition definition = 1; }
+message GetCustomObjectDefinitionRequest { string api_name = 1; }
+message GetCustomObjectDefinitionResponse { CustomObjectDefinition definition = 1; }
+message ListCustomObjectDefinitionsRequest { bool include_archived = 1; }
+message ListCustomObjectDefinitionsResponse { repeated CustomObjectDefinition definitions = 1; }
+message ArchiveCustomObjectDefinitionRequest { string api_name = 1; }
+message ArchiveCustomObjectDefinitionResponse { CustomObjectDefinition definition = 1; }
+message CreateCustomRecordRequest { CustomRecord record = 1; }
+message CreateCustomRecordResponse { CustomRecord record = 1; }
+message GetCustomRecordRequest { string object_type = 1; string id = 2; }
+message GetCustomRecordResponse { CustomRecord record = 1; }
+message ListCustomRecordsRequest { string object_type = 1; int32 page_size = 2; string page_token = 3; }
+message ListCustomRecordsResponse { repeated CustomRecord records = 1; string next_page_token = 2; }
+message UpdateCustomRecordRequest { CustomRecord record = 1; }
+message UpdateCustomRecordResponse { CustomRecord record = 1; }
+message DeleteCustomRecordRequest { string object_type = 1; string id = 2; }
+message DeleteCustomRecordResponse {}
 
 message Account {
   string id = 1;
@@ -115,6 +215,7 @@ message Account {
   // matches another tenant-scoped Account's website at write time. It flags
   // the account; it never blocks or silently merges it (B3).
   string duplicate_of_account_id = 11;
+  map<string, CustomValue> custom_fields = 12;
 }
 
 message CreateAccountRequest { Account account = 1; }
@@ -176,6 +277,7 @@ message Contact {
   // never blocks or silently merges it (B4) — the same convention Lead and
   // Account use for their own duplicate flags.
   string duplicate_of_contact_id = 11;
+  map<string, CustomValue> custom_fields = 12;
 }
 
 message CreateContactRequest { Contact contact = 1; }
@@ -233,6 +335,7 @@ message Lead {
   string converted_contact_id = 11;
   string converted_account_id = 12;
   string converted_opportunity_id = 13;
+  map<string, CustomValue> custom_fields = 14;
 }
 
 message CreateLeadRequest { Lead lead = 1; }
@@ -293,6 +396,7 @@ message Opportunity {
   // readable compatibility field for older clients and historical reports.
   string pipeline_id = 11;
   string stage_id = 12;
+  map<string, CustomValue> custom_fields = 13;
 }
 
 message CreateOpportunityRequest { Opportunity opportunity = 1; }
@@ -382,6 +486,7 @@ message Activity {
   google.protobuf.Timestamp occurred_at = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  map<string, CustomValue> custom_fields = 10;
 }
 
 message CreateActivityRequest { Activity activity = 1; }
@@ -465,6 +570,7 @@ message Task {
   string created_by = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  map<string, CustomValue> custom_fields = 15;
 }
 
 message CreateTaskRequest { Task task = 1; }
@@ -537,6 +643,7 @@ message Note {
   // alone by a write that changes nothing. A reader can tell a corrected
   // note from an original one without diffing anything.
   google.protobuf.Timestamp edited_at = 8;
+  map<string, CustomValue> custom_fields = 9;
 }
 
 message CreateNoteRequest { Note note = 1; }

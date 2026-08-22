@@ -159,6 +159,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:activity:read": true, "crm:activity:write": true,
 			"crm:task:read": true, "crm:task:write": true,
 			"crm:note:read": true, "crm:note:write": true,
+			"crm:custom_field:read": true, "crm:custom_field:write": true,
+			"crm:custom_object:read": true, "crm:custom_object:write": true,
 			"crm:summary:read": true,
 		},
 		"crm_manager": {
@@ -170,6 +172,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:activity:read": true, "crm:activity:write": true,
 			"crm:task:read": true, "crm:task:write": true,
 			"crm:note:read": true, "crm:note:write": true,
+			"crm:custom_field:read": false, "crm:custom_field:write": false,
+			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
 		},
 		"crm_member": {
@@ -186,6 +190,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// day, so both are read/write even though pipelines are not.
 			"crm:task:read": true, "crm:task:write": true,
 			"crm:note:read": true, "crm:note:write": true,
+			"crm:custom_field:read": false, "crm:custom_field:write": false,
+			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
 		},
 		"crm_viewer": {
@@ -197,6 +203,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:activity:read": true, "crm:activity:write": false,
 			"crm:task:read": true, "crm:task:write": false,
 			"crm:note:read": true, "crm:note:write": false,
+			"crm:custom_field:read": false, "crm:custom_field:write": false,
+			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
 		},
 	}

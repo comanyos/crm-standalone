@@ -28,11 +28,19 @@ func (s *CRMService) CreateAccount(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.CreateAccount(ctx, scope, accountFromProto(req.Msg.GetAccount()))
+	in := accountFromProto(req.Msg.GetAccount())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "account", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.CreateAccount(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateAccountResponse{Account: accountToProto(out)}), nil
+	result, err := s.accountForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateAccountResponse{Account: result}), nil
 }
 
 // GetAccount returns one Account.
@@ -47,7 +55,11 @@ func (s *CRMService) GetAccount(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetAccountResponse{Account: accountToProto(out)}), nil
+	result, err := s.accountForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetAccountResponse{Account: result}), nil
 }
 
 // ListAccounts returns one page of Accounts. sort is validated against
@@ -78,7 +90,11 @@ func (s *CRMService) ListAccounts(
 	}
 	out := make([]*crmv1.Account, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, accountToProto(r))
+		result, err := s.accountForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListAccountsResponse{
 		Accounts:      out,
@@ -94,11 +110,19 @@ func (s *CRMService) UpdateAccount(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateAccount(ctx, scope, accountFromProto(req.Msg.GetAccount()))
+	in := accountFromProto(req.Msg.GetAccount())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "account", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateAccount(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateAccountResponse{Account: accountToProto(out)}), nil
+	result, err := s.accountForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateAccountResponse{Account: result}), nil
 }
 
 // DeleteAccount removes an Account.
@@ -123,11 +147,19 @@ func (s *CRMService) CreateContact(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.CreateContact(ctx, scope, contactFromProto(req.Msg.GetContact()))
+	in := contactFromProto(req.Msg.GetContact())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "contact", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.CreateContact(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateContactResponse{Contact: contactToProto(out)}), nil
+	result, err := s.contactForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateContactResponse{Contact: result}), nil
 }
 
 // GetContact returns one Contact.
@@ -142,7 +174,11 @@ func (s *CRMService) GetContact(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetContactResponse{Contact: contactToProto(out)}), nil
+	result, err := s.contactForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetContactResponse{Contact: result}), nil
 }
 
 // ListContacts returns one page of Contacts. sort is validated against
@@ -171,7 +207,11 @@ func (s *CRMService) ListContacts(
 	}
 	out := make([]*crmv1.Contact, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, contactToProto(r))
+		result, err := s.contactForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListContactsResponse{
 		Contacts:      out,
@@ -187,11 +227,19 @@ func (s *CRMService) UpdateContact(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateContact(ctx, scope, contactFromProto(req.Msg.GetContact()))
+	in := contactFromProto(req.Msg.GetContact())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "contact", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateContact(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateContactResponse{Contact: contactToProto(out)}), nil
+	result, err := s.contactForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateContactResponse{Contact: result}), nil
 }
 
 // DeleteContact removes an Contact.
@@ -216,11 +264,19 @@ func (s *CRMService) CreateLead(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.CreateLead(ctx, scope, leadFromProto(req.Msg.GetLead()))
+	in := leadFromProto(req.Msg.GetLead())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "lead", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.CreateLead(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateLeadResponse{Lead: leadToProto(out)}), nil
+	result, err := s.leadForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateLeadResponse{Lead: result}), nil
 }
 
 // GetLead returns one Lead.
@@ -235,7 +291,11 @@ func (s *CRMService) GetLead(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetLeadResponse{Lead: leadToProto(out)}), nil
+	result, err := s.leadForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetLeadResponse{Lead: result}), nil
 }
 
 // ListLeads returns one page of Leads.
@@ -255,7 +315,11 @@ func (s *CRMService) ListLeads(
 	}
 	out := make([]*crmv1.Lead, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, leadToProto(r))
+		result, err := s.leadForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListLeadsResponse{
 		Leads:         out,
@@ -271,11 +335,19 @@ func (s *CRMService) UpdateLead(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateLead(ctx, scope, leadFromProto(req.Msg.GetLead()))
+	in := leadFromProto(req.Msg.GetLead())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "lead", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateLead(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateLeadResponse{Lead: leadToProto(out)}), nil
+	result, err := s.leadForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateLeadResponse{Lead: result}), nil
 }
 
 // DeleteLead removes an Lead.
@@ -312,12 +384,23 @@ func (s *CRMService) ConvertLead(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.ConvertLeadResponse{
-		Lead:        leadToProto(out.Lead),
-		Contact:     contactToProto(out.Contact),
-		Account:     accountToProto(out.Account),
-		Opportunity: opportunityToProto(out.Opportunity),
-	}), nil
+	lead, err := s.leadForRead(ctx, scope, out.Lead)
+	if err != nil {
+		return nil, err
+	}
+	contact, err := s.contactForRead(ctx, scope, out.Contact)
+	if err != nil {
+		return nil, err
+	}
+	account, err := s.accountForRead(ctx, scope, out.Account)
+	if err != nil {
+		return nil, err
+	}
+	opportunity, err := s.opportunityForRead(ctx, scope, out.Opportunity)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.ConvertLeadResponse{Lead: lead, Contact: contact, Account: account, Opportunity: opportunity}), nil
 }
 
 // CreateOpportunity stores a new Opportunity.
@@ -328,11 +411,19 @@ func (s *CRMService) CreateOpportunity(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.CreateOpportunity(ctx, scope, opportunityFromProto(req.Msg.GetOpportunity()))
+	in := opportunityFromProto(req.Msg.GetOpportunity())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "opportunity", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.CreateOpportunity(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateOpportunityResponse{Opportunity: opportunityToProto(out)}), nil
+	result, err := s.opportunityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateOpportunityResponse{Opportunity: result}), nil
 }
 
 // GetOpportunity returns one Opportunity.
@@ -347,7 +438,11 @@ func (s *CRMService) GetOpportunity(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetOpportunityResponse{Opportunity: opportunityToProto(out)}), nil
+	result, err := s.opportunityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetOpportunityResponse{Opportunity: result}), nil
 }
 
 // ListOpportunities returns one page of Opportunities.
@@ -367,7 +462,11 @@ func (s *CRMService) ListOpportunities(
 	}
 	out := make([]*crmv1.Opportunity, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, opportunityToProto(r))
+		result, err := s.opportunityForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListOpportunitiesResponse{
 		Opportunities: out,
@@ -383,11 +482,19 @@ func (s *CRMService) UpdateOpportunity(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateOpportunity(ctx, scope, opportunityFromProto(req.Msg.GetOpportunity()))
+	in := opportunityFromProto(req.Msg.GetOpportunity())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "opportunity", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateOpportunity(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateOpportunityResponse{Opportunity: opportunityToProto(out)}), nil
+	result, err := s.opportunityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateOpportunityResponse{Opportunity: result}), nil
 }
 
 // DeleteOpportunity removes an Opportunity.
@@ -524,11 +631,19 @@ func (s *CRMService) CreateActivity(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.CreateActivity(ctx, scope, activityFromProto(req.Msg.GetActivity()))
+	in := activityFromProto(req.Msg.GetActivity())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "activity", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.CreateActivity(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateActivityResponse{Activity: activityToProto(out)}), nil
+	result, err := s.activityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateActivityResponse{Activity: result}), nil
 }
 
 // GetActivity returns one Activity.
@@ -543,7 +658,11 @@ func (s *CRMService) GetActivity(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetActivityResponse{Activity: activityToProto(out)}), nil
+	result, err := s.activityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetActivityResponse{Activity: result}), nil
 }
 
 // ListActivities returns one page of Activities.
@@ -563,7 +682,11 @@ func (s *CRMService) ListActivities(
 	}
 	out := make([]*crmv1.Activity, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, activityToProto(r))
+		result, err := s.activityForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListActivitiesResponse{
 		Activities:    out,
@@ -579,11 +702,19 @@ func (s *CRMService) UpdateActivity(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateActivity(ctx, scope, activityFromProto(req.Msg.GetActivity()))
+	in := activityFromProto(req.Msg.GetActivity())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "activity", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateActivity(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateActivityResponse{Activity: activityToProto(out)}), nil
+	result, err := s.activityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateActivityResponse{Activity: result}), nil
 }
 
 // DeleteActivity removes an Activity.
@@ -615,7 +746,11 @@ func (s *CRMService) ListActivitiesForSubject(
 	}
 	out := make([]*crmv1.Activity, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, activityToProto(r))
+		result, err := s.activityForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListActivitiesForSubjectResponse{Activities: out}), nil
 }
@@ -650,6 +785,9 @@ func (s *CRMService) CreateTask(
 		return nil, err
 	}
 	task := taskFromProto(req.Msg.GetTask())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "task", task.CustomFields); err != nil {
+		return nil, err
+	}
 	if task.CreatedBy == "" {
 		task.CreatedBy = principalSubject(ctx)
 	}
@@ -657,7 +795,11 @@ func (s *CRMService) CreateTask(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateTaskResponse{Task: taskToProto(out)}), nil
+	result, err := s.taskForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateTaskResponse{Task: result}), nil
 }
 
 // GetTask returns one Task.
@@ -672,7 +814,11 @@ func (s *CRMService) GetTask(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetTaskResponse{Task: taskToProto(out)}), nil
+	result, err := s.taskForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetTaskResponse{Task: result}), nil
 }
 
 // ListTasks returns one page of Tasks. sort is validated against the domain's
@@ -705,7 +851,11 @@ func (s *CRMService) ListTasks(
 	}
 	out := make([]*crmv1.Task, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, taskToProto(r))
+		result, err := s.taskForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListTasksResponse{Tasks: out, NextPageToken: next}), nil
 }
@@ -718,11 +868,19 @@ func (s *CRMService) UpdateTask(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateTask(ctx, scope, taskFromProto(req.Msg.GetTask()))
+	in := taskFromProto(req.Msg.GetTask())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "task", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateTask(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateTaskResponse{Task: taskToProto(out)}), nil
+	result, err := s.taskForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateTaskResponse{Task: result}), nil
 }
 
 // DeleteTask removes a Task.
@@ -755,7 +913,11 @@ func (s *CRMService) CompleteTask(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CompleteTaskResponse{Task: taskToProto(out)}), nil
+	result, err := s.taskForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CompleteTaskResponse{Task: result}), nil
 }
 
 // ReopenTask returns a Task to open and clears its completion record.
@@ -770,7 +932,11 @@ func (s *CRMService) ReopenTask(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.ReopenTaskResponse{Task: taskToProto(out)}), nil
+	result, err := s.taskForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.ReopenTaskResponse{Task: result}), nil
 }
 
 // --- Notes (task.md §5.1) ---
@@ -786,6 +952,9 @@ func (s *CRMService) CreateNote(
 		return nil, err
 	}
 	note := noteFromProto(req.Msg.GetNote())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "note", note.CustomFields); err != nil {
+		return nil, err
+	}
 	if note.AuthorID == "" {
 		note.AuthorID = principalSubject(ctx)
 	}
@@ -793,7 +962,11 @@ func (s *CRMService) CreateNote(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.CreateNoteResponse{Note: noteToProto(out)}), nil
+	result, err := s.noteForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.CreateNoteResponse{Note: result}), nil
 }
 
 // GetNote returns one Note.
@@ -808,7 +981,11 @@ func (s *CRMService) GetNote(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.GetNoteResponse{Note: noteToProto(out)}), nil
+	result, err := s.noteForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.GetNoteResponse{Note: result}), nil
 }
 
 // ListNotes returns one page of Notes, newest first.
@@ -832,7 +1009,11 @@ func (s *CRMService) ListNotes(
 	}
 	out := make([]*crmv1.Note, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, noteToProto(r))
+		result, err := s.noteForRead(ctx, scope, r)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, result)
 	}
 	return connect.NewResponse(&crmv1.ListNotesResponse{Notes: out, NextPageToken: next}), nil
 }
@@ -845,11 +1026,19 @@ func (s *CRMService) UpdateNote(
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.store.UpdateNote(ctx, scope, noteFromProto(req.Msg.GetNote()))
+	in := noteFromProto(req.Msg.GetNote())
+	if err := s.authorizeCustomFieldWrite(ctx, scope, "note", in.CustomFields); err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateNote(ctx, scope, in)
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.UpdateNoteResponse{Note: noteToProto(out)}), nil
+	result, err := s.noteForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.UpdateNoteResponse{Note: result}), nil
 }
 
 // DeleteNote removes a Note.

@@ -174,6 +174,19 @@ func CoerceCustomValues(
 				ErrInvalid, definition.FieldKey, objectType)
 		}
 	}
+	for _, definition := range definitions {
+		if definition.Archived() || definition.Config.ValidationExpression == "" {
+			continue
+		}
+		value, err := EvaluateExpression(definition.Config.ValidationExpression, out)
+		if err != nil {
+			return nil, fmt.Errorf("%w: validation rule for custom field %q cannot be evaluated", ErrInvalid, definition.FieldKey)
+		}
+		valid, ok := value.(bool)
+		if !ok || !valid {
+			return nil, fmt.Errorf("%w: validation rule for custom field %q rejected this record", ErrInvalid, definition.FieldKey)
+		}
+	}
 
 	if len(out) == 0 {
 		// An empty document is stored as {} rather than omitted, matching the
@@ -418,6 +431,21 @@ func (v CustomValues) MarshalDocument() ([]byte, error) {
 		return nil, fmt.Errorf("%w: custom fields: %v", ErrInvalid, err)
 	}
 	return b, nil
+}
+
+// parseCustomValues decodes one jsonb document read from PostgreSQL. Database
+// rows are trusted to satisfy the object-shape CHECK from migration 0016, but
+// decoding still goes through CustomValues.UnmarshalJSON so multi-picklists
+// regain their []string representation rather than leaking []any to callers.
+func parseCustomValues(document []byte) (CustomValues, error) {
+	values := CustomValues{}
+	if len(document) == 0 {
+		return values, nil
+	}
+	if err := values.UnmarshalJSON(document); err != nil {
+		return nil, fmt.Errorf("decode custom fields: %w", err)
+	}
+	return values, nil
 }
 
 // Clone deep-copies a document so a caller mutating what it got back cannot
