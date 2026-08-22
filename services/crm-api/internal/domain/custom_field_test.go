@@ -73,7 +73,7 @@ func TestCustomFieldDefinitionValidation(t *testing.T) {
 		{"lookup to unknown object", &CustomFieldDefinition{
 			ObjectType: "account", FieldKey: "k", Label: "L", DataType: FieldLookup,
 			Config: FieldConfig{LookupObjectType: "invoice"},
-		}, "not a known object type"},
+		}, "must be one of account, contact, lead, opportunity"},
 		{"valid lookup", &CustomFieldDefinition{
 			ObjectType: "account", FieldKey: "k", Label: "L", DataType: FieldLookup,
 			Config: FieldConfig{LookupObjectType: "contact"},

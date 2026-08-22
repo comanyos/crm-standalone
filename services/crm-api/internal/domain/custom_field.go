@@ -283,8 +283,12 @@ func validateFieldConfig(d *CustomFieldDefinition) error {
 
 	case usesLookup:
 		c.LookupObjectType = strings.ToLower(strings.TrimSpace(c.LookupObjectType))
-		if !customObjectTypes[c.LookupObjectType] {
-			return invalid("lookup target %q is not a known object type", c.LookupObjectType)
+		// Narrower than customObjectTypes: a lookup must be resolvable, and
+		// lookupTargets is exactly what subjectReader can resolve. Admitting a
+		// target the value validator cannot check would mean storing a
+		// reference nothing ever verified.
+		if !lookupTargets[c.LookupObjectType] {
+			return invalid("lookup target %q must be one of account, contact, lead, opportunity", c.LookupObjectType)
 		}
 
 	case usesExpression:
