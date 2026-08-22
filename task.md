@@ -48,10 +48,14 @@ The CRM is 100% complete only when all of the following are true:
 
 ## Current verified baseline
 
-Latest verified update (2026-08-22): the standalone CRM web application
-completes its local PKCE callback on `http://localhost:3002` when the default
-port is occupied. AuthinCore now filters browser-requested resource wildcards
-from human tokens, so CRM authority can only come from server-side role grants.
+Latest verified update (2026-08-22): two-organization isolation (§1.3) is now
+proven by an automated suite at the RPC, application, database and
+asynchronous-worker layers, run against live PostgreSQL with row-level
+security applied to the non-bypassing `crm_app` role. Earlier the same day:
+the standalone CRM web application completes its local PKCE callback on
+`http://localhost:3002` when the default port is occupied, and AuthinCore
+filters browser-requested resource wildcards from human tokens, so CRM
+authority can only come from server-side role grants.
 
 | Area | Status | Evidence / limitation |
 | --- | --- | --- |
@@ -59,6 +63,7 @@ from human tokens, so CRM authority can only come from server-side role grants.
 | Compose stack | Running locally | PostgreSQL ×2, Redis, NATS, AuthinCore, Auth Admin, CRM API. |
 | Auth bootstrap | Implemented | `make bootstrap` reconciles an org, admin, roles, scopes, and public SPA client. |
 | OIDC/JWT integration | Live-verified via an automated browser test | `apps/web/tests-e2e/auth.spec.ts` (Playwright) exercises PKCE login, consent, live dashboard, reload, and logout end to end against the real stack. JWKS refresh/rotation and negative-path cases still need coverage. |
+| Tenant isolation | Proven by automated tests at four layers | All 36 CRM RPCs, the store against live PostgreSQL, a catalog-driven RLS check covering every table carrying `tenant_id`, and the outbox dispatcher's `crm_app`/`crm_drain` split. Audit-event and metric tenant labelling stays open because neither surface exists yet (§10.2). A token already issued outlives organization deactivation until it expires — see §1.3. |
 | Backend domain | Partially implemented | Accounts, contacts, leads, conversion, opportunities, activities, RLS, and tests exist. Production/contract coverage is incomplete. |
 | Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard, and live CRUD workflows for accounts, contacts, leads, and basic opportunities. Configurable pipelines, Kanban, activities, and remaining product workflows are still pending. |
 | Production operations | Not started | Local keys/credentials and Compose are development-only. |
@@ -263,23 +268,89 @@ Acceptance criteria:
 
 ### 1.3 Tenant isolation
 
-- [ ] Create two test organizations, principals, and OAuth clients in an
-  isolated test fixture.
-- [ ] Prove org B cannot retrieve, update, delete, list, search, export, or
-  reference an org A account/contact/lead/opportunity/activity by ID.
-- [ ] Prove RLS prevents a deliberately unscoped application query from seeing
-  another tenant's rows.
-- [ ] Prove background workers/outbox queries use the drain role only where
+- [~] Create two test organizations, principals, and OAuth clients in an
+  isolated test fixture. Two organizations with their own principals and
+  full record sets are seeded by `seedTenant` (`internal/domain/
+  pgstore_tenant_isolation_test.go`) and `seedViaAPI` (`internal/api/
+  tenant_isolation_test.go`). Two *OAuth clients* are not: that needs a
+  Docker-backed AuthinCore bootstrap fixture, tracked as its own item in
+  `docs/ROADMAP.md` M1.
+- [x] Prove org B cannot retrieve, update, delete, list, search, or reference
+  an org A account/contact/lead/opportunity/activity by ID.
+  `TestCrossOrganizationRPCAccessIsDenied` probes all 36 CRM RPCs across the
+  boundary; `TestCrossTenantEntityAccessIsDenied` and
+  `TestCrossTenantReferenceIsRejected` do the same through the store against
+  live PostgreSQL. Both assert the answer is NotFound and never
+  PermissionDenied, since refusing a foreign id confirms it exists.
+  `TestEveryTenantSensitiveRPCHasAnIsolationProbe` fails when an RPC is added
+  without a probe. There is no export surface yet, so nothing to prove there;
+  the by-value lookups that would back one (`FindContactByEmail`,
+  `FindAccountByDomain`) are covered.
+- [x] Prove RLS prevents a deliberately unscoped application query from seeing
+  another tenant's rows. `TestEveryTenantTableEnforcesRLS` reads the
+  PostgreSQL catalog rather than a hand-written table list, so a table added
+  later without ENABLE + FORCE + USING/WITH CHECK fails immediately;
+  `TestUnscopedQuerySeesNothingInAnyTenantTable` seeds both tenants and shows
+  an unbound connection reads zero rows from all ten tenant tables.
+- [x] Prove background workers/outbox queries use the drain role only where
   cross-tenant dispatch is intended and never publish data to a wrong tenant.
+  `TestOutboxDrainRoleIsTheOnlyCrossTenantReader` runs the same discovery
+  query on both pools: as `crm_app` it finds nothing (the silent
+  drains-nothing misconfiguration `config.Validate` rejects), as `crm_drain`
+  it finds both tenants — and every read of tenant *data* after that goes
+  back through the scoped pool. It also proves `crm_drain` cannot write.
+  `internal/dispatch/tenant_isolation_test.go` proves the drain narrows to one
+  real scope per tenant, that every published envelope's subject names its own
+  tenant, and that one tenant's bus failure neither drops nor reattributes
+  another's events.
 - [ ] Add tenant context to every audit event, metric label strategy, job, and
   integration callback while preventing high-cardinality/sensitive telemetry.
-- [ ] Add automated tests for host-domain tenant resolution, token-org/host
-  mismatch, and safe handling of unknown/deactivated organizations.
+  **Blocked, not skipped:** `services/crm-api` has no audit-event store, no
+  metrics exporter, and no integration callbacks to attach tenant context to
+  — the only recurring job is the outbox dispatcher, which is covered above.
+  This bullet cannot close before §10.2 builds those surfaces. The access log
+  (`internal/server/middleware.go`) also carries no tenant today, because it
+  runs as HTTP middleware, outside the Connect interceptor that resolves the
+  principal.
+- [x] Add automated tests for host-domain tenant resolution, token-org/host
+  mismatch, and safe handling of unknown/deactivated organizations, in
+  `internal/auth/tenant_resolution_test.go`. This service has no host-domain
+  resolver by design, so the tests are written as negative proofs:
+  `TestHostAndHeadersCannotChangeTheResolvedTenant` shows `Host`,
+  `X-Forwarded-Host`, `Origin`, `X-Org-Id` and `X-Tenant-Id` cannot move a
+  request between organizations, and `TestTokenWithoutAnOrganizationYieldsNoTenant`
+  shows a token with no `org_id` produces no tenant rather than a shared
+  default. An unknown organization gets its own empty tenant, never a
+  fallback.
 
 Acceptance criteria:
 
 - The test suite proves tenant isolation at API, application, database, and
-  asynchronous-worker layers.
+  asynchronous-worker layers. **Met** for those four layers; the audit and
+  telemetry bullet above remains open on its own dependencies.
+
+Fixed while proving the above:
+
+- `internal/auth/jwks.go` accepted a token carrying no `exp` claim, because
+  `WithExpirationRequired` is not the golang-jwt default. Since the CRM does
+  not call AuthinCore per request, expiry is the only thing that ends a
+  session after an organization or user is deactivated — a token without one
+  would have made that window unbounded. Now required, covered by
+  `TestDeactivatedOrganizationIsBoundedByTokenExpiry`. AuthinCore always sets
+  `exp` (`internal/token/token.go`), so no issued token is affected.
+- The default test DSN in `internal/domain/pgstore_test.go` named a port
+  belonging to an unrelated local project, where it could only fail to
+  connect — and a failed connection there is `t.Skip`. The entire PostgreSQL
+  tier, row-level security included, silently did not run for anyone who had
+  not set `TEST_DATABASE_URL`. It now defaults to this repository's own
+  `make test-db-up` instance.
+
+Residual limitation, disclosed rather than hidden: an access token already
+issued stays valid until it expires even after the organization or user is
+deactivated, because the CRM verifies tokens offline against JWKS and does not
+call AuthinCore per request. The exposure window is exactly the access-token
+lifetime, and ending a session sooner would need either token introspection or
+a revocation list — a §10.1 decision, not a §1.3 one.
 
 ### 1.4 RBAC and record-level authorization
 

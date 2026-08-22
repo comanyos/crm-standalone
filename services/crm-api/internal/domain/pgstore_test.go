@@ -34,6 +34,19 @@ func alreadyApplied(err error) bool {
 	return false
 }
 
+// defaultTestDSN is this repository's own disposable test instance —
+// `make test-db-up`, compose service crm-postgres-test, tmpfs-backed, on a
+// port of its own. It is a superuser connection so migration 0003 can create
+// both crm_app and crm_drain, which the tenant-isolation tests connect as.
+//
+// The default has to name a database this repository owns. It previously
+// named a port belonging to an unrelated local project, where it could only
+// ever fail to connect — and a failed connection here is t.Skip, so the
+// entire PostgreSQL tier, row-level security and cross-tenant proofs
+// included, quietly did not run for anyone who had not set
+// TEST_DATABASE_URL.
+const defaultTestDSN = "postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable"
+
 func livePgStore(t *testing.T) *PgStore {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
@@ -41,7 +54,7 @@ func livePgStore(t *testing.T) *PgStore {
 		dsn = os.Getenv("DATABASE_URL")
 	}
 	if dsn == "" {
-		dsn = "postgres://crm:crm@localhost:55432/test_crm?sslmode=disable"
+		dsn = defaultTestDSN
 	}
 	s, err := NewPgStore(context.Background(), dsn)
 	if err != nil {

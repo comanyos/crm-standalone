@@ -15,11 +15,10 @@ import (
 // created by migration 0003 that does NOT bypass row-level security.
 //
 // This indirection is the whole point of the file. The default test
-// connection is the table owner (`crm`, per docker-compose's
-// POSTGRES_USER), and while an owner is not automatically exempt from RLS,
-// it IS exempt unless the table carries FORCE ROW LEVEL SECURITY — so a test
-// against the ordinary store proves nothing about whether the policies
-// actually apply. This connects as the role the policies are meant to bind.
+// connection is a superuser that also owns the tables (see defaultTestDSN),
+// and a superuser is exempt from RLS outright — so a test against the
+// ordinary store proves nothing about whether the policies actually apply.
+// This connects as the role the policies are meant to bind.
 func restrictedDSN(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
@@ -27,7 +26,7 @@ func restrictedDSN(t *testing.T) string {
 		dsn = os.Getenv("DATABASE_URL")
 	}
 	if dsn == "" {
-		dsn = "postgres://crm:crm@localhost:55432/test_crm?sslmode=disable"
+		dsn = defaultTestDSN
 	}
 	at := strings.Index(dsn, "@")
 	scheme := strings.Index(dsn, "://")

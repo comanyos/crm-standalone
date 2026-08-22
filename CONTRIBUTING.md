@@ -66,6 +66,16 @@ Each service also has its own `Makefile` with finer-grained targets
    [docs/CONFIGURATION.md](docs/CONFIGURATION.md)); these are not yet fully
    separated from unit tests in `go test ./...`, so treat any test that opens
    a database connection as this tier.
+
+   These tests default to the `crm-postgres-test` instance `make test-db-up`
+   starts, so no environment variable is needed; set `TEST_DATABASE_URL` only
+   to point them somewhere else. Note that a database they cannot reach is a
+   `t.Skip`, not a failure — so if `make test-db-up` was never run, the whole
+   tier passes without executing. Check for `--- SKIP` in `go test -v` output
+   before treating a green run as proof. The connection must be a superuser:
+   migration `0003_rls_enforce.sql` creates `crm_app` and `crm_drain`, and the
+   tenant-isolation tests connect as both to prove row-level security applies
+   to the role the service actually uses.
 3. **Browser tests** — end-to-end coverage of critical user journeys, in
    `apps/web/tests-e2e/`, run via `npm run test:e2e --workspace=@crm/web`
    against a live backend. `auth.spec.ts` covers sign-in, the protected

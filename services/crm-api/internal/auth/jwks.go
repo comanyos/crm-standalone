@@ -25,7 +25,15 @@ func newFromJWKS(ctx context.Context, jwksURL, issuer, audience string) (*Authen
 }
 
 func (v *jwksVerifier) verify(_ context.Context, tokenStr string) (*Principal, error) {
-	opts := []jwt.ParserOption{jwt.WithValidMethods([]string{"RS256", "RS512", "ES256", "ES384"})}
+	// WithExpirationRequired is not the parser default, and the default is
+	// the wrong one here: this service does not call AuthinCore per request,
+	// so a token's expiry is the *only* thing that ends a session after an
+	// organization or user is deactivated. A token minted without an exp
+	// claim would never expire, making that window unbounded.
+	opts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{"RS256", "RS512", "ES256", "ES384"}),
+		jwt.WithExpirationRequired(),
+	}
 	if v.issuer != "" {
 		opts = append(opts, jwt.WithIssuer(v.issuer))
 	}

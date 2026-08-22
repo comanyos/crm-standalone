@@ -71,7 +71,20 @@ provider credentials.
 - [ ] Add Docker-backed bootstrap integration tests with two organizations.
 - [ ] Automate browser login, authorization-code exchange with PKCE, refresh,
   logout/revocation, JWKS validation, CRM API access, 401, and 403 behavior.
-- [ ] Prove API and database cross-organization isolation with two principals.
+- [x] Prove API and database cross-organization isolation with two principals.
+  Two organizations are seeded with a full record set each, then probed at
+  four layers: all 36 CRM RPCs (`internal/api/tenant_isolation_test.go`), the
+  store against live PostgreSQL (`internal/domain/pgstore_tenant_isolation_test.go`),
+  row-level security read straight from the PostgreSQL catalog so a table
+  added without a policy fails immediately, and the outbox dispatcher
+  (`internal/dispatch/tenant_isolation_test.go`), whose one cross-tenant query
+  is confined to the `crm_drain` role and to tenant *identifiers*. Every
+  cross-organization read answers NotFound rather than PermissionDenied, so a
+  refusal never confirms that a foreign id is real. Two findings were fixed in
+  passing: tokens with no `exp` claim were accepted, and the default test DSN
+  named an unrelated project's port, silently skipping the whole PostgreSQL
+  tier. Tenant labelling of audit events and metrics stays open — neither
+  surface exists yet (M6).
 - [ ] Add record-level FGA checks before exposing owner/editor/viewer controls.
 
 Acceptance criteria: a clean `make up` plus documented bootstrap command works
