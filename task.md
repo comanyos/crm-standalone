@@ -1057,13 +1057,13 @@ Acceptance criteria:
   returns if the write fails, so the board feels immediate without the query
   cache being edited behind the server's back.
 
-  Two notes for whoever picks this up next. The board permits closing from any
-  open stage, matching the server; `OpportunityFormPage` is stricter and only
-  offers a terminal stage from the last open one, so the two disagree about a
-  legal move and the form is the one that should change. And the same
-  `custom_fields` round-trip is still missing from the lead, account, contact
-  and task edit forms — each silently wipes every optional custom value on
-  save, and fails outright where a tenant has marked one required.
+  `OpportunityFormPage` now takes its stage choices from the same
+  `legalTargets` the board uses, rather than a second copy of the rules. Its
+  copy was stricter than the server in one place — a closing stage was offered
+  only from the last open stage, so a deal could not be marked lost at
+  Prospecting without first being walked through three stages it never
+  reached. The board allowed that move all along, so the two screens
+  disagreed about the same record.
 - [ ] Define quota, forecast category, weighted pipeline, and forecast snapshot
   calculations; test them with deterministic dates/currency rules.
 

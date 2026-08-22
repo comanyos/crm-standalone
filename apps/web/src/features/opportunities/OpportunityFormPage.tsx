@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/Button";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { UnsavedChangesPrompt } from "../../components/ui/UnsavedChangesPrompt";
 import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors";
+import { legalTargets } from "./transitions";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useUnsavedChangesGuard } from "../../lib/useUnsavedChangesGuard";
 import { useToast } from "../../components/ui/Toast";
@@ -60,8 +61,20 @@ export default function OpportunityFormPage({ mode }: { mode: "create" | "edit" 
   const stages = stagesQuery.data?.stages ?? [];
   const currentStage = stages.find((stage) => stage.id === stageId);
   const existingStage = stages.find((stage) => stage.id === existing?.stageId);
-  const hasOpenStageAfterCurrent = stages.some((stage) => stage.terminalType === "open" && stage.position > (existingStage?.position ?? -1) && !stage.archivedAt);
-  const stageOptions = mode === "create" ? [] : stages.filter((stage) => stage.id === existing?.stageId || (!stage.archivedAt && (stage.terminalType !== "open" ? !hasOpenStageAfterCurrent : stage.position === (existingStage?.position ?? -1) + 1))).map((stage) => ({ value: stage.id, label: stage.name }));
+  // The stages this deal may move to, plus the one it is already on so the
+  // select can show its current value.
+  //
+  // These come from legalTargets — the same mirror of the server's stage
+  // machine the board uses — rather than a second copy of the rules. The copy
+  // that used to live here was stricter than the server in one place: it
+  // offered a closing stage only from the last open stage, so a deal could not
+  // be marked lost at Prospecting without first being walked to Negotiation,
+  // even though the server has always accepted that write. The board allowed
+  // it and this form did not, which is the kind of disagreement that teaches
+  // people the software is unpredictable.
+  const stageOptions = mode === "create" || !existingStage
+    ? []
+    : [existingStage, ...legalTargets(existingStage, stages)].map((stage) => ({ value: stage.id, label: stage.name }));
   const closesNow = mode === "edit" && currentStage?.terminalType !== "open" && stageId !== existing?.stageId;
   const { blocker, disarm } = useUnsavedChangesGuard(isDirty && !isSubmitting);
 
