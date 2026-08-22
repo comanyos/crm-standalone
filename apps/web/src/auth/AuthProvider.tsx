@@ -21,6 +21,7 @@ import {
 } from "@crm/auth-client";
 import { useToast } from "../components/ui/Toast";
 import { AUTH_CALLBACK_PATH } from "../lib/auth-config";
+import { broadcastSignOut, watchForIdleness, watchForSignOutElsewhere } from "./session-policy";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "signing-out" | "signed-out";
 
@@ -151,6 +152,11 @@ export function AuthProvider({ config, children }: { config: OidcConfig; childre
     const accessToken = session?.accessToken;
     setSession(null);
     setStatus("signing-out");
+    // Told to the other tabs first, and before awaiting anything. Each one
+    // holds its own live access token in memory, so any delay here is a
+    // window in which the user believes they have signed out everywhere and
+    // a second tab is still making authenticated calls.
+    broadcastSignOut();
     await withinGracePeriod(
       Promise.all([
         revokeStoredRefreshToken(config),
@@ -159,6 +165,47 @@ export function AuthProvider({ config, children }: { config: OidcConfig; childre
     );
     setStatus("signed-out");
   }, [clearRenewTimer, config, session]);
+
+  /** Ends this tab's session when the decision was made elsewhere (another
+   * tab signed out) or by inaction (the idle timeout).
+   *
+   * It does not call endServerSession, and that asymmetry is deliberate: the
+   * other tab already ended the AuthinCore session, and an idle background
+   * tab must not be able to sign the user out of the tab they are actively
+   * working in.
+   *
+   * It does still revoke this tab's refresh token. sessionStorage is
+   * per-tab, so that token is this tab's own and survives the tab's session
+   * ending — without this, a reload would silently restore a session the
+   * user was just told had ended. revokeStoredRefreshToken clears local
+   * storage synchronously and only then talks to the network, so dropping
+   * the promise is safe: the token is gone from this browser either way. */
+  const endLocalSession = useCallback(() => {
+    clearRenewTimer();
+    void revokeStoredRefreshToken(config);
+    setSession(null);
+    setStatus("signed-out");
+  }, [clearRenewTimer, config]);
+
+  // Sign-out in another tab of this app ends this one too. Without it, the
+  // user closes the tab they signed out of and the app is still open, still
+  // signed in, in the tab behind it.
+  useEffect(() => watchForSignOutElsewhere(endLocalSession), [endLocalSession]);
+
+  // Idle timeout. Only while there is actually a session to end — an
+  // unauthenticated tab sitting on the sign-in screen has nothing to time
+  // out, and starting a timer for it would flip a signed-out tab to
+  // "signed-out" for no reason a user could explain.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    return watchForIdleness(() => {
+      endLocalSession();
+      toast.show({
+        tone: "warning",
+        message: "You were signed out after a period of inactivity.",
+      });
+    });
+  }, [status, endLocalSession, toast]);
 
   const completeLogin = useCallback(
     async (callback: ParsedCallback) => {

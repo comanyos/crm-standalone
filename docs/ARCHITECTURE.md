@@ -90,3 +90,94 @@ revocation is instant in the meantime.
 
 Both windows are pinned by tests
 (`internal/auth/jwks_rotation_test.go`, `internal/auth/tenant_resolution_test.go`).
+
+## The web session model
+
+What the browser application holds, where it holds it, and what ends a
+session. Implemented in `packages/auth-client` and
+`apps/web/src/auth/`.
+
+### What is stored, and where
+
+| Item | Location | Lifetime |
+| --- | --- | --- |
+| Access token | React state only | The tab's memory. Never written to any storage. |
+| Refresh token | `sessionStorage` | Cleared when the tab closes; survives a reload. |
+| PKCE verifier + `state` | `sessionStorage`, keyed by `state` | Consumed on callback, and expired after 10 minutes regardless. |
+| Cross-tab sign-out signal | `BroadcastChannel`, nothing persisted | The message itself. |
+
+`localStorage` holds nothing. `sessionStorage` is the deliberate middle
+ground: per-tab and cleared on close, unlike `localStorage`, while still
+surviving the reload that makes "still signed in after F5" work.
+
+Storing a refresh token at all is a trade-off, and it is forced. AuthinCore's
+authorization endpoints send `X-Frame-Options: DENY` — correct clickjacking
+hardening for an identity provider, not something to weaken for client
+convenience — which rules out the hidden-iframe silent-renew pattern. A plain
+background `grant_type=refresh_token` exchange is what remains, and it needs a
+refresh token to present.
+
+### Renewal
+
+The access token is renewed about 60 seconds before its own `exp`, so a
+request already in flight never races an expiry the backend would reject.
+Concurrent renewals are de-duplicated into one exchange: AuthinCore rotates
+the refresh token on every use, so two overlapping renewals would have the
+second present a token the first already consumed. React's development-mode
+double-invocation of effects surfaces this immediately, but it is not a
+development-only concern.
+
+A failed renewal is treated as "the user must sign in again": the session is
+dropped and a toast explains why. There is no retry, because the failures that
+reach this point — a revoked or expired refresh token — do not improve on
+retry.
+
+### What ends a session
+
+| Trigger | Local session | AuthinCore session | Refresh token |
+| --- | --- | --- | --- |
+| Explicit sign-out | Cleared | Ended (`DELETE /api/v1/sessions/me`) | Revoked |
+| Idle timeout (30 min) | Cleared | Left alone | Revoked |
+| Another tab signs out | Cleared | Already ended by that tab | Revoked |
+| Failed renewal | Cleared | Left alone | Already gone |
+
+Explicit sign-out waits up to 3 seconds for the server calls to land before
+showing the confirmation. Ending AuthinCore's own session is what stops a
+subsequent `/authorize` from silently re-authenticating the same user with no
+password, so showing "You're signed out" before that request lands would be a
+claim the system had not yet made true.
+
+The two rows that do **not** end the AuthinCore session are deliberate. An
+idle background tab must not be able to sign the user out of the tab they are
+actively working in, and a tab reacting to another tab's sign-out would only
+be repeating a call that tab already made.
+
+Every one of them revokes this tab's refresh token, because `sessionStorage`
+is per-tab: leaving it in place would let a reload silently restore a session
+the user was just told had ended.
+
+### Idle timeout
+
+Thirty minutes without deliberate interaction. Deliberate excludes
+`mousemove`: a trackpad under a resting palm, or a page animating beneath the
+pointer, would otherwise keep a session alive indefinitely and make the
+timeout decorative. Keyboard, pointer-down, wheel, touch and returning to a
+backgrounded tab all count.
+
+### Multi-tab behaviour
+
+Each tab has its own `sessionStorage`, so each holds its own refresh token and
+renews independently. Signing out in one tab ends every other tab of the same
+origin, over a `BroadcastChannel` carrying a bare `{type, at}` message — an
+event, never anything session-derived, since any same-origin script can join a
+named channel.
+
+One case is worth knowing: duplicating a tab copies `sessionStorage`, so both
+copies briefly hold the *same* refresh token. Because refresh tokens are
+single-use, whichever renews second is rejected and that tab asks the user to
+sign in again. This is rotation working as intended — the alternative is
+accepting a replayed refresh token — but it looks like an unexplained sign-out
+to a user who duplicated a tab and left both open past the renewal window.
+
+Browsers without `BroadcastChannel` (Safari before 15.4) lose cross-tab
+propagation only; sign-out, renewal and the idle timeout are unaffected.

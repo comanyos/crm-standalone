@@ -104,6 +104,19 @@ describe("completeCallback", () => {
     );
   });
 
+  // The literal "missing state" case, distinct from a state that does not
+  // match: an authorization server response with no state at all must be
+  // refused rather than treated as "nothing to compare, so accept".
+  it("rejects a callback carrying no state, without touching the network", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(completeCallback(config, { code: "abc" })).rejects.toThrow(/missing code or state/);
+    await expect(completeCallback(config, { code: "abc", state: "" })).rejects.toThrow(
+      /missing code or state/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects an expired pending request", async () => {
     sessionStorage.setItem(
       "crm_auth_pending:stale",

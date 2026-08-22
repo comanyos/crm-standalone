@@ -298,16 +298,44 @@ cleanup. It belongs with the other DBCore provenance items already open in
 
 - [x] Verify local Authorization Code + PKCE, consent, token exchange, JWT
   validation through JWKS, refresh-token rotation, and revocation.
-- [ ] Add an automated browser test for login redirect, callback validation,
+- [~] Add an automated browser test for login redirect, callback validation,
   CSRF state validation, PKCE verifier, session restoration, and logout.
-- [ ] Define the web token/session model: memory-only access token, refresh
+  `apps/web/tests-e2e/auth.spec.ts` covers login redirect, consent, the live
+  dashboard, session restoration across a reload, and logout against the real
+  stack. Callback validation, CSRF state and the PKCE verifier are covered as
+  unit tests in `packages/auth-client/test/client.test.ts` rather than through
+  the browser — driving a forged `state` or a mismatched verifier through a
+  real redirect means making the identity provider misbehave, which the
+  browser tier cannot arrange. What is genuinely still missing at this tier is
+  a spec for the *new* session policy: idle timeout and cross-tab sign-out are
+  unit-tested but not yet exercised in a real browser with two tabs.
+- [x] Define the web token/session model: memory-only access token, refresh
   protocol, refresh failure handling, idle timeout, and multi-tab behavior.
-- [ ] Implement front-channel logout and AuthinCore session logout from the
-  web app; clear local app state and show a signed-out confirmation.
-- [~] Add OIDC negative-path tests: invalid issuer/audience/signature/key ID,
+  Written up in `docs/ARCHITECTURE.md` — what is stored and where, what ends a
+  session and what each trigger does to the AuthinCore session and the refresh
+  token, and why storing a refresh token at all is forced (AuthinCore sends
+  `X-Frame-Options: DENY`, which rules out hidden-iframe silent renew).
+  Already in place: memory-only access token, refresh token in `sessionStorage`
+  rather than `localStorage`, renewal 60s before expiry, concurrent renewals
+  de-duplicated because rotation makes the second one lose, and a failed
+  renewal treated as "sign in again" with a toast.
+  Added here: an **idle timeout** (30 minutes, `apps/web/src/auth/session-policy.ts`)
+  and **cross-tab sign-out**. Both end only the local session and revoke this
+  tab's refresh token — deliberately not the AuthinCore session, because an
+  idle background tab must not sign the user out of the tab they are working
+  in. `sessionStorage` is per-tab, so revoking is what stops a reload from
+  restoring a session the user was just told had ended.
+- [x] Implement front-channel logout and AuthinCore session logout from the
+  web app; clear local app state and show a signed-out confirmation. Already
+  implemented: `logout` drops the local session, revokes the refresh token,
+  calls `DELETE /api/v1/sessions/me` to clear AuthinCore's own session cookie,
+  and waits up to 3s for both before showing the signed-out screen — showing
+  it earlier would claim something the system had not yet made true, since
+  until that call lands a fresh `/authorize` silently re-authenticates the
+  same user. Extended here to tell this app's other tabs first.
+- [x] Add OIDC negative-path tests: invalid issuer/audience/signature/key ID,
   expired token, incorrect PKCE verifier, reused code, invalid redirect URI,
-  missing state, revoked refresh token, and unavailable JWKS. All but
-  **missing state** are covered. On the CRM side:
+  missing state, revoked refresh token, and unavailable JWKS. All covered. On the CRM side:
   `internal/auth/tenant_resolution_test.go` (issuer, audience, signature,
   expiry, and a token carrying no `exp` at all) and
   `internal/auth/jwks_rotation_test.go` (unknown key id, a real key id signed
@@ -318,8 +346,11 @@ cleanup. It belongs with the other DBCore provenance items already open in
   for the wrong reason), refresh-token replay, and a refresh token redeemed
   by a different client. All pass — these are regression guards, not fixes.
   **State validation is the web app's job** (it is the CSRF defence for the
-  browser redirect, and AuthinCore only echoes the value), so it belongs with
-  the browser-test bullet above rather than here.
+  browser redirect, and AuthinCore only echoes the value) and is covered in
+  `packages/auth-client/test/client.test.ts`: a state that was never issued,
+  an expired pending request, and — added here — a callback carrying no state
+  at all, each rejected without touching the network. An earlier revision of
+  this section said state validation was uncovered; that was wrong.
 - [x] Add key rotation test: CRM validates active and previous AuthinCore keys
   and refreshes its JWKS cache without a restart.
   `TestKeyRotationTakesEffectWithoutARestart` publishes a second key mid-test
@@ -335,6 +366,12 @@ cleanup. It belongs with the other DBCore provenance items already open in
 
 Fixed while doing the above:
 
+- The cross-tab sign-out broadcast originally opened a fresh `BroadcastChannel`
+  per call. A channel does not deliver back to the instance that posted, but it
+  does deliver to every *other* instance — including another one in the same
+  document — so the signing-out tab received its own broadcast and raced its
+  own `logout`, clobbering the "signing-out" state the user was looking at.
+  One shared channel per tab fixes it, and the test that caught it is kept.
 - A request presenting a token whose key id was not cached could **block a
   server goroutine for up to a minute** before failing. The JWKS library's
   `RateLimitWaitMax` defaults to a minute, and the key id is attacker-chosen,

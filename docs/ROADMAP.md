@@ -98,9 +98,18 @@ provider credentials.
   goroutine for a minute before failing (attacker-chosen key id, so a cheap
   exhaustion vector), and the JWKS refresh interval was an hour, which made
   both the revocation window and readiness recovery an hour long.
-  Still browser-side: the Playwright flow itself, CSRF state validation, and
-  the web token/session model. See `docs/ARCHITECTURE.md` for the two windows
-  that offline verification leaves open by design.
+  The web session model is now defined and documented in
+  `docs/ARCHITECTURE.md`: what is stored and where (nothing in localStorage),
+  what ends a session and what each trigger does to the AuthinCore session and
+  the refresh token. Added with it: a 30-minute idle timeout and cross-tab
+  sign-out, both ending only the local session and revoking that tab's refresh
+  token, so a reload cannot restore a session the user was told had ended.
+  CSRF state, the PKCE verifier and callback validation are covered as unit
+  tests in `packages/auth-client` — driving a forged state through a real
+  redirect would mean making the identity provider misbehave. Still missing at
+  the browser tier: a two-tab spec for the new session policy. See
+  `docs/ARCHITECTURE.md` for the two windows offline verification leaves open
+  by design.
 - [x] Prove API and database cross-organization isolation with two principals.
   Two organizations are seeded with a full record set each, then probed at
   four layers: all 36 CRM RPCs (`internal/api/tenant_isolation_test.go`), the
