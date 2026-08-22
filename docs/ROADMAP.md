@@ -85,8 +85,22 @@ provider credentials.
   into every organization created, and backfills existing ones. They carry no
   CRM scope — that is now asserted — but they are authority nobody in this
   product reviewed. Tracked with the other DBCore provenance items in M0.
-- [ ] Automate browser login, authorization-code exchange with PKCE, refresh,
+- [~] Automate browser login, authorization-code exchange with PKCE, refresh,
   logout/revocation, JWKS validation, CRM API access, 401, and 403 behavior.
+  The server-side half is done and passing. AuthinCore now has negative-path
+  tests for authorization-code replay, redirect-URI substitution, a wrong and
+  a missing PKCE verifier, refresh-token replay, and cross-client refresh
+  redemption. The CRM validates active and previous signing keys and picks up
+  a rotation without a restart, and a new `GET /readyz` reports `503` until it
+  holds signing keys — kept separate from `/healthz`, so an AuthinCore blip
+  takes an instance out of the load balancer instead of crash-looping it.
+  Two fixes in passing: a token with an unknown key id could block a server
+  goroutine for a minute before failing (attacker-chosen key id, so a cheap
+  exhaustion vector), and the JWKS refresh interval was an hour, which made
+  both the revocation window and readiness recovery an hour long.
+  Still browser-side: the Playwright flow itself, CSRF state validation, and
+  the web token/session model. See `docs/ARCHITECTURE.md` for the two windows
+  that offline verification leaves open by design.
 - [x] Prove API and database cross-organization isolation with two principals.
   Two organizations are seeded with a full record set each, then probed at
   four layers: all 36 CRM RPCs (`internal/api/tenant_isolation_test.go`), the

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -371,4 +372,102 @@ func TestRoleChangesTakeEffectOnlyAtTheNextToken(t *testing.T) {
 	// The window closes at expiry, which is enforced rather than assumed:
 	// internal/auth requires an exp claim, so no token can carry stale
 	// authority indefinitely (TestDeactivatedOrganizationIsBoundedByTokenExpiry).
+}
+
+// TestReadyzReportsUnavailableWithoutSigningKeys covers the readiness
+// endpoint (task.md §1.2).
+//
+// /healthz and /readyz answer different questions and an orchestrator uses
+// them differently. Liveness says the process is up; restarting on an
+// upstream outage turns a recoverable blip into a crash loop. Readiness says
+// this instance can do its job — and it cannot, if it holds no signing keys,
+// because then every authenticated request fails in a way that looks to the
+// user like their own credentials are wrong.
+func TestReadyzReportsUnavailableWithoutSigningKeys(t *testing.T) {
+	// A JWKS endpoint that never answers with keys.
+	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(jwks.Close)
+
+	authn, err := auth.FromConfig(context.Background(), jwks.URL, "authincore", "")
+	if err != nil {
+		t.Fatalf("the authenticator refused to start degraded: %v", err)
+	}
+	srv, err := New(config.Config{}, domain.NewMemStore(), authn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(srv.Close)
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	// Liveness stays green: the process is fine, its dependency is not.
+	live, err := ts.Client().Get(ts.URL + "/healthz")
+	if err != nil {
+		t.Fatalf("GET /healthz: %v", err)
+	}
+	defer func() { _ = live.Body.Close() }()
+	if live.StatusCode != http.StatusOK {
+		t.Errorf("/healthz = %d while only the identity provider is down; want 200 — "+
+			"a liveness probe that fails here would crash-loop the service", live.StatusCode)
+	}
+
+	// Readiness is not.
+	ready, err := ts.Client().Get(ts.URL + "/readyz")
+	if err != nil {
+		t.Fatalf("GET /readyz: %v", err)
+	}
+	defer func() { _ = ready.Body.Close() }()
+	if ready.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("/readyz = %d with no signing keys; want 503", ready.StatusCode)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(ready.Body).Decode(&body); err != nil {
+		t.Fatalf("decode /readyz body: %v", err)
+	}
+	if body["status"] != "not_ready" {
+		t.Errorf("/readyz status = %q, want \"not_ready\"", body["status"])
+	}
+	// The reason names the subsystem and nothing else: a readiness endpoint is
+	// usually reachable without credentials.
+	if strings.Contains(body["reason"], jwks.URL) {
+		t.Errorf("/readyz leaks the JWKS URL to an unauthenticated caller: %q", body["reason"])
+	}
+}
+
+// TestReadyzReportsReadyWithSigningKeys is the positive case, so the test
+// above cannot pass merely because /readyz always fails.
+func TestReadyzReportsReadyWithSigningKeys(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authn, err := auth.FromConfig(context.Background(), jwksFor(t, &key.PublicKey), "authincore", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv, err := New(config.Config{}, domain.NewMemStore(), authn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(srv.Close)
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	resp, err := ts.Client().Get(ts.URL + "/readyz")
+	if err != nil {
+		t.Fatalf("GET /readyz: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("/readyz = %d with a working JWKS; want 200", resp.StatusCode)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body["status"] != "ready" {
+		t.Errorf("/readyz status = %q, want \"ready\"", body["status"])
+	}
 }

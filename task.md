@@ -304,13 +304,59 @@ cleanup. It belongs with the other DBCore provenance items already open in
   protocol, refresh failure handling, idle timeout, and multi-tab behavior.
 - [ ] Implement front-channel logout and AuthinCore session logout from the
   web app; clear local app state and show a signed-out confirmation.
-- [ ] Add OIDC negative-path tests: invalid issuer/audience/signature/key ID,
+- [~] Add OIDC negative-path tests: invalid issuer/audience/signature/key ID,
   expired token, incorrect PKCE verifier, reused code, invalid redirect URI,
-  missing state, revoked refresh token, and unavailable JWKS.
-- [ ] Add key rotation test: CRM validates active and previous AuthinCore keys
+  missing state, revoked refresh token, and unavailable JWKS. All but
+  **missing state** are covered. On the CRM side:
+  `internal/auth/tenant_resolution_test.go` (issuer, audience, signature,
+  expiry, and a token carrying no `exp` at all) and
+  `internal/auth/jwks_rotation_test.go` (unknown key id, a real key id signed
+  by another key, unavailable JWKS). On the AuthinCore side, the new
+  `internal/protocol/oidc/negative_paths_test.go` covers authorization-code
+  replay, redirect-URI substitution, a wrong and a missing PKCE verifier
+  (with the correct one asserted to still work, so the first two cannot pass
+  for the wrong reason), refresh-token replay, and a refresh token redeemed
+  by a different client. All pass — these are regression guards, not fixes.
+  **State validation is the web app's job** (it is the CSRF defence for the
+  browser redirect, and AuthinCore only echoes the value), so it belongs with
+  the browser-test bullet above rather than here.
+- [x] Add key rotation test: CRM validates active and previous AuthinCore keys
   and refreshes its JWKS cache without a restart.
-- [ ] Add readiness checks so CRM does not report healthy until it can retrieve
-  or has a valid cached JWKS according to the deployment policy.
+  `TestKeyRotationTakesEffectWithoutARestart` publishes a second key mid-test
+  and shows tokens signed by either verify during the overlap window.
+- [x] Add readiness checks so CRM does not report healthy until it can retrieve
+  or has a valid cached JWKS according to the deployment policy. New
+  `GET /readyz` (`503` with no signing keys, `200` with them), kept separate
+  from `/healthz`, which stays a pure liveness signal — see
+  `docs/ARCHITECTURE.md`. `auth.Authenticator.Ready` does more than read the
+  cache: an empty cache triggers a fetch, so an instance whose start-up fetch
+  failed recovers on its own rather than sitting out of the load balancer
+  until the next scheduled refresh.
+
+Fixed while doing the above:
+
+- A request presenting a token whose key id was not cached could **block a
+  server goroutine for up to a minute** before failing. The JWKS library's
+  `RateLimitWaitMax` defaults to a minute, and the key id is attacker-chosen,
+  so a handful of junk tokens was a cheap way to exhaust the server. Capped at
+  one second, and `TestUnknownKeyIdRefreshIsRateLimited` now asserts both that
+  the refresh is rate-limited *and* that losing the limiter fails fast rather
+  than blocking. (Found because the first version of that test hung.)
+- The JWKS background refresh used the library's one-hour default, which made
+  the revocation window an hour and meant an instance that failed its start-up
+  fetch could stay unready for an hour after the provider recovered. Now 15
+  minutes, with the unknown-key-id refresh at 10 seconds — that shorter one is
+  what bounds both rotation pickup and readiness recovery.
+
+Documented rather than fixed, because both are consequences of offline
+verification and closing them is a §10.1 decision:
+
+- Withdrawing a signing key does not take effect until the next scheduled
+  refresh (up to 15 minutes), because a cached key id never triggers the
+  out-of-band refresh. `TestRevokedKeyKeepsWorkingUntilTheNextRefresh` pins
+  this, and fails loudly if the behaviour ever changes.
+- An access token already issued outlives deactivation until it expires
+  (§1.3).
 
 Acceptance criteria:
 

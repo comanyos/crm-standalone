@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -74,9 +75,39 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) routes() {
+	// /healthz is liveness: the process is up and serving. It deliberately
+	// does not consult the identity provider — a CRM that restarts itself
+	// because AuthinCore is briefly unreachable turns a recoverable outage
+	// into a crash loop.
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	})
+
+	// /readyz is readiness: this instance can actually do its job. It can
+	// only do its job if it holds signing keys, because without them every
+	// authenticated request fails — and fails in a way that looks to the user
+	// like their own credentials are wrong, not like an outage.
+	//
+	// Splitting the two is the point. A single endpoint has to choose
+	// between restarting on an upstream outage and routing traffic to an
+	// instance that cannot serve it; separating them means the orchestrator
+	// keeps the process alive and takes it out of the load balancer instead.
+	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := s.authn.Ready(r.Context()); err != nil {
+			slog.Warn("readiness check failed", "err", err,
+				"request_id", RequestID(r.Context()))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			// The reason names the subsystem, never the JWKS URL's contents
+			// or any token material.
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"status": "not_ready",
+				"reason": "signing keys unavailable",
+			})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 
 	interceptors := connect.WithInterceptors(s.authn.Interceptor(scopePolicy))

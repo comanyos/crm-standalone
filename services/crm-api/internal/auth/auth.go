@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
+	"github.com/MicahParks/jwkset"
 )
 
 // Principal is the authenticated caller, derived from JWT claims.
@@ -55,6 +56,11 @@ type verifier interface {
 type Authenticator struct {
 	v        verifier
 	disabled bool
+
+	// storage and jwksURL back Ready (jwks.go). They are nil for a disabled
+	// authenticator, which has no key set to report on.
+	storage jwkset.Storage
+	jwksURL string
 }
 
 // devPrincipal is injected when auth is disabled (local dev).
