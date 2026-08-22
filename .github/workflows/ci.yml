@@ -10,7 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # compose.yaml declares CRM_WEB_AUTH_ORG_ID with `:?` so a real `make up`
+      # fails loudly rather than building the web image with an empty public
+      # OIDC organization id. That guard also makes `docker compose config`
+      # fail on a clean checkout, where no operator has run `make bootstrap`.
+      # Validation only needs *a* syntactically valid value, so supply a
+      # placeholder here — the guard still protects every real deployment.
       - name: Validate Compose config
+        env:
+          CRM_WEB_AUTH_ORG_ID: 00000000-0000-0000-0000-000000000000
         run: docker compose config --quiet
 
   crm-api:
@@ -52,6 +60,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: services/authincore/go.mod
+      # cmd/authincore embeds hosted-ui/dist via `//go:embed all:dist`, and
+      # dist/ is gitignored build output. Without this step every Go command
+      # that loads those packages fails with "pattern all:dist: no matching
+      # files found" — build, vet and test alike. `make test` builds it via
+      # the auth-ui target; CI has to do the same.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: services/authincore/hosted-ui/package-lock.json
+      - name: build hosted login UI (embedded by cmd/authincore)
+        working-directory: services/authincore/hosted-ui
+        run: npm ci && npm run build
       - name: gofmt
         run: |
           out="$(gofmt -l .)"

@@ -24,8 +24,13 @@ test: auth-ui
 	cd services/crm-api && go test ./...
 	cd services/authincore && go test ./...
 
+# Validation only needs a syntactically valid CRM_WEB_AUTH_ORG_ID, so fall back
+# to a placeholder on a fresh clone where `make bootstrap` has not run yet. A
+# real value in the environment or .env still wins, and compose.yaml's `:?`
+# guard still fails a real `make up` that is genuinely missing it.
 verify:
-	docker compose config --quiet
+	CRM_WEB_AUTH_ORG_ID="$${CRM_WEB_AUTH_ORG_ID:-00000000-0000-0000-0000-000000000000}" \
+	  docker compose config --quiet
 	@test ! -e services/crm-api/bin/crm
 	@test ! -e services/authincore/authincore
 
