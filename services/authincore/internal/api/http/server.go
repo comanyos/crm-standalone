@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -115,7 +116,7 @@ func (s *Server) Start(ctx context.Context) error {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /readyz", s.handleReadyz)
-	mux.Handle("GET /metrics", s.requireAdminAuth(metrics.Handler(s.deps.MetricsPool).ServeHTTP))
+	mux.Handle("GET /metrics", s.requireAdminAuth("metrics", "read", metrics.Handler(s.deps.MetricsPool).ServeHTTP))
 
 	// --- OIDC discovery ---
 	mux.HandleFunc("GET /.well-known/openid-configuration", s.deps.OIDC.WellKnownHandler)
@@ -1503,26 +1504,41 @@ func (s *Server) requireSelfOrPermission(w http.ResponseWriter, r *http.Request,
 	return true
 }
 
-// requireAdminAuth accepts either a valid session or a static Bearer admin token.
-// Used for endpoints (like /metrics) that need to work before any identity exists.
-func (s *Server) requireAdminAuth(h http.HandlerFunc) http.HandlerFunc {
+// requireAdminAuth accepts either the static Bearer admin token or a session
+// holding an administrative permission. Used for endpoints (like /metrics)
+// that need to work before any identity exists.
+//
+// The session branch previously accepted *any* valid session, because
+// ResolveHTTP only answers "is this caller authenticated", never "may this
+// caller do this". That put the whole scrape surface — login and registration
+// counts, active sessions, token issuance, policy and FGA decisions, database
+// pool state — behind nothing more than an ordinary end-user login in any
+// organization. It now requires metrics:read, which the bootstrapped `owner`
+// role already satisfies through its "*" scope.
+func (s *Server) requireAdminAuth(resource, scope string, h http.HandlerFunc) http.HandlerFunc {
+	permitted := s.requirePermission(resource, scope, h)
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Check static admin token first (for bootstrap / headless use).
-		if tok := s.deps.AdminToken; tok != "" {
-			const prefix = "Bearer "
-			if auth := r.Header.Get("Authorization"); len(auth) > len(prefix) && auth[:len(prefix)] == prefix {
-				if auth[len(prefix):] == tok {
-					h(w, r)
-					return
-				}
-			}
-		}
-		// Fall back to normal session auth.
-		authedR, ok := s.deps.Authn.ResolveHTTP(r)
-		if !ok {
-			writeError(w, "unauthorized", http.StatusUnauthorized)
+		// Static admin token first (for bootstrap / headless use).
+		if s.adminTokenMatches(r.Header.Get("Authorization")) {
+			h(w, r)
 			return
 		}
-		h(w, authedR)
+		permitted(w, r)
 	}
+}
+
+// adminTokenMatches reports whether the header carries the configured admin
+// token. An unset token never matches, so a deployment that forgot to set one
+// cannot be reached with an empty bearer.
+//
+// The comparison is constant-time: the token is a fixed secret compared on
+// every request, which is precisely the shape a timing oracle recovers
+// byte-by-byte. crm-api's equivalent already does this.
+func (s *Server) adminTokenMatches(authorization string) bool {
+	const prefix = "Bearer "
+	expected := s.deps.AdminToken
+	if expected == "" || len(authorization) <= len(prefix) || authorization[:len(prefix)] != prefix {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(authorization[len(prefix):]), []byte(expected)) == 1
 }

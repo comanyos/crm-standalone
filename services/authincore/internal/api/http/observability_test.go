@@ -107,3 +107,38 @@ func loginSeriesCount(t *testing.T) int {
 	t.Fatal("authincore_login_total is not registered")
 	return 0
 }
+
+// --- /metrics access ---
+
+// The static admin token is compared in constant time because it is a fixed
+// secret checked on every request — the exact shape a timing oracle recovers
+// byte by byte.
+func TestAdminTokenMatch(t *testing.T) {
+	s := &Server{deps: Deps{AdminToken: "a-sufficiently-long-scrape-token"}}
+	for _, tc := range []struct {
+		name, header string
+		want         bool
+	}{
+		{"exact token", "Bearer a-sufficiently-long-scrape-token", true},
+		{"wrong token", "Bearer not-the-scrape-token-at-all-x", false},
+		{"prefix of token", "Bearer a-sufficiently-long-scrape-toke", false},
+		{"no bearer prefix", "a-sufficiently-long-scrape-token", false},
+		{"empty header", "", false},
+		{"bearer only", "Bearer ", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := s.adminTokenMatches(tc.header); got != tc.want {
+				t.Fatalf("adminTokenMatches(%q)=%v, want %v", tc.header, got, tc.want)
+			}
+		})
+	}
+
+	// An unconfigured token must never match, or a deployment that forgot to
+	// set one would be reachable with an empty bearer.
+	unset := &Server{deps: Deps{AdminToken: ""}}
+	for _, header := range []string{"", "Bearer ", "Bearer anything"} {
+		if unset.adminTokenMatches(header) {
+			t.Fatalf("an unset admin token matched %q", header)
+		}
+	}
+}

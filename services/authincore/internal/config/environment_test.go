@@ -10,6 +10,7 @@ func setSafeProdEnv(t *testing.T) {
 	t.Setenv("RSA_PRIVATE_KEY_FILE", "/run/secrets/jwt_private_key.pem")
 	t.Setenv("RSA_PRIVATE_KEYS_JSON", "")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://app.example.com")
+	t.Setenv("ADMIN_TOKEN", "a-sufficiently-long-scrape-token")
 }
 
 func TestEnvironmentFromEnv_DefaultsToDevelopment(t *testing.T) {
@@ -100,5 +101,20 @@ func TestValidateProductionSafety_AcceptsSafeConfig(t *testing.T) {
 	setSafeProdEnv(t)
 	if err := ValidateProductionSafety(EnvProduction); err != nil {
 		t.Fatalf("expected safe production config to validate, got: %v", err)
+	}
+}
+
+func TestValidateProductionSafety_RequiresAdminToken(t *testing.T) {
+	for name, token := range map[string]string{
+		"unset": "",
+		"short": "too-short",
+	} {
+		t.Run(name, func(t *testing.T) {
+			setSafeProdEnv(t)
+			t.Setenv("ADMIN_TOKEN", token)
+			if err := ValidateProductionSafety(EnvProduction); err == nil {
+				t.Fatal("expected an error: /metrics has no scrapeable credential without ADMIN_TOKEN")
+			}
+		})
 	}
 }

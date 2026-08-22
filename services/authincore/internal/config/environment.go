@@ -97,6 +97,15 @@ func ValidateProductionSafety(env Environment) error {
 		}
 	}
 
+	// A scrape credential is mandatory outside development, matching
+	// crm-api's CRM_METRICS_TOKEN rule. Without ADMIN_TOKEN the only way to
+	// reach /metrics is an interactive session carrying metrics:read, which
+	// no Prometheus collector has — so the practical effect of leaving it
+	// unset in production is an endpoint nothing can scrape.
+	if token := os.Getenv("ADMIN_TOKEN"); len(token) < 16 {
+		problems = append(problems, "ADMIN_TOKEN is required and must be at least 16 characters")
+	}
+
 	if len(problems) > 0 {
 		return fmt.Errorf("config: unsafe for %s:\n  - %s", env, strings.Join(problems, "\n  - "))
 	}
