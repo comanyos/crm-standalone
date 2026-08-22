@@ -73,6 +73,33 @@ table in `task.md`).
    seed data required by AuthinCore's own tests/behavior (`internal/authz`
    tests reference it), or is it as removable as the license system was?
 
+   **Measured since (2026-08-22), while building the §1.1 bootstrap
+   integration tests.** The migration does more than seed existing rows: it
+   installs an `AFTER INSERT` trigger on `orgs`, so *every organization ever
+   created* — including every customer organization this CRM provisions — is
+   given three DBCore roles (`admin`, `operator`, `readonly`) and a `dbcore`
+   resource, and the `owner` role is granted `dbcore:*` on it. The migration
+   also backfills organizations that already existed. A freshly bootstrapped
+   organization therefore has 8 roles and 3 resources where this product
+   defines 5 and 2.
+
+   Blast radius is bounded and asserted: none of those roles carries any CRM
+   scope, so they grant no access to this product. See
+   `TestOrganizationsCarryRolesForAnUnrelatedProduct` in
+   `services/authincore/cmd/authinctl/bootstrap_integration_test.go`, which
+   also pins the CRM's own roles to
+   `packages/contracts/rbac/crm-roles.json`. What the extra roles do cost is
+   accuracy: they appear in any administration UI that lists roles, and in any
+   audit of who can do what.
+
+   Deciding to remove them means writing a migration that drops the trigger,
+   the function, and the seeded rows — deleting authority rows from
+   organizations that already exist, which is why it is a product decision and
+   not a cleanup. **Deferred by the repository owner to this licensing pass**
+   rather than done opportunistically. If the seeding is removed, the test
+   named above will fail; deleting it is then the correct fix, and its comment
+   says so.
+
 5. **`services/authincore/third_party/platform-contract`** is a vendored
    source snapshot whose own package comment says: *"Package platform defines
    the shared CompanyOS module contract."* It carries no license file or
