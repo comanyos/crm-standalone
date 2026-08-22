@@ -239,6 +239,17 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			}, tok))
 			return err
 		},
+		"crm:task:write": func(tok string) error {
+			// CompleteTask rather than DeleteTask: completion is the
+			// transition a read-only role is most likely to be handed a
+			// button for by mistake.
+			_, err := client.CompleteTask(ctx, withToken(&crmv1.CompleteTaskRequest{Id: "x"}, tok))
+			return err
+		},
+		"crm:note:write": func(tok string) error {
+			_, err := client.DeleteNote(ctx, withToken(&crmv1.DeleteNoteRequest{Id: "x"}, tok))
+			return err
+		},
 	}
 
 	// Every write scope this service demands needs a probe here.

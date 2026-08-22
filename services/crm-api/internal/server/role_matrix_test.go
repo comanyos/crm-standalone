@@ -157,6 +157,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:opportunity:read": true, "crm:opportunity:write": true,
 			"crm:pipeline:read": true, "crm:pipeline:write": true,
 			"crm:activity:read": true, "crm:activity:write": true,
+			"crm:task:read": true, "crm:task:write": true,
+			"crm:note:read": true, "crm:note:write": true,
 			"crm:summary:read": true,
 		},
 		"crm_manager": {
@@ -166,6 +168,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:opportunity:read": true, "crm:opportunity:write": true,
 			"crm:pipeline:read": true, "crm:pipeline:write": true,
 			"crm:activity:read": true, "crm:activity:write": true,
+			"crm:task:read": true, "crm:task:write": true,
+			"crm:note:read": true, "crm:note:write": true,
 			"crm:summary:read": true,
 		},
 		"crm_member": {
@@ -178,6 +182,10 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// without its name, position and close-reason rule.
 			"crm:pipeline:read": true, "crm:pipeline:write": false,
 			"crm:activity:read": true, "crm:activity:write": true,
+			// Tasks and notes are the bulk of an individual contributor's
+			// day, so both are read/write even though pipelines are not.
+			"crm:task:read": true, "crm:task:write": true,
+			"crm:note:read": true, "crm:note:write": true,
 			"crm:summary:read": true,
 		},
 		"crm_viewer": {
@@ -187,6 +195,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:opportunity:read": true, "crm:opportunity:write": false,
 			"crm:pipeline:read": true, "crm:pipeline:write": false,
 			"crm:activity:read": true, "crm:activity:write": false,
+			"crm:task:read": true, "crm:task:write": false,
+			"crm:note:read": true, "crm:note:write": false,
 			"crm:summary:read": true,
 		},
 	}

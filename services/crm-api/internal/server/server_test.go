@@ -148,8 +148,10 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // "Convert" joined the list for B1's ConvertLead: it creates a Contact, an
 // Account and (optionally) an Opportunity and marks the Lead converted — a
 // write by any definition, just not one spelled Create/Update/Delete/Upsert.
+// "Complete" and "Reopen" joined it for Task's lifecycle transitions, which
+// are writes that deliberately are not Update (task.md §5.1).
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

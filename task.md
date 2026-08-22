@@ -963,10 +963,50 @@ Acceptance criteria:
 
 - [ ] Validate current activity timeline behavior with PostgreSQL/RLS and
   pagination where timeline volume can be unbounded.
-- [ ] Define activity kinds, immutable fields, correction policy, mentions,
+- [~] Define activity kinds, immutable fields, correction policy, mentions,
   participants, due dates, reminders, completion, and recurrence rules.
-- [ ] Add first-class task and note entities rather than overloading generic
+  Defined and implemented: Activity stays immutable and a correction is a new
+  Activity; Task carries due dates, priority, assignee and a reversible
+  completion; Note is editable with `edited_at` recording that it was.
+  **Not implemented, and each for a stated reason:** *reminders* and
+  *recurrence* need a scheduler and a per-user timezone policy that does not
+  exist yet — they belong with §9 workflow automation, not here, and a
+  half-built reminder that silently does not fire is worse than none.
+  *Mentions* and *participants* need a user directory the CRM does not have
+  (AuthinCore owns identities and the CRM currently sees only opaque subject
+  ids), so they wait on the same user-administration work as §1.4's UI.
+- [x] Add first-class task and note entities rather than overloading generic
   activity data where reporting/permissions need distinct models.
+  `internal/domain/task.go`, `note.go`, `migrations/0014_tasks_and_notes.sql`,
+  both stores, 12 RPCs, and their own `crm:task:*` / `crm:note:*` scopes.
+
+  The separation is not taxonomy. An Activity is immutable *because* it
+  records what happened, and that is what makes it worth having for audit. A
+  Task is assigned, rescheduled and eventually completed; a Note is corrected
+  as understanding improves. Sharing the table would force either making
+  Activity mutable — destroying its value — or storing tasks that can never be
+  completed. Scopes are separate for the matching reason: a role that may read
+  the immutable activity log is not thereby a role that may reassign somebody's
+  work.
+
+  Rules worth knowing, each pinned by a test that runs against **both** stores:
+  - Completion is reversible, unlike an Opportunity's terminal stages — a task
+    that turns out not to be finished is reopened, not replaced, because
+    replacing it loses what was originally asked and when.
+  - `CompleteTask`/`ReopenTask` are separate RPCs from `UpdateTask`: ticking a
+    checkbox should not be a read-modify-write of the whole record, which
+    under optimistic concurrency either fails against a concurrent edit or
+    clobbers one. Both are idempotent, so a double-tap cannot rewrite who
+    finished the work.
+  - `completed_at`/`completed_by` and `Note.author_id` are server-owned. A
+    client that could assert them could backdate work or put words in someone
+    else's mouth.
+  - A Task's subject is optional ("call the vendor back" attaches to nothing);
+    a Note's is required. Half a subject is rejected by both the domain and a
+    CHECK constraint — it is a dangling reference no query can resolve.
+  - An undated task is never overdue. The default order puts undated tasks
+    last rather than treating a zero time as "long ago", and the SQL, the
+    in-memory sort and the keyset cursor all encode that same rule.
 - [~] Build a unified chronological timeline for account/contact/lead/
   opportunity with filtering and lazy loading. A shared API-backed timeline
   now renders on every record detail page and lets authorized users append

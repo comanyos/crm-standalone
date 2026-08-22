@@ -75,6 +75,28 @@ type Store interface {
 	// docs/customer-os/PLAN.md, internal/domain/activity_timeline.go).
 	ListActivitiesForSubject(ctx context.Context, scope Scope, subjectType, subjectID string) ([]*Activity, error)
 
+	// Task and Note are first-class entities rather than Activity kinds
+	// (task.md §5.1): an Activity is immutable because it records what
+	// happened, while a Task is edited until it is done and a Note is
+	// corrected as understanding improves. See task.go and note.go.
+	CreateTask(ctx context.Context, scope Scope, v *Task) (*Task, error)
+	GetTask(ctx context.Context, scope Scope, id string) (*Task, error)
+	ListTasks(ctx context.Context, scope Scope, page Page, filter TaskFilter, sort TaskSort) ([]*Task, string, error)
+	UpdateTask(ctx context.Context, scope Scope, v *Task) (*Task, error)
+	DeleteTask(ctx context.Context, scope Scope, id string) error
+	// CompleteTask and ReopenTask are separate from UpdateTask because
+	// ticking a checkbox should not be a read-modify-write of the whole
+	// record — under optimistic concurrency that either fails against a
+	// concurrent edit or clobbers one. Both are idempotent.
+	CompleteTask(ctx context.Context, scope Scope, id, actor string) (*Task, error)
+	ReopenTask(ctx context.Context, scope Scope, id string) (*Task, error)
+
+	CreateNote(ctx context.Context, scope Scope, v *Note) (*Note, error)
+	GetNote(ctx context.Context, scope Scope, id string) (*Note, error)
+	ListNotes(ctx context.Context, scope Scope, page Page, filter NoteFilter) ([]*Note, string, error)
+	UpdateNote(ctx context.Context, scope Scope, v *Note) (*Note, error)
+	DeleteNote(ctx context.Context, scope Scope, id string) error
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 

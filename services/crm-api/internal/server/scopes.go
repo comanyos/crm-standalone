@@ -66,6 +66,23 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/DeleteActivity":              "crm:activity:write",
 	"/crm.v1.CRMService/ListActivitiesForSubject":    "crm:activity:read",
 	"/crm.v1.CRMService/GetSummary":                  "crm:summary:read",
+
+	// Tasks and Notes carry their own scopes rather than reusing
+	// crm:activity:*. They are separate entities with separate reporting and
+	// separate permission needs — a role that may read the immutable activity
+	// log is not thereby a role that may reassign somebody's work.
+	"/crm.v1.CRMService/CreateTask":   "crm:task:write",
+	"/crm.v1.CRMService/GetTask":      "crm:task:read",
+	"/crm.v1.CRMService/ListTasks":    "crm:task:read",
+	"/crm.v1.CRMService/UpdateTask":   "crm:task:write",
+	"/crm.v1.CRMService/DeleteTask":   "crm:task:write",
+	"/crm.v1.CRMService/CompleteTask": "crm:task:write",
+	"/crm.v1.CRMService/ReopenTask":   "crm:task:write",
+	"/crm.v1.CRMService/CreateNote":   "crm:note:write",
+	"/crm.v1.CRMService/GetNote":      "crm:note:read",
+	"/crm.v1.CRMService/ListNotes":    "crm:note:read",
+	"/crm.v1.CRMService/UpdateNote":   "crm:note:write",
+	"/crm.v1.CRMService/DeleteNote":   "crm:note:write",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

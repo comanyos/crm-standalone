@@ -315,3 +315,109 @@ func activityFromProto(m *crmv1.Activity) *domain.Activity {
 		OccurredAt:  m.GetOccurredAt().AsTime(),
 	}
 }
+
+// --- Task and Note (task.md §5.1) ---
+//
+// nullableTimestamp is used for the fields that are genuinely absent rather
+// than zero — a task with no due date, a note never edited. timestamppb.New
+// on a zero time.Time produces year one, which a client would render as
+// "1 Jan 0001" rather than "no due date"; nil is what the contract means.
+
+func nullableTimestamp(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
+}
+
+func taskToProto(v *domain.Task) *crmv1.Task {
+	if v == nil {
+		return nil
+	}
+	return &crmv1.Task{
+		Id:          v.ID,
+		Title:       v.Title,
+		Description: v.Description,
+		Status:      v.Status,
+		Priority:    v.Priority,
+		AssigneeId:  v.AssigneeID,
+		DueAt:       nullableTimestamp(v.DueAt),
+		SubjectType: v.SubjectType,
+		SubjectId:   v.SubjectID,
+		CompletedAt: nullableTimestamp(v.CompletedAt),
+		CompletedBy: v.CompletedBy,
+		CreatedBy:   v.CreatedBy,
+		CreatedAt:   timestamppb.New(v.CreatedAt),
+		UpdatedAt:   timestamppb.New(v.UpdatedAt),
+	}
+}
+
+func taskFromProto(m *crmv1.Task) *domain.Task {
+	if m == nil {
+		return &domain.Task{}
+	}
+	// CompletedAt and CompletedBy are deliberately not read from the request.
+	// They describe something the server observed, and the store overwrites
+	// them anyway (sanitizeTaskLifecycle) — accepting them here would only
+	// make it look as though a client could set them.
+	return &domain.Task{
+		ID:          m.GetId(),
+		Title:       m.GetTitle(),
+		Description: m.GetDescription(),
+		Status:      m.GetStatus(),
+		Priority:    m.GetPriority(),
+		AssigneeID:  m.GetAssigneeId(),
+		DueAt:       protoTimestamp(m.GetDueAt()),
+		SubjectType: m.GetSubjectType(),
+		SubjectID:   m.GetSubjectId(),
+		CreatedBy:   m.GetCreatedBy(),
+		UpdatedAt:   protoTimestamp(m.GetUpdatedAt()),
+	}
+}
+
+func noteToProto(v *domain.Note) *crmv1.Note {
+	if v == nil {
+		return nil
+	}
+	return &crmv1.Note{
+		Id:          v.ID,
+		Body:        v.Body,
+		SubjectType: v.SubjectType,
+		SubjectId:   v.SubjectID,
+		AuthorId:    v.AuthorID,
+		CreatedAt:   timestamppb.New(v.CreatedAt),
+		UpdatedAt:   timestamppb.New(v.UpdatedAt),
+		EditedAt:    nullableTimestamp(v.EditedAt),
+	}
+}
+
+func noteFromProto(m *crmv1.Note) *domain.Note {
+	if m == nil {
+		return &domain.Note{}
+	}
+	// EditedAt is the store's to set, the same way CompletedAt is a Task's.
+	return &domain.Note{
+		ID:          m.GetId(),
+		Body:        m.GetBody(),
+		SubjectType: m.GetSubjectType(),
+		SubjectID:   m.GetSubjectId(),
+		AuthorID:    m.GetAuthorId(),
+		UpdatedAt:   protoTimestamp(m.GetUpdatedAt()),
+	}
+}
+
+// principalSubject returns the verified caller's subject, used to default
+// authorship fields (Task.created_by, Task.completed_by, Note.author_id).
+//
+// These default server-side rather than being taken from the request because
+// they are attribution: a client that can name the author of a note can put
+// words in someone else's mouth, and one that can name who completed a task
+// can misreport who did the work. A caller may still pass an explicit value —
+// an import or a migration needs to — but the honest default is the person
+// actually making the call.
+func principalSubject(ctx context.Context) string {
+	if p, ok := auth.FromContext(ctx); ok {
+		return p.Subject
+	}
+	return ""
+}

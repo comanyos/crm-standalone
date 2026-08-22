@@ -42,6 +42,8 @@ type apiFixture struct {
 	activityID    string
 	pipelineID    string
 	stageID       string
+	taskID        string
+	noteID        string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -103,6 +105,27 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] create activity: %v", label, err)
 	}
 	f.activityID = activity.Msg.GetActivity().GetId()
+
+	task, err := s.CreateTask(f.ctx, connect.NewRequest(&crmv1.CreateTaskRequest{
+		Task: &crmv1.Task{
+			Title: label + " follow-up", Status: "open", Priority: "high",
+			AssigneeId: "owner-" + label, SubjectType: "account", SubjectId: f.accountID,
+		},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] create task: %v", label, err)
+	}
+	f.taskID = task.Msg.GetTask().GetId()
+
+	note, err := s.CreateNote(f.ctx, connect.NewRequest(&crmv1.CreateNoteRequest{
+		Note: &crmv1.Note{
+			Body: label + " confidential note body", SubjectType: "account", SubjectId: f.accountID,
+		},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] create note: %v", label, err)
+	}
+	f.noteID = note.Msg.GetNote().GetId()
 
 	pipeline, err := s.CreatePipeline(f.ctx, connect.NewRequest(&crmv1.CreatePipelineRequest{
 		Pipeline: &crmv1.Pipeline{Name: label + " Sales"},
@@ -447,6 +470,108 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Errorf("ListActivitiesForSubject leaked %d of organization A's activities", n)
 		}
 	},
+	"GetTask": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetTask(ctxB, connect.NewRequest(&crmv1.GetTaskRequest{Id: a.taskID}))
+		wantNotFound(t, "GetTask", err)
+	},
+	"UpdateTask": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateTask(ctxB, connect.NewRequest(&crmv1.UpdateTaskRequest{
+			Task: &crmv1.Task{Id: a.taskID, Title: "Seized", Status: "open"},
+		}))
+		wantNotFound(t, "UpdateTask", err)
+	},
+	"DeleteTask": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteTask(ctxB, connect.NewRequest(&crmv1.DeleteTaskRequest{Id: a.taskID}))
+		wantNotFound(t, "DeleteTask", err)
+	},
+	"CompleteTask": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.CompleteTask(ctxB, connect.NewRequest(&crmv1.CompleteTaskRequest{Id: a.taskID}))
+		wantNotFound(t, "CompleteTask", err)
+
+		// And organization A's task is still open: a denied transition must
+		// not have applied before the tenant check ran.
+		still, err := s.GetTask(a.ctx, connect.NewRequest(&crmv1.GetTaskRequest{Id: a.taskID}))
+		if err != nil {
+			t.Fatalf("re-read victim task: %v", err)
+		}
+		if still.Msg.GetTask().GetStatus() == "completed" {
+			t.Error("CompleteTask: a cross-tenant call completed organization A's task")
+		}
+	},
+	"ReopenTask": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.ReopenTask(ctxB, connect.NewRequest(&crmv1.ReopenTaskRequest{Id: a.taskID}))
+		wantNotFound(t, "ReopenTask", err)
+	},
+	"ListTasks": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Unfiltered, by the victim's assignee, and by the victim's subject —
+		// each filter is its own chance to turn into a cross-tenant lookup.
+		for _, req := range []*crmv1.ListTasksRequest{
+			{PageSize: 500},
+			{PageSize: 500, AssigneeId: "owner-victim"},
+			{PageSize: 500, SubjectType: "account", SubjectId: a.accountID},
+			{PageSize: 500, OpenOnly: true},
+		} {
+			res, err := s.ListTasks(ctxB, connect.NewRequest(req))
+			if err != nil {
+				t.Fatalf("ListTasks(%+v): %v", req, err)
+			}
+			for _, row := range res.Msg.GetTasks() {
+				if row.GetId() == a.taskID {
+					t.Errorf("ListTasks(%+v) returned organization A's task", req)
+				}
+			}
+		}
+	},
+	"CreateTask": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.CreateTask(ctxB, connect.NewRequest(&crmv1.CreateTaskRequest{
+			Task: &crmv1.Task{
+				Title: "Cross task", SubjectType: "account", SubjectId: a.accountID,
+			},
+		}))
+		if err == nil {
+			t.Error("CreateTask: organization B attached a task to organization A's account")
+		}
+	},
+	"GetNote": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetNote(ctxB, connect.NewRequest(&crmv1.GetNoteRequest{Id: a.noteID}))
+		wantNotFound(t, "GetNote", err)
+	},
+	"UpdateNote": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateNote(ctxB, connect.NewRequest(&crmv1.UpdateNoteRequest{
+			Note: &crmv1.Note{Id: a.noteID, Body: "Seized"},
+		}))
+		wantNotFound(t, "UpdateNote", err)
+	},
+	"DeleteNote": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteNote(ctxB, connect.NewRequest(&crmv1.DeleteNoteRequest{Id: a.noteID}))
+		wantNotFound(t, "DeleteNote", err)
+	},
+	"ListNotes": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		for _, req := range []*crmv1.ListNotesRequest{
+			{PageSize: 500},
+			{PageSize: 500, SubjectType: "account", SubjectId: a.accountID},
+		} {
+			res, err := s.ListNotes(ctxB, connect.NewRequest(req))
+			if err != nil {
+				t.Fatalf("ListNotes(%+v): %v", req, err)
+			}
+			for _, row := range res.Msg.GetNotes() {
+				if row.GetId() == a.noteID {
+					t.Errorf("ListNotes(%+v) returned organization A's note", req)
+				}
+			}
+		}
+	},
+	"CreateNote": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.CreateNote(ctxB, connect.NewRequest(&crmv1.CreateNoteRequest{
+			Note: &crmv1.Note{
+				Body: "Cross note", SubjectType: "account", SubjectId: a.accountID,
+			},
+		}))
+		if err == nil {
+			t.Error("CreateNote: organization B attached a note to organization A's account")
+		}
+	},
 	"GetSummary": func(t *testing.T, s *CRMService, ctxB context.Context, _ apiFixture) {
 		res, err := s.GetSummary(ctxB, connect.NewRequest(&crmv1.GetSummaryRequest{}))
 		if err != nil {
@@ -501,6 +626,8 @@ func TestCrossOrganizationRPCAccessIsDenied(t *testing.T) {
 			{"opportunity", firstErr(s.GetOpportunity(victim.ctx, connect.NewRequest(&crmv1.GetOpportunityRequest{Id: victim.opportunityID})))},
 			{"activity", firstErr(s.GetActivity(victim.ctx, connect.NewRequest(&crmv1.GetActivityRequest{Id: victim.activityID})))},
 			{"pipeline", firstErr(s.GetPipeline(victim.ctx, connect.NewRequest(&crmv1.GetPipelineRequest{Id: victim.pipelineID})))},
+			{"task", firstErr(s.GetTask(victim.ctx, connect.NewRequest(&crmv1.GetTaskRequest{Id: victim.taskID})))},
+			{"note", firstErr(s.GetNote(victim.ctx, connect.NewRequest(&crmv1.GetNoteRequest{Id: victim.noteID})))},
 		} {
 			if check.err != nil {
 				t.Errorf("victim can no longer read its own %s: %v", check.name, check.err)

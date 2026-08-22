@@ -71,6 +71,8 @@ type tenantFixture struct {
 	activityID    string
 	pipelineID    string
 	stageID       string
+	taskID        string
+	noteID        string
 	eventID       string
 }
 
@@ -150,6 +152,25 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] create activity: %v", label, err)
 	}
 	f.activityID = activity.ID
+
+	task, err := s.CreateTask(ctx, f.scope, &Task{
+		Title: label + " follow-up", Priority: TaskPriorityHigh,
+		AssigneeID: "owner-" + label, SubjectType: SubjectAccount, SubjectID: f.accountID,
+		DueAt: time.Now().UTC().Add(24 * time.Hour), CreatedBy: "owner-" + label,
+	})
+	if err != nil {
+		t.Fatalf("[%s] create task: %v", label, err)
+	}
+	f.taskID = task.ID
+
+	note, err := s.CreateNote(ctx, f.scope, &Note{
+		Body:        label + " confidential note body",
+		SubjectType: SubjectAccount, SubjectID: f.accountID, AuthorID: "owner-" + label,
+	})
+	if err != nil {
+		t.Fatalf("[%s] create note: %v", label, err)
+	}
+	f.noteID = note.ID
 
 	pipeline, err := s.CreatePipeline(ctx, f.scope, &Pipeline{Name: label + " Sales"})
 	if err != nil {
@@ -336,6 +357,10 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		notFound(t, "GetActivity", err)
 		_, err = s.GetPipeline(ctx, b.scope, a.pipelineID)
 		notFound(t, "GetPipeline", err)
+		_, err = s.GetTask(ctx, b.scope, a.taskID)
+		notFound(t, "GetTask", err)
+		_, err = s.GetNote(ctx, b.scope, a.noteID)
+		notFound(t, "GetNote", err)
 	})
 
 	t.Run("writes", func(t *testing.T) {
@@ -353,6 +378,18 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		notFound(t, "DeleteLead", s.DeleteLead(ctx, b.scope, a.leadID))
 		notFound(t, "DeleteOpportunity", s.DeleteOpportunity(ctx, b.scope, a.opportunityID))
 		notFound(t, "DeleteActivity", s.DeleteActivity(ctx, b.scope, a.activityID))
+
+		_, err = s.UpdateTask(ctx, b.scope, &Task{ID: a.taskID, Title: "Seized"})
+		notFound(t, "UpdateTask", err)
+		_, err = s.CompleteTask(ctx, b.scope, a.taskID, "attacker")
+		notFound(t, "CompleteTask", err)
+		_, err = s.ReopenTask(ctx, b.scope, a.taskID)
+		notFound(t, "ReopenTask", err)
+		notFound(t, "DeleteTask", s.DeleteTask(ctx, b.scope, a.taskID))
+
+		_, err = s.UpdateNote(ctx, b.scope, &Note{ID: a.noteID, Body: "Seized"})
+		notFound(t, "UpdateNote", err)
+		notFound(t, "DeleteNote", s.DeleteNote(ctx, b.scope, a.noteID))
 	})
 
 	// The alpha records must still be intact: a denied write must not have
@@ -429,6 +466,37 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 			if row.ID == a.activityID {
 				t.Error("ListActivities returned another tenant's activity")
 			}
+		}
+
+		tasks, _, err := s.ListTasks(ctx, b.scope, Page{Size: 500}, TaskFilter{}, SortTaskDue)
+		if err != nil {
+			t.Fatalf("ListTasks: %v", err)
+		}
+		for _, row := range tasks {
+			if row.ID == a.taskID {
+				t.Error("ListTasks returned another tenant's task")
+			}
+		}
+
+		notes, _, err := s.ListNotes(ctx, b.scope, Page{Size: 500}, NoteFilter{})
+		if err != nil {
+			t.Fatalf("ListNotes: %v", err)
+		}
+		for _, row := range notes {
+			if row.ID == a.noteID {
+				t.Error("ListNotes returned another tenant's note")
+			}
+		}
+
+		// Naming the victim's account as a subject filter must not turn into
+		// a lookup into it.
+		scoped, _, err := s.ListTasks(ctx, b.scope, Page{Size: 500},
+			TaskFilter{SubjectType: SubjectAccount, SubjectID: a.accountID}, SortTaskDue)
+		if err != nil {
+			t.Fatalf("ListTasks(subject): %v", err)
+		}
+		if len(scoped) != 0 {
+			t.Errorf("a subject filter naming another tenant's account matched %d tasks", len(scoped))
 		}
 
 		pipelines, err := s.ListPipelines(ctx, b.scope)
@@ -514,8 +582,13 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 				t.Errorf("Summary counts %d %s rows for tenant beta; want exactly 1", got, entity)
 			}
 		}
-		if summary.Total != 5 {
-			t.Errorf("Summary.Total = %d for tenant beta; want 5", summary.Total)
+		for _, entity := range []string{"task", "note"} {
+			if got := summary.Counts[entity]; got != 1 {
+				t.Errorf("Summary counts %d %s rows for tenant beta; want exactly 1", got, entity)
+			}
+		}
+		if summary.Total != 7 {
+			t.Errorf("Summary.Total = %d for tenant beta; want 7", summary.Total)
 		}
 	})
 
@@ -588,6 +661,16 @@ func TestCrossTenantReferenceIsRejected(t *testing.T) {
 		PipelineID: a.pipelineID, StageID: a.stageID,
 	})
 	invalid(t, "CreateOpportunity bound to a foreign pipeline", err)
+
+	_, err = s.CreateTask(ctx, b.scope, &Task{
+		Title: "Cross task", SubjectType: SubjectAccount, SubjectID: a.accountID,
+	})
+	invalid(t, "CreateTask attached to a foreign account", err)
+
+	_, err = s.CreateNote(ctx, b.scope, &Note{
+		Body: "Cross note", SubjectType: SubjectAccount, SubjectID: a.accountID,
+	})
+	invalid(t, "CreateNote attached to a foreign account", err)
 
 	_, err = s.CreatePipelineStage(ctx, b.scope, &PipelineStage{
 		PipelineID: a.pipelineID, Name: "Injected", Position: 9, TerminalType: "open",

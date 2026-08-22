@@ -637,3 +637,231 @@ func (s *CRMService) GetSummary(
 		Counts: sum.Counts,
 	}), nil
 }
+
+// --- Tasks (task.md §5.1) ---
+
+// CreateTask stores a new Task. created_by defaults to the calling principal
+// so a client cannot claim someone else authored the request.
+func (s *CRMService) CreateTask(
+	ctx context.Context, req *connect.Request[crmv1.CreateTaskRequest],
+) (*connect.Response[crmv1.CreateTaskResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	task := taskFromProto(req.Msg.GetTask())
+	if task.CreatedBy == "" {
+		task.CreatedBy = principalSubject(ctx)
+	}
+	out, err := s.store.CreateTask(ctx, scope, task)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.CreateTaskResponse{Task: taskToProto(out)}), nil
+}
+
+// GetTask returns one Task.
+func (s *CRMService) GetTask(
+	ctx context.Context, req *connect.Request[crmv1.GetTaskRequest],
+) (*connect.Response[crmv1.GetTaskResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.store.GetTask(ctx, scope, req.Msg.GetId())
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.GetTaskResponse{Task: taskToProto(out)}), nil
+}
+
+// ListTasks returns one page of Tasks. sort is validated against the domain's
+// allowlist here, at the RPC boundary, rather than passed through as a
+// free-form string.
+func (s *CRMService) ListTasks(
+	ctx context.Context, req *connect.Request[crmv1.ListTasksRequest],
+) (*connect.Response[crmv1.ListTasksResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sortBy, err := domain.ParseTaskSort(req.Msg.GetSort())
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	rows, next, err := s.store.ListTasks(ctx, scope, domain.Page{
+		Size:  int(req.Msg.GetPageSize()),
+		Token: req.Msg.GetPageToken(),
+	}, domain.TaskFilter{
+		AssigneeID:  req.Msg.GetAssigneeId(),
+		Status:      req.Msg.GetStatus(),
+		SubjectType: req.Msg.GetSubjectType(),
+		SubjectID:   req.Msg.GetSubjectId(),
+		OpenOnly:    req.Msg.GetOpenOnly(),
+		DueBefore:   protoTimestamp(req.Msg.GetDueBefore()),
+	}, sortBy)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	out := make([]*crmv1.Task, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, taskToProto(r))
+	}
+	return connect.NewResponse(&crmv1.ListTasksResponse{Tasks: out, NextPageToken: next}), nil
+}
+
+// UpdateTask replaces an existing Task.
+func (s *CRMService) UpdateTask(
+	ctx context.Context, req *connect.Request[crmv1.UpdateTaskRequest],
+) (*connect.Response[crmv1.UpdateTaskResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateTask(ctx, scope, taskFromProto(req.Msg.GetTask()))
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.UpdateTaskResponse{Task: taskToProto(out)}), nil
+}
+
+// DeleteTask removes a Task.
+func (s *CRMService) DeleteTask(
+	ctx context.Context, req *connect.Request[crmv1.DeleteTaskRequest],
+) (*connect.Response[crmv1.DeleteTaskResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.DeleteTask(ctx, scope, req.Msg.GetId()); err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.DeleteTaskResponse{}), nil
+}
+
+// CompleteTask marks a Task done. actor_id defaults to the calling principal.
+func (s *CRMService) CompleteTask(
+	ctx context.Context, req *connect.Request[crmv1.CompleteTaskRequest],
+) (*connect.Response[crmv1.CompleteTaskResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor := req.Msg.GetActorId()
+	if actor == "" {
+		actor = principalSubject(ctx)
+	}
+	out, err := s.store.CompleteTask(ctx, scope, req.Msg.GetId(), actor)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.CompleteTaskResponse{Task: taskToProto(out)}), nil
+}
+
+// ReopenTask returns a Task to open and clears its completion record.
+func (s *CRMService) ReopenTask(
+	ctx context.Context, req *connect.Request[crmv1.ReopenTaskRequest],
+) (*connect.Response[crmv1.ReopenTaskResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.store.ReopenTask(ctx, scope, req.Msg.GetId())
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.ReopenTaskResponse{Task: taskToProto(out)}), nil
+}
+
+// --- Notes (task.md §5.1) ---
+
+// CreateNote stores a new Note. author_id defaults to the calling principal:
+// a note is evidence of who said what, so the author must not be assertable
+// by whoever happens to be posting.
+func (s *CRMService) CreateNote(
+	ctx context.Context, req *connect.Request[crmv1.CreateNoteRequest],
+) (*connect.Response[crmv1.CreateNoteResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	note := noteFromProto(req.Msg.GetNote())
+	if note.AuthorID == "" {
+		note.AuthorID = principalSubject(ctx)
+	}
+	out, err := s.store.CreateNote(ctx, scope, note)
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.CreateNoteResponse{Note: noteToProto(out)}), nil
+}
+
+// GetNote returns one Note.
+func (s *CRMService) GetNote(
+	ctx context.Context, req *connect.Request[crmv1.GetNoteRequest],
+) (*connect.Response[crmv1.GetNoteResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.store.GetNote(ctx, scope, req.Msg.GetId())
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.GetNoteResponse{Note: noteToProto(out)}), nil
+}
+
+// ListNotes returns one page of Notes, newest first.
+func (s *CRMService) ListNotes(
+	ctx context.Context, req *connect.Request[crmv1.ListNotesRequest],
+) (*connect.Response[crmv1.ListNotesResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, next, err := s.store.ListNotes(ctx, scope, domain.Page{
+		Size:  int(req.Msg.GetPageSize()),
+		Token: req.Msg.GetPageToken(),
+	}, domain.NoteFilter{
+		SubjectType: req.Msg.GetSubjectType(),
+		SubjectID:   req.Msg.GetSubjectId(),
+		AuthorID:    req.Msg.GetAuthorId(),
+	})
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	out := make([]*crmv1.Note, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, noteToProto(r))
+	}
+	return connect.NewResponse(&crmv1.ListNotesResponse{Notes: out, NextPageToken: next}), nil
+}
+
+// UpdateNote edits a Note's body. Subject and author are not editable.
+func (s *CRMService) UpdateNote(
+	ctx context.Context, req *connect.Request[crmv1.UpdateNoteRequest],
+) (*connect.Response[crmv1.UpdateNoteResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.store.UpdateNote(ctx, scope, noteFromProto(req.Msg.GetNote()))
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.UpdateNoteResponse{Note: noteToProto(out)}), nil
+}
+
+// DeleteNote removes a Note.
+func (s *CRMService) DeleteNote(
+	ctx context.Context, req *connect.Request[crmv1.DeleteNoteRequest],
+) (*connect.Response[crmv1.DeleteNoteResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.DeleteNote(ctx, scope, req.Msg.GetId()); err != nil {
+		return nil, connectErr(err)
+	}
+	return connect.NewResponse(&crmv1.DeleteNoteResponse{}), nil
+}

@@ -182,6 +182,8 @@ type MemStore struct {
 	pipeline         *memTable[*Pipeline]
 	pipelineStage    *memTable[*PipelineStage]
 	activity         *memTable[*Activity]
+	task             *memTable[*Task]
+	note             *memTable[*Note]
 	outbox           *memTable[*OutboxEvent]
 	stageHistory     *memTable[*OpportunityStageChange]
 	ownershipHistory *memTable[*AccountOwnershipHistory]
@@ -197,6 +199,8 @@ func NewMemStore() *MemStore {
 		pipeline:         newMemTable(clonePipeline),
 		pipelineStage:    newMemTable(clonePipelineStage),
 		activity:         newMemTable(cloneActivity),
+		task:             newMemTable(cloneTask),
+		note:             newMemTable(cloneNote),
 		outbox:           newMemTable(cloneOutboxEvent),
 		stageHistory:     newMemTable(cloneOpportunityStageChange),
 		ownershipHistory: newMemTable(cloneAccountOwnershipHistory),
@@ -1187,6 +1191,8 @@ func (s *MemStore) Summary(_ context.Context, scope Scope) (Summary, error) {
 		"lead":        s.lead.count(scope),
 		"opportunity": s.opportunity.count(scope),
 		"activity":    s.activity.count(scope),
+		"task":        s.task.count(scope),
+		"note":        s.note.count(scope),
 	}
 	var total int64
 	for _, c := range counts {

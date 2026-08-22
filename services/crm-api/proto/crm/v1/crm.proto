@@ -65,6 +65,33 @@ service CRMService {
   // subject (subject_type + subject_id), newest first by occurred_at.
   rpc ListActivitiesForSubject(ListActivitiesForSubjectRequest) returns (ListActivitiesForSubjectResponse);
 
+  // Tasks and Notes are first-class entities, not Activity kinds.
+  //
+  // An Activity records what happened and is immutable once logged. A Task
+  // records what should happen: it has a lifecycle, an assignee and a due
+  // date, and it is edited repeatedly until it is done. A Note is authored
+  // prose that gets corrected. Expressing either as an Activity would mean
+  // making Activity mutable — destroying the property that makes it useful
+  // for audit — or storing tasks that can never be completed.
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+  // CompleteTask and ReopenTask are separate from UpdateTask on purpose.
+  // Ticking a checkbox should not require sending the whole record back:
+  // that is a read-modify-write, and under optimistic concurrency it either
+  // fails against a concurrent edit or silently clobbers one. Both are
+  // idempotent — completing a completed task returns it unchanged.
+  rpc CompleteTask(CompleteTaskRequest) returns (CompleteTaskResponse);
+  rpc ReopenTask(ReopenTaskRequest) returns (ReopenTaskResponse);
+
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
+  rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse);
+  rpc UpdateNote(UpdateNoteRequest) returns (UpdateNoteResponse);
+  rpc DeleteNote(DeleteNoteRequest) returns (DeleteNoteResponse);
+
   rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
 }
 
@@ -402,3 +429,136 @@ message GetSummaryResponse {
   int64 total = 1;
   map<string, int64> counts = 2;
 }
+
+// ---------------------------------------------------------------------------
+// Task
+// ---------------------------------------------------------------------------
+
+// Task is a unit of work someone is expected to do. Unlike Activity it is
+// mutable and has a lifecycle; unlike Opportunity its terminal states are
+// reversible, because a task that turns out not to be finished is reopened
+// rather than replaced — replacing it would lose the record of what was
+// originally asked and when.
+message Task {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  // status is one of: open, in_progress, completed, cancelled.
+  string status = 4;
+  // priority is one of: low, normal, high, urgent. Empty means normal.
+  string priority = 5;
+  // assignee_id is the identity expected to do the work. Empty is allowed:
+  // an unassigned task is a real state, not a validation failure.
+  string assignee_id = 6;
+  // due_at is optional. A task with no due date is never overdue.
+  google.protobuf.Timestamp due_at = 7;
+  // subject_type + subject_id optionally attach this task to one CRM record,
+  // using the same polymorphic edge Activity uses (account, contact, lead,
+  // opportunity). Both empty means a standalone task. Setting one without
+  // the other is rejected.
+  string subject_type = 8;
+  string subject_id = 9;
+  // completed_at and completed_by are set by CompleteTask and cleared by
+  // ReopenTask. They are never writable directly.
+  google.protobuf.Timestamp completed_at = 10;
+  string completed_by = 11;
+  string created_by = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message CreateTaskRequest { Task task = 1; }
+message CreateTaskResponse { Task task = 1; }
+message GetTaskRequest { string id = 1; }
+message GetTaskResponse { Task task = 1; }
+
+message ListTasksRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // assignee_id, when set, matches Task.assignee_id exactly ("my tasks").
+  string assignee_id = 3;
+  // status, when set, matches Task.status exactly.
+  string status = 4;
+  // subject_type + subject_id, when both set, list the tasks attached to one
+  // record. Setting one without the other is rejected.
+  string subject_type = 5;
+  string subject_id = 6;
+  // open_only excludes completed and cancelled tasks. It exists separately
+  // from status because "still to do" spans two statuses, and making every
+  // caller send two requests to answer the most common question would be a
+  // poor contract.
+  bool open_only = 7;
+  // due_before, when set, matches tasks whose due_at is strictly earlier.
+  // Combined with open_only this is the overdue list.
+  google.protobuf.Timestamp due_before = 8;
+  // sort selects the order: "" (default, due date ascending with undated
+  // tasks last) or "-created_at" (newest first). An allowlist, not a column.
+  string sort = 9;
+}
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  string next_page_token = 2;
+}
+
+message UpdateTaskRequest { Task task = 1; }
+message UpdateTaskResponse { Task task = 1; }
+message DeleteTaskRequest { string id = 1; }
+message DeleteTaskResponse {}
+
+// CompleteTaskRequest marks a task done. actor_id records who completed it;
+// when empty the server uses the calling principal.
+message CompleteTaskRequest {
+  string id = 1;
+  string actor_id = 2;
+}
+message CompleteTaskResponse { Task task = 1; }
+message ReopenTaskRequest { string id = 1; }
+message ReopenTaskResponse { Task task = 1; }
+
+// ---------------------------------------------------------------------------
+// Note
+// ---------------------------------------------------------------------------
+
+// Note is authored prose about one CRM record. It is deliberately mutable:
+// a note is a working document that gets corrected, which is exactly why it
+// cannot be an Activity — Activity's value comes from being immutable.
+message Note {
+  string id = 1;
+  // body is the note's text. Required.
+  string body = 2;
+  // subject_type + subject_id are required: a note is always about
+  // something. The same polymorphic edge Activity and Task use.
+  string subject_type = 3;
+  string subject_id = 4;
+  string author_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  // edited_at is set the first time the body actually changes, and left
+  // alone by a write that changes nothing. A reader can tell a corrected
+  // note from an original one without diffing anything.
+  google.protobuf.Timestamp edited_at = 8;
+}
+
+message CreateNoteRequest { Note note = 1; }
+message CreateNoteResponse { Note note = 1; }
+message GetNoteRequest { string id = 1; }
+message GetNoteResponse { Note note = 1; }
+
+message ListNotesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // subject_type + subject_id, when both set, list the notes on one record.
+  string subject_type = 3;
+  string subject_id = 4;
+  // author_id, when set, matches Note.author_id exactly.
+  string author_id = 5;
+}
+message ListNotesResponse {
+  repeated Note notes = 1;
+  string next_page_token = 2;
+}
+
+message UpdateNoteRequest { Note note = 1; }
+message UpdateNoteResponse { Note note = 1; }
+message DeleteNoteRequest { string id = 1; }
+message DeleteNoteResponse {}

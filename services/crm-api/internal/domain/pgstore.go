@@ -1253,6 +1253,8 @@ func (s *PgStore) Summary(ctx context.Context, scope Scope) (Summary, error) {
 		"lead":        "leads",
 		"opportunity": "opportunities",
 		"activity":    "activities",
+		"task":        "tasks",
+		"note":        "notes",
 	}
 	counts := make(map[string]int64, len(tables))
 	var total int64

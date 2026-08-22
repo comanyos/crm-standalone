@@ -126,6 +126,30 @@ const (
 	// CRMServiceListActivitiesForSubjectProcedure is the fully-qualified name of the CRMService's
 	// ListActivitiesForSubject RPC.
 	CRMServiceListActivitiesForSubjectProcedure = "/crm.v1.CRMService/ListActivitiesForSubject"
+	// CRMServiceCreateTaskProcedure is the fully-qualified name of the CRMService's CreateTask RPC.
+	CRMServiceCreateTaskProcedure = "/crm.v1.CRMService/CreateTask"
+	// CRMServiceGetTaskProcedure is the fully-qualified name of the CRMService's GetTask RPC.
+	CRMServiceGetTaskProcedure = "/crm.v1.CRMService/GetTask"
+	// CRMServiceListTasksProcedure is the fully-qualified name of the CRMService's ListTasks RPC.
+	CRMServiceListTasksProcedure = "/crm.v1.CRMService/ListTasks"
+	// CRMServiceUpdateTaskProcedure is the fully-qualified name of the CRMService's UpdateTask RPC.
+	CRMServiceUpdateTaskProcedure = "/crm.v1.CRMService/UpdateTask"
+	// CRMServiceDeleteTaskProcedure is the fully-qualified name of the CRMService's DeleteTask RPC.
+	CRMServiceDeleteTaskProcedure = "/crm.v1.CRMService/DeleteTask"
+	// CRMServiceCompleteTaskProcedure is the fully-qualified name of the CRMService's CompleteTask RPC.
+	CRMServiceCompleteTaskProcedure = "/crm.v1.CRMService/CompleteTask"
+	// CRMServiceReopenTaskProcedure is the fully-qualified name of the CRMService's ReopenTask RPC.
+	CRMServiceReopenTaskProcedure = "/crm.v1.CRMService/ReopenTask"
+	// CRMServiceCreateNoteProcedure is the fully-qualified name of the CRMService's CreateNote RPC.
+	CRMServiceCreateNoteProcedure = "/crm.v1.CRMService/CreateNote"
+	// CRMServiceGetNoteProcedure is the fully-qualified name of the CRMService's GetNote RPC.
+	CRMServiceGetNoteProcedure = "/crm.v1.CRMService/GetNote"
+	// CRMServiceListNotesProcedure is the fully-qualified name of the CRMService's ListNotes RPC.
+	CRMServiceListNotesProcedure = "/crm.v1.CRMService/ListNotes"
+	// CRMServiceUpdateNoteProcedure is the fully-qualified name of the CRMService's UpdateNote RPC.
+	CRMServiceUpdateNoteProcedure = "/crm.v1.CRMService/UpdateNote"
+	// CRMServiceDeleteNoteProcedure is the fully-qualified name of the CRMService's DeleteNote RPC.
+	CRMServiceDeleteNoteProcedure = "/crm.v1.CRMService/DeleteNote"
 	// CRMServiceGetSummaryProcedure is the fully-qualified name of the CRMService's GetSummary RPC.
 	CRMServiceGetSummaryProcedure = "/crm.v1.CRMService/GetSummary"
 )
@@ -182,6 +206,31 @@ type CRMServiceClient interface {
 	// (docs/customer-os/PLAN.md): every Activity attached to one polymorphic
 	// subject (subject_type + subject_id), newest first by occurred_at.
 	ListActivitiesForSubject(context.Context, *connect.Request[v1.ListActivitiesForSubjectRequest]) (*connect.Response[v1.ListActivitiesForSubjectResponse], error)
+	// Tasks and Notes are first-class entities, not Activity kinds.
+	//
+	// An Activity records what happened and is immutable once logged. A Task
+	// records what should happen: it has a lifecycle, an assignee and a due
+	// date, and it is edited repeatedly until it is done. A Note is authored
+	// prose that gets corrected. Expressing either as an Activity would mean
+	// making Activity mutable — destroying the property that makes it useful
+	// for audit — or storing tasks that can never be completed.
+	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
+	GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error)
+	ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error)
+	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
+	DeleteTask(context.Context, *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error)
+	// CompleteTask and ReopenTask are separate from UpdateTask on purpose.
+	// Ticking a checkbox should not require sending the whole record back:
+	// that is a read-modify-write, and under optimistic concurrency it either
+	// fails against a concurrent edit or silently clobbers one. Both are
+	// idempotent — completing a completed task returns it unchanged.
+	CompleteTask(context.Context, *connect.Request[v1.CompleteTaskRequest]) (*connect.Response[v1.CompleteTaskResponse], error)
+	ReopenTask(context.Context, *connect.Request[v1.ReopenTaskRequest]) (*connect.Response[v1.ReopenTaskResponse], error)
+	CreateNote(context.Context, *connect.Request[v1.CreateNoteRequest]) (*connect.Response[v1.CreateNoteResponse], error)
+	GetNote(context.Context, *connect.Request[v1.GetNoteRequest]) (*connect.Response[v1.GetNoteResponse], error)
+	ListNotes(context.Context, *connect.Request[v1.ListNotesRequest]) (*connect.Response[v1.ListNotesResponse], error)
+	UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error)
+	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
 }
 
@@ -406,6 +455,78 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListActivitiesForSubject")),
 			connect.WithClientOptions(opts...),
 		),
+		createTask: connect.NewClient[v1.CreateTaskRequest, v1.CreateTaskResponse](
+			httpClient,
+			baseURL+CRMServiceCreateTaskProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateTask")),
+			connect.WithClientOptions(opts...),
+		),
+		getTask: connect.NewClient[v1.GetTaskRequest, v1.GetTaskResponse](
+			httpClient,
+			baseURL+CRMServiceGetTaskProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetTask")),
+			connect.WithClientOptions(opts...),
+		),
+		listTasks: connect.NewClient[v1.ListTasksRequest, v1.ListTasksResponse](
+			httpClient,
+			baseURL+CRMServiceListTasksProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListTasks")),
+			connect.WithClientOptions(opts...),
+		),
+		updateTask: connect.NewClient[v1.UpdateTaskRequest, v1.UpdateTaskResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateTaskProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateTask")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteTask: connect.NewClient[v1.DeleteTaskRequest, v1.DeleteTaskResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteTaskProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteTask")),
+			connect.WithClientOptions(opts...),
+		),
+		completeTask: connect.NewClient[v1.CompleteTaskRequest, v1.CompleteTaskResponse](
+			httpClient,
+			baseURL+CRMServiceCompleteTaskProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CompleteTask")),
+			connect.WithClientOptions(opts...),
+		),
+		reopenTask: connect.NewClient[v1.ReopenTaskRequest, v1.ReopenTaskResponse](
+			httpClient,
+			baseURL+CRMServiceReopenTaskProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ReopenTask")),
+			connect.WithClientOptions(opts...),
+		),
+		createNote: connect.NewClient[v1.CreateNoteRequest, v1.CreateNoteResponse](
+			httpClient,
+			baseURL+CRMServiceCreateNoteProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateNote")),
+			connect.WithClientOptions(opts...),
+		),
+		getNote: connect.NewClient[v1.GetNoteRequest, v1.GetNoteResponse](
+			httpClient,
+			baseURL+CRMServiceGetNoteProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetNote")),
+			connect.WithClientOptions(opts...),
+		),
+		listNotes: connect.NewClient[v1.ListNotesRequest, v1.ListNotesResponse](
+			httpClient,
+			baseURL+CRMServiceListNotesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListNotes")),
+			connect.WithClientOptions(opts...),
+		),
+		updateNote: connect.NewClient[v1.UpdateNoteRequest, v1.UpdateNoteResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateNoteProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateNote")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNote: connect.NewClient[v1.DeleteNoteRequest, v1.DeleteNoteResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteNoteProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteNote")),
+			connect.WithClientOptions(opts...),
+		),
 		getSummary: connect.NewClient[v1.GetSummaryRequest, v1.GetSummaryResponse](
 			httpClient,
 			baseURL+CRMServiceGetSummaryProcedure,
@@ -452,6 +573,18 @@ type cRMServiceClient struct {
 	updateActivity              *connect.Client[v1.UpdateActivityRequest, v1.UpdateActivityResponse]
 	deleteActivity              *connect.Client[v1.DeleteActivityRequest, v1.DeleteActivityResponse]
 	listActivitiesForSubject    *connect.Client[v1.ListActivitiesForSubjectRequest, v1.ListActivitiesForSubjectResponse]
+	createTask                  *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
+	getTask                     *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
+	listTasks                   *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	updateTask                  *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
+	deleteTask                  *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
+	completeTask                *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
+	reopenTask                  *connect.Client[v1.ReopenTaskRequest, v1.ReopenTaskResponse]
+	createNote                  *connect.Client[v1.CreateNoteRequest, v1.CreateNoteResponse]
+	getNote                     *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
+	listNotes                   *connect.Client[v1.ListNotesRequest, v1.ListNotesResponse]
+	updateNote                  *connect.Client[v1.UpdateNoteRequest, v1.UpdateNoteResponse]
+	deleteNote                  *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
 	getSummary                  *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
 }
 
@@ -630,6 +763,66 @@ func (c *cRMServiceClient) ListActivitiesForSubject(ctx context.Context, req *co
 	return c.listActivitiesForSubject.CallUnary(ctx, req)
 }
 
+// CreateTask calls crm.v1.CRMService.CreateTask.
+func (c *cRMServiceClient) CreateTask(ctx context.Context, req *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error) {
+	return c.createTask.CallUnary(ctx, req)
+}
+
+// GetTask calls crm.v1.CRMService.GetTask.
+func (c *cRMServiceClient) GetTask(ctx context.Context, req *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error) {
+	return c.getTask.CallUnary(ctx, req)
+}
+
+// ListTasks calls crm.v1.CRMService.ListTasks.
+func (c *cRMServiceClient) ListTasks(ctx context.Context, req *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error) {
+	return c.listTasks.CallUnary(ctx, req)
+}
+
+// UpdateTask calls crm.v1.CRMService.UpdateTask.
+func (c *cRMServiceClient) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
+	return c.updateTask.CallUnary(ctx, req)
+}
+
+// DeleteTask calls crm.v1.CRMService.DeleteTask.
+func (c *cRMServiceClient) DeleteTask(ctx context.Context, req *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error) {
+	return c.deleteTask.CallUnary(ctx, req)
+}
+
+// CompleteTask calls crm.v1.CRMService.CompleteTask.
+func (c *cRMServiceClient) CompleteTask(ctx context.Context, req *connect.Request[v1.CompleteTaskRequest]) (*connect.Response[v1.CompleteTaskResponse], error) {
+	return c.completeTask.CallUnary(ctx, req)
+}
+
+// ReopenTask calls crm.v1.CRMService.ReopenTask.
+func (c *cRMServiceClient) ReopenTask(ctx context.Context, req *connect.Request[v1.ReopenTaskRequest]) (*connect.Response[v1.ReopenTaskResponse], error) {
+	return c.reopenTask.CallUnary(ctx, req)
+}
+
+// CreateNote calls crm.v1.CRMService.CreateNote.
+func (c *cRMServiceClient) CreateNote(ctx context.Context, req *connect.Request[v1.CreateNoteRequest]) (*connect.Response[v1.CreateNoteResponse], error) {
+	return c.createNote.CallUnary(ctx, req)
+}
+
+// GetNote calls crm.v1.CRMService.GetNote.
+func (c *cRMServiceClient) GetNote(ctx context.Context, req *connect.Request[v1.GetNoteRequest]) (*connect.Response[v1.GetNoteResponse], error) {
+	return c.getNote.CallUnary(ctx, req)
+}
+
+// ListNotes calls crm.v1.CRMService.ListNotes.
+func (c *cRMServiceClient) ListNotes(ctx context.Context, req *connect.Request[v1.ListNotesRequest]) (*connect.Response[v1.ListNotesResponse], error) {
+	return c.listNotes.CallUnary(ctx, req)
+}
+
+// UpdateNote calls crm.v1.CRMService.UpdateNote.
+func (c *cRMServiceClient) UpdateNote(ctx context.Context, req *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error) {
+	return c.updateNote.CallUnary(ctx, req)
+}
+
+// DeleteNote calls crm.v1.CRMService.DeleteNote.
+func (c *cRMServiceClient) DeleteNote(ctx context.Context, req *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
+	return c.deleteNote.CallUnary(ctx, req)
+}
+
 // GetSummary calls crm.v1.CRMService.GetSummary.
 func (c *cRMServiceClient) GetSummary(ctx context.Context, req *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error) {
 	return c.getSummary.CallUnary(ctx, req)
@@ -687,6 +880,31 @@ type CRMServiceHandler interface {
 	// (docs/customer-os/PLAN.md): every Activity attached to one polymorphic
 	// subject (subject_type + subject_id), newest first by occurred_at.
 	ListActivitiesForSubject(context.Context, *connect.Request[v1.ListActivitiesForSubjectRequest]) (*connect.Response[v1.ListActivitiesForSubjectResponse], error)
+	// Tasks and Notes are first-class entities, not Activity kinds.
+	//
+	// An Activity records what happened and is immutable once logged. A Task
+	// records what should happen: it has a lifecycle, an assignee and a due
+	// date, and it is edited repeatedly until it is done. A Note is authored
+	// prose that gets corrected. Expressing either as an Activity would mean
+	// making Activity mutable — destroying the property that makes it useful
+	// for audit — or storing tasks that can never be completed.
+	CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error)
+	GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error)
+	ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error)
+	UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error)
+	DeleteTask(context.Context, *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error)
+	// CompleteTask and ReopenTask are separate from UpdateTask on purpose.
+	// Ticking a checkbox should not require sending the whole record back:
+	// that is a read-modify-write, and under optimistic concurrency it either
+	// fails against a concurrent edit or silently clobbers one. Both are
+	// idempotent — completing a completed task returns it unchanged.
+	CompleteTask(context.Context, *connect.Request[v1.CompleteTaskRequest]) (*connect.Response[v1.CompleteTaskResponse], error)
+	ReopenTask(context.Context, *connect.Request[v1.ReopenTaskRequest]) (*connect.Response[v1.ReopenTaskResponse], error)
+	CreateNote(context.Context, *connect.Request[v1.CreateNoteRequest]) (*connect.Response[v1.CreateNoteResponse], error)
+	GetNote(context.Context, *connect.Request[v1.GetNoteRequest]) (*connect.Response[v1.GetNoteResponse], error)
+	ListNotes(context.Context, *connect.Request[v1.ListNotesRequest]) (*connect.Response[v1.ListNotesResponse], error)
+	UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error)
+	DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error)
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
 }
 
@@ -907,6 +1125,78 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListActivitiesForSubject")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateTaskHandler := connect.NewUnaryHandler(
+		CRMServiceCreateTaskProcedure,
+		svc.CreateTask,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetTaskHandler := connect.NewUnaryHandler(
+		CRMServiceGetTaskProcedure,
+		svc.GetTask,
+		connect.WithSchema(cRMServiceMethods.ByName("GetTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListTasksHandler := connect.NewUnaryHandler(
+		CRMServiceListTasksProcedure,
+		svc.ListTasks,
+		connect.WithSchema(cRMServiceMethods.ByName("ListTasks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateTaskHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateTaskProcedure,
+		svc.UpdateTask,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteTaskHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteTaskProcedure,
+		svc.DeleteTask,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCompleteTaskHandler := connect.NewUnaryHandler(
+		CRMServiceCompleteTaskProcedure,
+		svc.CompleteTask,
+		connect.WithSchema(cRMServiceMethods.ByName("CompleteTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceReopenTaskHandler := connect.NewUnaryHandler(
+		CRMServiceReopenTaskProcedure,
+		svc.ReopenTask,
+		connect.WithSchema(cRMServiceMethods.ByName("ReopenTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCreateNoteHandler := connect.NewUnaryHandler(
+		CRMServiceCreateNoteProcedure,
+		svc.CreateNote,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetNoteHandler := connect.NewUnaryHandler(
+		CRMServiceGetNoteProcedure,
+		svc.GetNote,
+		connect.WithSchema(cRMServiceMethods.ByName("GetNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListNotesHandler := connect.NewUnaryHandler(
+		CRMServiceListNotesProcedure,
+		svc.ListNotes,
+		connect.WithSchema(cRMServiceMethods.ByName("ListNotes")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateNoteHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateNoteProcedure,
+		svc.UpdateNote,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateNote")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteNoteHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteNoteProcedure,
+		svc.DeleteNote,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteNote")),
+		connect.WithHandlerOptions(opts...),
+	)
 	cRMServiceGetSummaryHandler := connect.NewUnaryHandler(
 		CRMServiceGetSummaryProcedure,
 		svc.GetSummary,
@@ -985,6 +1275,30 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceDeleteActivityHandler.ServeHTTP(w, r)
 		case CRMServiceListActivitiesForSubjectProcedure:
 			cRMServiceListActivitiesForSubjectHandler.ServeHTTP(w, r)
+		case CRMServiceCreateTaskProcedure:
+			cRMServiceCreateTaskHandler.ServeHTTP(w, r)
+		case CRMServiceGetTaskProcedure:
+			cRMServiceGetTaskHandler.ServeHTTP(w, r)
+		case CRMServiceListTasksProcedure:
+			cRMServiceListTasksHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateTaskProcedure:
+			cRMServiceUpdateTaskHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteTaskProcedure:
+			cRMServiceDeleteTaskHandler.ServeHTTP(w, r)
+		case CRMServiceCompleteTaskProcedure:
+			cRMServiceCompleteTaskHandler.ServeHTTP(w, r)
+		case CRMServiceReopenTaskProcedure:
+			cRMServiceReopenTaskHandler.ServeHTTP(w, r)
+		case CRMServiceCreateNoteProcedure:
+			cRMServiceCreateNoteHandler.ServeHTTP(w, r)
+		case CRMServiceGetNoteProcedure:
+			cRMServiceGetNoteHandler.ServeHTTP(w, r)
+		case CRMServiceListNotesProcedure:
+			cRMServiceListNotesHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateNoteProcedure:
+			cRMServiceUpdateNoteHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteNoteProcedure:
+			cRMServiceDeleteNoteHandler.ServeHTTP(w, r)
 		case CRMServiceGetSummaryProcedure:
 			cRMServiceGetSummaryHandler.ServeHTTP(w, r)
 		default:
@@ -1134,6 +1448,54 @@ func (UnimplementedCRMServiceHandler) DeleteActivity(context.Context, *connect.R
 
 func (UnimplementedCRMServiceHandler) ListActivitiesForSubject(context.Context, *connect.Request[v1.ListActivitiesForSubjectRequest]) (*connect.Response[v1.ListActivitiesForSubjectResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListActivitiesForSubject is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateTask(context.Context, *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateTask is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetTask(context.Context, *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetTask is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListTasks(context.Context, *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListTasks is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateTask(context.Context, *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateTask is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteTask(context.Context, *connect.Request[v1.DeleteTaskRequest]) (*connect.Response[v1.DeleteTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteTask is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CompleteTask(context.Context, *connect.Request[v1.CompleteTaskRequest]) (*connect.Response[v1.CompleteTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CompleteTask is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ReopenTask(context.Context, *connect.Request[v1.ReopenTaskRequest]) (*connect.Response[v1.ReopenTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ReopenTask is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateNote(context.Context, *connect.Request[v1.CreateNoteRequest]) (*connect.Response[v1.CreateNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateNote is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetNote(context.Context, *connect.Request[v1.GetNoteRequest]) (*connect.Response[v1.GetNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetNote is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListNotes(context.Context, *connect.Request[v1.ListNotesRequest]) (*connect.Response[v1.ListNotesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListNotes is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateNote(context.Context, *connect.Request[v1.UpdateNoteRequest]) (*connect.Response[v1.UpdateNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateNote is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteNote(context.Context, *connect.Request[v1.DeleteNoteRequest]) (*connect.Response[v1.DeleteNoteResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteNote is not implemented"))
 }
 
 func (UnimplementedCRMServiceHandler) GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error) {
