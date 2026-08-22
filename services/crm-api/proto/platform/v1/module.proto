@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+// platform.v1 is the SHARED Module Contract — defined once, implemented by all 24
+// platform modules. See ../ideas/PLATFORM-MODULE-CONTRACT.md. Frozen after Phase 0.
+package platform.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/santoshguru/crm/gen/platform/v1;platformv1";
+
+enum Edition {
+  EDITION_UNSPECIFIED = 0;
+  EDITION_OSS = 1;
+  EDITION_PRO = 2;
+  EDITION_ENTERPRISE = 3;
+}
+
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_GREEN = 1;
+  STATUS_YELLOW = 2;
+  STATUS_RED = 3;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARN = 2;
+  SEVERITY_CRITICAL = 3;
+}
+
+message NavEntry {
+  string label = 1;
+  string route = 2;
+  string icon = 3;
+}
+
+message Manifest {
+  string id = 1;
+  string name = 2;
+  string version = 3;
+  Edition edition = 4;
+  string icon = 5;
+  string band = 6;
+  repeated NavEntry nav = 7;
+  repeated string capabilities = 8;
+}
+
+message Check {
+  string name = 1;
+  Status status = 2;
+  string detail = 3;
+}
+
+message Health {
+  Status status = 1;
+  string summary = 2;
+  repeated Check checks = 3;
+  google.protobuf.Timestamp checked_at = 4;
+}
+
+message CrossLink {
+  string kind = 1;   // asset | alert | ticket | cost | secret
+  string module = 2; // target module id
+  string ref = 3;    // opaque id in that module
+  string label = 4;
+}
+
+message Event {
+  string id = 1;
+  string module = 2;
+  string type = 3;
+  Severity severity = 4;
+  string tenant_id = 5;
+  string org_id = 6;
+  string actor = 7;
+  string subject = 8;
+  repeated CrossLink links = 9;
+  google.protobuf.Struct data = 10;
+  google.protobuf.Timestamp at = 11;
+}
+
+message Action {
+  string id = 1;
+  string description = 2;
+  google.protobuf.Struct params_schema = 3;
+  bool mutating = 4;
+  string required_scope = 5;
+}
+
+// Every module implements ModuleService so the shell treats them uniformly.
+service ModuleService {
+  rpc GetManifest(GetManifestRequest) returns (GetManifestResponse);
+  rpc GetHealth(GetHealthRequest) returns (GetHealthResponse);
+  rpc ListActions(ListActionsRequest) returns (ListActionsResponse);
+}
+
+message GetManifestRequest {}
+message GetManifestResponse { Manifest manifest = 1; }
+message GetHealthRequest {}
+message GetHealthResponse { Health health = 1; }
+message ListActionsRequest {}
+message ListActionsResponse { repeated Action actions = 1; }

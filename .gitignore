@@ -1,0 +1,17 @@
+.env
+.DS_Store
+deploy/secrets/
+**/bin/
+**/dist/
+**/node_modules/
+**/*.tsbuildinfo
+coverage/
+**/.pytest_cache/
+**/__pycache__/
+**/*.egg-info/
+**/*.pyc
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/
+apps/web/tests-e2e/.auth/

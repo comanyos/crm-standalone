@@ -1,0 +1,250 @@
+name: independent-crm
+
+services:
+  auth-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: authincore
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-authincore_dev}
+      POSTGRES_DB: authincore
+    ports:
+      - "15432:5432"
+    volumes:
+      - auth_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authincore"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  crm-postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${CRM_DB_ADMIN_PASSWORD:-crm_admin_dev}
+      POSTGRES_DB: crm
+    ports:
+      - "15433:5432"
+    volumes:
+      - crm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js"]
+    ports:
+      - "14222:4222"
+      - "18222:8222"
+
+  # --- Disposable integration-test databases (opt-in: `--profile test`) ---
+  #
+  # Separate from auth-postgres/crm-postgres above: different ports, no named
+  # volume (tmpfs — data lives only for the container's lifetime), and never
+  # started by a plain `make up`. Integration tests must run against these,
+  # never against the development databases, so a test run can never read or
+  # leave behind real local data, and `docker compose down` (or a container
+  # restart) always leaves a completely clean database for the next run.
+  auth-postgres-test:
+    image: postgres:16-alpine
+    profiles: ["test"]
+    tmpfs:
+      - /var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: authincore
+      POSTGRES_PASSWORD: authincore_test
+      POSTGRES_DB: authincore
+    ports:
+      - "15532:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authincore"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  crm-postgres-test:
+    image: postgres:17-alpine
+    profiles: ["test"]
+    tmpfs:
+      - /var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: crm_admin_test
+      POSTGRES_DB: crm
+    volumes:
+      - ./services/crm-api/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "15533:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  auth-migrate:
+    build:
+      context: ./services/authincore
+      dockerfile: Dockerfile
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Deliberately opt-in: this provisions the first tenant only when the
+  # operator supplies BOOTSTRAP_* values at runtime. It never stores secrets
+  # in the repository or starts as part of a normal `make up`.
+  auth-bootstrap:
+    build:
+      context: ./services/authincore
+      dockerfile: Dockerfile
+    entrypoint: ["/authinctl"]
+    command: ["bootstrap"]
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
+      BOOTSTRAP_ORG_NAME: ${BOOTSTRAP_ORG_NAME:-}
+      BOOTSTRAP_ORG_DOMAIN: ${BOOTSTRAP_ORG_DOMAIN:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      CRM_WEB_CLIENT_ID: ${CRM_WEB_CLIENT_ID:-crm-web}
+      CRM_WEB_REDIRECT_URI: ${CRM_WEB_REDIRECT_URI:-http://localhost:3000/auth/callback}
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  authincore:
+    build:
+      context: ./services/authincore
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
+      REDIS_ADDR: redis:6379
+      NATS_URL: nats://nats:4222
+      PORT: "8080"
+      ISSUER: ${AUTH_PUBLIC_URL:-http://localhost:18080}
+      RSA_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
+      JWT_KEY_ID: crm-dev-k1
+      REQUIRE_PERSISTENT_SIGNING_KEY: "true"
+      DEV_MODE: "true"
+      CORS_ALLOWED_ORIGINS: ${CRM_WEB_ORIGIN:-http://localhost:3000}
+    secrets:
+      - jwt_private_key
+    ports:
+      - "18080:8080"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+    restart: on-failure
+
+  auth-admin:
+    build:
+      context: ./services/authincore/admin-ui
+      dockerfile: Dockerfile
+    ports:
+      - "13001:3001"
+    depends_on:
+      - authincore
+
+  # Applies CRM SQL migrations on every `make up`, recording each successful
+  # version. This replaces Postgres initdb hooks for the main development
+  # database: initdb hooks run only once and cannot apply a new migration to
+  # an existing named volume.
+  crm-migrate:
+    image: postgres:17-alpine
+    command: ["/bin/sh", "/scripts/migrate.sh"]
+    environment:
+      PGHOST: crm-postgres
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ${CRM_DB_ADMIN_PASSWORD:-crm_admin_dev}
+      PGDATABASE: crm
+    volumes:
+      - ./services/crm-api/migrations:/migrations:ro
+      - ./services/crm-api/scripts/migrate.sh:/scripts/migrate.sh:ro
+    depends_on:
+      crm-postgres:
+        condition: service_healthy
+    restart: "no"
+
+  crm-api:
+    build:
+      context: ./services/crm-api
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      MODE: standalone
+      CRM_ADDR: ":9431"
+      DATABASE_URL: postgres://crm_app:${CRM_DB_APP_PASSWORD:-crm_app}@crm-postgres:5432/crm?sslmode=disable
+      OUTBOX_DRAIN_DATABASE_URL: postgres://crm_drain:${CRM_DB_DRAIN_PASSWORD:-crm_drain}@crm-postgres:5432/crm?sslmode=disable
+      AUTH_ISSUER: ${AUTH_PUBLIC_URL:-http://localhost:18080}
+      AUTH_AUDIENCE: ${AUTH_PUBLIC_URL:-http://localhost:18080}
+      AUTH_JWKS_URL: http://authincore:8080/oauth2/keys
+      NATS_URL: nats://nats:4222
+      CORS_ALLOWED_ORIGINS: ${CRM_WEB_ORIGIN:-http://localhost:3000}
+    ports:
+      - "19431:9431"
+    depends_on:
+      crm-postgres:
+        condition: service_healthy
+      crm-migrate:
+        condition: service_completed_successfully
+      authincore:
+        condition: service_started
+      nats:
+        condition: service_started
+    restart: on-failure
+
+  # The CRM browser app is served as a static SPA so its OAuth callback stays
+  # available across shell/Codex sessions. Vite is still available for local
+  # component development, but normal `make up` no longer depends on it.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_AUTH_ISSUER_URL: ${AUTH_PUBLIC_URL:-http://localhost:18080}
+        VITE_AUTH_ORG_ID: ${CRM_WEB_AUTH_ORG_ID:?CRM_WEB_AUTH_ORG_ID is required; use authinctl bootstrap output}
+        VITE_AUTH_CLIENT_ID: ${CRM_WEB_CLIENT_ID:-crm-web}
+        VITE_CRM_API_URL: ${CRM_PUBLIC_URL:-http://localhost:19431}
+    ports:
+      - "${CRM_WEB_PORT:-3000}:80"
+    depends_on:
+      authincore:
+        condition: service_started
+      crm-api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  auth_pgdata:
+  crm_pgdata:
+
+secrets:
+  jwt_private_key:
+    file: ${JWT_PRIVATE_KEY_FILE:-./deploy/secrets/jwt_private_key.pem}

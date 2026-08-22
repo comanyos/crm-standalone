@@ -1,0 +1,130 @@
+// Package server wires the module's HTTP surface: routes, the connect
+// handlers, and the request middleware chain.
+package server
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"log/slog"
+	"net/http"
+	"runtime/debug"
+	"time"
+)
+
+type ctxKey string
+
+const requestIDKey ctxKey = "request_id"
+
+// RequestID returns the request id from the context (empty if none).
+func RequestID(ctx context.Context) string {
+	if v, ok := ctx.Value(requestIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// chain applies middleware in order (first listed = outermost).
+func chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
+	for i := len(mws) - 1; i >= 0; i-- {
+		h = mws[i](h)
+	}
+	return h
+}
+
+// recoverMW turns a panic into a 500 + structured error log instead of crashing.
+func recoverMW(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				slog.Error("panic recovered",
+					"err", rec, "request_id", RequestID(r.Context()),
+					"stack", string(debug.Stack()))
+				http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requestIDMW attaches an X-Request-ID (honoring an inbound one) to ctx + response.
+func requestIDMW(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.Header.Get("X-Request-ID")
+		if id == "" {
+			id = newID()
+		}
+		w.Header().Set("X-Request-ID", id)
+		ctx := context.WithValue(r.Context(), requestIDKey, id)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// loggingMW emits one structured access log per request.
+func loggingMW(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sw, r)
+		slog.Info("http",
+			"method", r.Method, "path", r.URL.Path, "status", sw.status,
+			"dur_ms", time.Since(start).Milliseconds(), "request_id", RequestID(r.Context()))
+	})
+}
+
+// statusWriter captures the response status for logging.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func newID() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "req-unknown"
+	}
+	return hex.EncodeToString(b)
+}
+
+// corsMW answers cross-origin browser calls (apps/web, on its own origin)
+// from an explicit allowlist. The allowlist is exact-match and never
+// wildcarded: the reflected origin is always one the operator configured, so
+// a hostile page cannot read a response. Connect-ES's browser client sends a
+// Connect-Protocol-Version header and an Authorization bearer token, both of
+// which must be allowed or the preflight fails closed.
+func corsMW(allowedOrigins []string) func(http.Handler) http.Handler {
+	allowed := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		if o != "" {
+			allowed[o] = true
+		}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			ok := origin != "" && allowed[origin]
+			if ok {
+				h := w.Header()
+				h.Set("Access-Control-Allow-Origin", origin)
+				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Connect-Protocol-Version, Connect-Timeout-Ms, X-Request-ID")
+				h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				h.Set("Access-Control-Max-Age", "600")
+				h.Add("Vary", "Origin")
+			}
+			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+				status := http.StatusNoContent
+				if !ok {
+					status = http.StatusForbidden
+				}
+				w.WriteHeader(status)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}

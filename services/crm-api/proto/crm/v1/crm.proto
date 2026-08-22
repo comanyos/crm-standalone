@@ -1,0 +1,404 @@
+syntax = "proto3";
+
+package crm.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/santoshguru/crm/gen/crm/v1;crmv1";
+
+// CRMService is the domain API. Every RPC is tenant-scoped: the tenant is taken
+// from the caller's verified JWT, never from the request body.
+service CRMService {
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc UpdateAccount(UpdateAccountRequest) returns (UpdateAccountResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+
+  rpc CreateContact(CreateContactRequest) returns (CreateContactResponse);
+  rpc GetContact(GetContactRequest) returns (GetContactResponse);
+  rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
+  rpc UpdateContact(UpdateContactRequest) returns (UpdateContactResponse);
+  rpc DeleteContact(DeleteContactRequest) returns (DeleteContactResponse);
+
+  rpc CreateLead(CreateLeadRequest) returns (CreateLeadResponse);
+  rpc GetLead(GetLeadRequest) returns (GetLeadResponse);
+  rpc ListLeads(ListLeadsRequest) returns (ListLeadsResponse);
+  rpc UpdateLead(UpdateLeadRequest) returns (UpdateLeadResponse);
+  rpc DeleteLead(DeleteLeadRequest) returns (DeleteLeadResponse);
+  // ConvertLead is the load-bearing B1 operation (docs/customer-os/PLAN.md):
+  // in one transaction it creates (or reuses, if the lead's email already
+  // names one) a Contact, attaches it to an Account (existing match by email
+  // domain, or a new one), optionally creates an Opportunity, and marks the
+  // lead converted with the linked ids. Retrying with the same lead_id is a
+  // no-op that returns the ids the first successful call produced.
+  rpc ConvertLead(ConvertLeadRequest) returns (ConvertLeadResponse);
+
+  rpc CreateOpportunity(CreateOpportunityRequest) returns (CreateOpportunityResponse);
+  rpc GetOpportunity(GetOpportunityRequest) returns (GetOpportunityResponse);
+  rpc ListOpportunities(ListOpportunitiesRequest) returns (ListOpportunitiesResponse);
+  rpc UpdateOpportunity(UpdateOpportunityRequest) returns (UpdateOpportunityResponse);
+  rpc DeleteOpportunity(DeleteOpportunityRequest) returns (DeleteOpportunityResponse);
+  // Returns the append-only history for an opportunity. This is intentionally
+  // separate from the mutable opportunity response so history remains useful
+  // for audit and reporting clients.
+  rpc ListOpportunityStageHistory(ListOpportunityStageHistoryRequest) returns (ListOpportunityStageHistoryResponse);
+
+  // Pipeline configuration is organization administration data. These RPCs
+  // manage definitions only; the later opportunity migration will bind each
+  // deal to pipeline_id/stage_id without rewriting historical stage text.
+  rpc CreatePipeline(CreatePipelineRequest) returns (CreatePipelineResponse);
+  rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse);
+  rpc ListPipelines(ListPipelinesRequest) returns (ListPipelinesResponse);
+  rpc UpdatePipeline(UpdatePipelineRequest) returns (UpdatePipelineResponse);
+  rpc CreatePipelineStage(CreatePipelineStageRequest) returns (CreatePipelineStageResponse);
+  rpc ListPipelineStages(ListPipelineStagesRequest) returns (ListPipelineStagesResponse);
+  rpc UpdatePipelineStage(UpdatePipelineStageRequest) returns (UpdatePipelineStageResponse);
+
+  rpc CreateActivity(CreateActivityRequest) returns (CreateActivityResponse);
+  rpc GetActivity(GetActivityRequest) returns (GetActivityResponse);
+  rpc ListActivities(ListActivitiesRequest) returns (ListActivitiesResponse);
+  rpc UpdateActivity(UpdateActivityRequest) returns (UpdateActivityResponse);
+  rpc DeleteActivity(DeleteActivityRequest) returns (DeleteActivityResponse);
+  // ListActivitiesForSubject is the B5 timeline query
+  // (docs/customer-os/PLAN.md): every Activity attached to one polymorphic
+  // subject (subject_type + subject_id), newest first by occurred_at.
+  rpc ListActivitiesForSubject(ListActivitiesForSubjectRequest) returns (ListActivitiesForSubjectResponse);
+
+  rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
+}
+
+message Account {
+  string id = 1;
+  string name = 2;
+  string industry = 3;
+  string tier = 4;
+  string owner_id = 5;
+  string website = 6;
+  double annual_revenue = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  // parent_id names the parent Account in the account hierarchy. Empty means
+  // this account has no parent. B3 (docs/customer-os/PLAN.md) validates this
+  // on every create/update that sets it: the named parent must exist in this
+  // tenant, and the parent chain must never loop back to this account.
+  string parent_id = 10;
+  // duplicate_of_account_id is set (by CreateAccount/UpdateAccount — see
+  // internal/domain/account_hierarchy.go) when website's domain exactly
+  // matches another tenant-scoped Account's website at write time. It flags
+  // the account; it never blocks or silently merges it (B3).
+  string duplicate_of_account_id = 11;
+}
+
+message CreateAccountRequest { Account account = 1; }
+message CreateAccountResponse { Account account = 1; }
+
+message GetAccountRequest { string id = 1; }
+message GetAccountResponse { Account account = 1; }
+
+message ListAccountsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // name_contains matches Account.name case-insensitively, substring anywhere.
+  string name_contains = 3;
+  // tier, when set, matches Account.tier exactly.
+  string tier = 4;
+  // owner_id, when set, matches Account.owner_id exactly (e.g. "my accounts").
+  string owner_id = 5;
+  // sort selects the result order: "" (default, Account.name ascending) or
+  // "-created_at" (newest first). Any other value is rejected as invalid —
+  // this is an allowlist, not a free-form column/expression.
+  string sort = 6;
+  // parent_id, when set, matches Account.parent_id exactly — lists the child
+  // accounts of the named account.
+  string parent_id = 7;
+}
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  string next_page_token = 2;
+}
+
+message UpdateAccountRequest { Account account = 1; }
+message UpdateAccountResponse { Account account = 1; }
+
+message DeleteAccountRequest { string id = 1; }
+message DeleteAccountResponse {}
+
+message Contact {
+  string id = 1;
+  string email = 2;
+  // account_id must name an existing Account in this tenant (B4 —
+  // docs/customer-os/PLAN.md, internal/domain/contact_integrity.go). A
+  // dangling or cross-tenant account_id is rejected on both create and
+  // update.
+  string account_id = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string phone = 6;
+  string title = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  // role is this contact's role at the account: one of billing, technical,
+  // decision_maker, other. Empty is allowed (role not yet known); a
+  // non-empty value outside that set is rejected. Plain validated field, not
+  // a workflow.
+  string role = 10;
+  // duplicate_of_contact_id is set (by CreateContact/UpdateContact — see
+  // internal/domain/contact_integrity.go) when email exactly matches another
+  // tenant-scoped Contact's email at write time. It flags the contact; it
+  // never blocks or silently merges it (B4) — the same convention Lead and
+  // Account use for their own duplicate flags.
+  string duplicate_of_contact_id = 11;
+}
+
+message CreateContactRequest { Contact contact = 1; }
+message CreateContactResponse { Contact contact = 1; }
+
+message GetContactRequest { string id = 1; }
+message GetContactResponse { Contact contact = 1; }
+
+message ListContactsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // account_id, when set, matches Contact.account_id exactly — the
+  // "contacts of this account" query an account detail page needs.
+  string account_id = 3;
+  // name_contains matches Contact.first_name or last_name case-insensitively.
+  string name_contains = 4;
+  // email_contains matches Contact.email case-insensitively, substring anywhere.
+  string email_contains = 5;
+  // sort selects the result order: "" (default, newest first) or "email"
+  // (ascending). Any other value is rejected as invalid — an allowlist, not
+  // a free-form column/expression.
+  string sort = 6;
+}
+message ListContactsResponse {
+  repeated Contact contacts = 1;
+  string next_page_token = 2;
+}
+
+message UpdateContactRequest { Contact contact = 1; }
+message UpdateContactResponse { Contact contact = 1; }
+
+message DeleteContactRequest { string id = 1; }
+message DeleteContactResponse {}
+
+message Lead {
+  string id = 1;
+  string company = 2;
+  string source = 3;
+  string contact_email = 4;
+  // status is one of new, working, qualified, converted, disqualified (B1's
+  // lifecycle state machine — internal/domain/lead_lifecycle.go).
+  // converted/disqualified are terminal.
+  string status = 5;
+  int64 score = 6;
+  string owner_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  // duplicate_of_contact_id is set when contact_email exactly matches an
+  // existing Contact at write time. The lead is still created/stored — this
+  // only flags it, it never blocks or silently merges.
+  string duplicate_of_contact_id = 10;
+  // The following three are populated once, by ConvertLead, the instant this
+  // lead converts. Empty until then. UpdateLead cannot set status to
+  // converted directly or populate these — only ConvertLead may.
+  string converted_contact_id = 11;
+  string converted_account_id = 12;
+  string converted_opportunity_id = 13;
+}
+
+message CreateLeadRequest { Lead lead = 1; }
+message CreateLeadResponse { Lead lead = 1; }
+
+message GetLeadRequest { string id = 1; }
+message GetLeadResponse { Lead lead = 1; }
+
+message ListLeadsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+message ListLeadsResponse {
+  repeated Lead leads = 1;
+  string next_page_token = 2;
+}
+
+message UpdateLeadRequest { Lead lead = 1; }
+message UpdateLeadResponse { Lead lead = 1; }
+
+message DeleteLeadRequest { string id = 1; }
+message DeleteLeadResponse {}
+
+message ConvertLeadRequest {
+  string lead_id = 1;
+  // create_opportunity is a flag, not the default: an Opportunity is only
+  // created when the caller asks for one.
+  bool create_opportunity = 2;
+  // opportunity_name/opportunity_amount are used only when
+  // create_opportunity is true. opportunity_name defaults to
+  // "<lead.company> opportunity" when left blank.
+  string opportunity_name = 3;
+  double opportunity_amount = 4;
+}
+message ConvertLeadResponse {
+  Lead lead = 1;
+  Contact contact = 2;
+  Account account = 3;
+  // opportunity is unset when the request did not ask for one.
+  Opportunity opportunity = 4;
+}
+
+message Opportunity {
+  string id = 1;
+  string name = 2;
+  string account_id = 3;
+  string stage = 4;
+  double amount = 5;
+  double probability = 6;
+  google.protobuf.Timestamp close_date = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  // close_reason records why the opportunity closed (won/lost detail), for
+  // forecasting and win/loss reporting. Not enforced against stage yet — that
+  // is Track B.
+  string close_reason = 10;
+  // Tenant-owned pipeline and stage identifiers. `stage` remains a human-
+  // readable compatibility field for older clients and historical reports.
+  string pipeline_id = 11;
+  string stage_id = 12;
+}
+
+message CreateOpportunityRequest { Opportunity opportunity = 1; }
+message CreateOpportunityResponse { Opportunity opportunity = 1; }
+
+message GetOpportunityRequest { string id = 1; }
+message GetOpportunityResponse { Opportunity opportunity = 1; }
+
+message ListOpportunitiesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+message ListOpportunitiesResponse {
+  repeated Opportunity opportunities = 1;
+  string next_page_token = 2;
+}
+
+message UpdateOpportunityRequest { Opportunity opportunity = 1; }
+message UpdateOpportunityResponse { Opportunity opportunity = 1; }
+
+message DeleteOpportunityRequest { string id = 1; }
+message DeleteOpportunityResponse {}
+
+message OpportunityStageChange {
+  string id = 1;
+  string opportunity_id = 2;
+  string from_stage = 3;
+  string to_stage = 4;
+  google.protobuf.Timestamp changed_at = 5;
+}
+message ListOpportunityStageHistoryRequest { string opportunity_id = 1; }
+message ListOpportunityStageHistoryResponse { repeated OpportunityStageChange changes = 1; }
+
+message Pipeline {
+  string id = 1;
+  string name = 2;
+  bool is_default = 3;
+  google.protobuf.Timestamp archived_at = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message CreatePipelineRequest { Pipeline pipeline = 1; }
+message CreatePipelineResponse { Pipeline pipeline = 1; }
+message GetPipelineRequest { string id = 1; }
+message GetPipelineResponse { Pipeline pipeline = 1; }
+message ListPipelinesRequest {}
+message ListPipelinesResponse { repeated Pipeline pipelines = 1; }
+message UpdatePipelineRequest { Pipeline pipeline = 1; }
+message UpdatePipelineResponse { Pipeline pipeline = 1; }
+
+message PipelineStage {
+  string id = 1;
+  string pipeline_id = 2;
+  string name = 3;
+  int32 position = 4;
+  double probability = 5;
+  // open, won, or lost. Terminal stages retain their data rather than being
+  // deleted, so historical reporting remains explainable.
+  string terminal_type = 6;
+  bool requires_close_reason = 7;
+  google.protobuf.Timestamp archived_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message CreatePipelineStageRequest { PipelineStage stage = 1; }
+message CreatePipelineStageResponse { PipelineStage stage = 1; }
+message ListPipelineStagesRequest { string pipeline_id = 1; }
+message ListPipelineStagesResponse { repeated PipelineStage stages = 1; }
+message UpdatePipelineStageRequest { PipelineStage stage = 1; }
+message UpdatePipelineStageResponse { PipelineStage stage = 1; }
+
+message Activity {
+  string id = 1;
+  string kind = 2;
+  // subject_type + subject_id are Activity's polymorphic edge (B5 —
+  // docs/customer-os/PLAN.md, internal/domain/activity_timeline.go):
+  // subject_type is one of account, contact, lead, opportunity, and
+  // subject_id must name an existing record of that type in this tenant. An
+  // unrecognized subject_type or a dangling/cross-tenant subject_id is
+  // rejected on create.
+  string subject_type = 3;
+  string subject_id = 4;
+  string notes = 5;
+  string actor_id = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateActivityRequest { Activity activity = 1; }
+message CreateActivityResponse { Activity activity = 1; }
+
+message GetActivityRequest { string id = 1; }
+message GetActivityResponse { Activity activity = 1; }
+
+message ListActivitiesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+message ListActivitiesResponse {
+  repeated Activity activities = 1;
+  string next_page_token = 2;
+}
+
+// UpdateActivityRequest replaces an existing Activity. Activity is immutable
+// once logged (B5 — docs/customer-os/PLAN.md): a request that would actually
+// change kind, subject_type, subject_id, notes, actor_id or occurred_at is
+// rejected. A request that repeats the record's current values is accepted
+// as a no-op. A correction is a new Activity, never an edit of this one.
+message UpdateActivityRequest { Activity activity = 1; }
+message UpdateActivityResponse { Activity activity = 1; }
+
+message DeleteActivityRequest { string id = 1; }
+message DeleteActivityResponse {}
+
+// ListActivitiesForSubjectRequest names one polymorphic subject; both fields
+// are required.
+message ListActivitiesForSubjectRequest {
+  string subject_type = 1;
+  string subject_id = 2;
+}
+// ListActivitiesForSubjectResponse returns every Activity attached to the
+// named subject, newest first by occurred_at. Unpaginated, the same
+// convention ListStageHistory/ListOwnershipHistory use for a bounded,
+// append-only-per-parent history list.
+message ListActivitiesForSubjectResponse {
+  repeated Activity activities = 1;
+}
+
+message GetSummaryRequest {}
+message GetSummaryResponse {
+  int64 total = 1;
+  map<string, int64> counts = 2;
+}

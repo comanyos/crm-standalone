@@ -1,0 +1,67 @@
+import { useEffect, useRef, type ReactNode } from "react";
+
+interface DialogProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  footer?: ReactNode;
+}
+
+/** Built on the native <dialog> element: it owns focus trapping, Escape-to-
+ * close, and the modal backdrop natively, which is more robust than
+ * hand-rolled focus-trap JS and works the same in every modern browser. */
+export function Dialog({ open, onClose, title, children, footer }: DialogProps) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onCancel = (e: Event) => {
+      // Let Escape close via our own state so the caller's onClose runs.
+      e.preventDefault();
+      onClose();
+    };
+    const onBackdropClick = (e: MouseEvent) => {
+      if (e.target === el) onClose();
+    };
+    el.addEventListener("cancel", onCancel);
+    el.addEventListener("click", onBackdropClick);
+    return () => {
+      el.removeEventListener("cancel", onCancel);
+      el.removeEventListener("click", onBackdropClick);
+    };
+  }, [onClose]);
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="dialog-title"
+      className="w-full max-w-md rounded-lg p-0 backdrop:bg-slate-900/50"
+      onClose={onClose}
+    >
+      <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <h2 id="dialog-title" className="text-base font-semibold text-slate-900">
+          {title}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close dialog"
+          className="rounded text-slate-400 hover:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+        >
+          ×
+        </button>
+      </div>
+      <div className="px-5 py-4 text-sm text-slate-700">{children}</div>
+      {footer && <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">{footer}</div>}
+    </dialog>
+  );
+}

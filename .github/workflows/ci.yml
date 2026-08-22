@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose config
+        run: docker compose config --quiet
+
+  crm-api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/crm-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/crm-api/go.mod
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "gofmt found unformatted files (run 'make fmt')"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: services/crm-api
+          version: latest
+      - name: build
+        run: go build ./...
+      - name: test
+        run: go test -race -cover ./...
+
+  authincore:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/authincore
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/authincore/go.mod
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then
+            echo "$out"
+            echo "gofmt found unformatted files (run 'make fmt')"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      # NOTE: informational only until the pre-existing lint backlog in this
+      # service (~90 issues predating this CI setup, see CONTRIBUTING.md) is
+      # triaged and fixed. Do not remove continue-on-error silently — flip it
+      # off only once golangci-lint run ./... is clean here too.
+      - uses: golangci/golangci-lint-action@v6
+        continue-on-error: true
+        with:
+          working-directory: services/authincore
+          version: latest
+      - name: build
+        run: go build ./cmd/...
+      - name: test
+        run: go test -race -cover ./...
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: install (npm workspace root)
+        run: npm ci
+      # packages/contracts/gen/ is committed generated code (see
+      # CONTRIBUTING.md's generated-code policy) — consumed as-is here, the
+      # same way crm-api's Go job below never re-runs `buf generate` either.
+      - name: typecheck + build
+        run: npm run build --workspace=@crm/web
+      - name: lint
+        run: npm run lint --workspace=@crm/web
+      - name: unit tests
+        run: npm run test --workspace=@crm/web
+      - name: auth-client unit tests
+        run: npm run test --workspace=@crm/auth-client
+      # Browser tests (npm run test:e2e --workspace=@crm/web) need the full
+      # backend stack up and bootstrapped — not run in this job. See
+      # apps/web/README.md and CONTRIBUTING.md's test-tiers section.

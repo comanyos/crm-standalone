@@ -1,0 +1,13 @@
+version: v2
+plugins:
+  # Go structs + gRPC server/client stubs
+  - remote: buf.build/protocolbuffers/go
+    out: gen
+    opt:
+      - paths=source_relative
+
+  # connect-go handlers (replaces grpc-go for HTTP/2 + HTTP/1.1 + gRPC)
+  - remote: buf.build/connectrpc/go
+    out: gen
+    opt:
+      - paths=source_relative

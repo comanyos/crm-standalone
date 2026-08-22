@@ -1,0 +1,77 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - gosec
+    - gocritic
+    - revive
+  disable:
+    - wsl
+  exclusions:
+    rules:
+      # Test files: allow longer functions, unexported test helpers, gosec suppressions.
+      - path: "_test\\.go"
+        linters:
+          - gocritic
+          - revive
+          - gosec
+      # Generated Connect/protobuf code is not hand-reviewed style.
+      - path: "gen/"
+        linters:
+          - govet
+          - errcheck
+          - staticcheck
+          - gosec
+          - gocritic
+          - revive
+      # Migration-adjacent SQL loaders are not required to have full error handling.
+      - path: "migrations/"
+        linters:
+          - errcheck
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment   # not a priority for request/response and domain structs
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  staticcheck:
+    checks:
+      - all
+
+  gosec:
+    excludes:
+      - G404   # weak random — math/rand use is intentional in non-security paths
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam
+      - unnamedResult
+
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+      - name: error-return
+        severity: warning
+      - name: blank-imports
+        severity: error
+      - name: context-as-argument
+        severity: error
+      - name: unused-parameter
+        severity: warning
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 5

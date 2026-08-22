@@ -1,0 +1,20 @@
+bin/
+/authincore
+*.env
+.env
+.env.*
+!.env.example
+!**/.env.example
+coverage.out
+coverage.html
+vendor/
+.DS_Store
+admin-ui/node_modules/
+admin-ui/dist/
+admin-ui/*.tsbuildinfo
+hosted-ui/node_modules/
+hosted-ui/dist/
+hosted-ui/*.tsbuildinfo
+
+# Claude Code personal settings
+.claude/settings.local.json
