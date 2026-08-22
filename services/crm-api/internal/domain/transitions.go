@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 // Opportunity pipeline state machine (B2 — docs/customer-os/PLAN.md):
@@ -114,7 +113,7 @@ func applyOpportunityClosingRules(v *Opportunity) error {
 		return fmt.Errorf("%w: Opportunity.close_reason is required to close stage %q", ErrInvalid, v.Stage)
 	}
 	if v.CloseDate.IsZero() {
-		v.CloseDate = time.Now().UTC()
+		v.CloseDate = nowStamp()
 		return nil
 	}
 	return fmt.Errorf(

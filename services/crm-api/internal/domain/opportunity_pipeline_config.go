@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
 const systemSalesPipelineID = "system-sales"
@@ -93,7 +92,7 @@ func applyConfiguredClosingRules(v *Opportunity, stage *PipelineStage) error {
 		return fmt.Errorf("%w: Opportunity.close_reason is required to close this stage", ErrInvalid)
 	}
 	if v.CloseDate.IsZero() {
-		v.CloseDate = time.Now().UTC()
+		v.CloseDate = nowStamp()
 		return nil
 	}
 	return fmt.Errorf("%w: Opportunity.close_date is already set; the closing transition stamps it", ErrInvalid)

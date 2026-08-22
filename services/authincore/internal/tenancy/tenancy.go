@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/authincore/authincore/internal/api/middleware"
 	"github.com/google/uuid"
 )
 
@@ -62,8 +63,15 @@ func Middleware(resolver Resolver) func(http.Handler) http.Handler {
 			host := canonicalHost(r.Host)
 			tenant, err := resolver.ByDomain(r.Context(), host)
 			if err != nil {
-				slog.Warn("tenant resolution failed", "host", host, "err", err)
-				http.Error(w, fmt.Sprintf("tenant not found for host %q", host), http.StatusNotFound)
+				// The Host header is caller-supplied and identifies the
+				// tenant, so it is neither logged nor reflected back: the
+				// access-log policy excludes headers and tenant identifiers,
+				// and echoing the value would return unvalidated request data
+				// to whoever sent it. The request id already correlates this
+				// warning with the access-log line that carries the route.
+				slog.Warn("tenant resolution failed",
+					"request_id", middleware.RequestIDFromContext(r.Context()))
+				http.Error(w, "tenant not found", http.StatusNotFound)
 				return
 			}
 			ctx := WithTenant(r.Context(), tenant)

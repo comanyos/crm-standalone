@@ -76,11 +76,35 @@ func loggingMW(next http.Handler) http.Handler {
 type statusWriter struct {
 	http.ResponseWriter
 	status int
+	wrote  bool
 }
 
+// Unwrap preserves optional ResponseWriter capabilities through
+// http.ResponseController — flush, hijack, and read/write deadlines.
+//
+// Without it every one of those returns "feature not supported" for any
+// handler behind this middleware, because ResponseController walks the
+// Unwrap chain and stops at the first wrapper that does not implement it.
+// The metrics recorder in internal/metrics and AuthinCore's equivalent both
+// do this; loggingMW was the one wrapper in the chain that broke it.
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// WriteHeader records the first status only. net/http ignores a second
+// WriteHeader (and logs "superfluous response.WriteHeader"), so the first is
+// the one the client actually received — recording a later one would make the
+// access log disagree with the response.
 func (w *statusWriter) WriteHeader(code int) {
-	w.status = code
+	if !w.wrote {
+		w.status, w.wrote = code, true
+	}
 	w.ResponseWriter.WriteHeader(code)
+}
+
+// Write marks the response as started: a handler that writes without calling
+// WriteHeader has implicitly sent 200, which is already this writer's default.
+func (w *statusWriter) Write(b []byte) (int, error) {
+	w.wrote = true
+	return w.ResponseWriter.Write(b)
 }
 
 func newID() string {

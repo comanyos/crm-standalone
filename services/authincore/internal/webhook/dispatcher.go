@@ -79,7 +79,10 @@ func (d *Dispatcher) Dispatch(ctx context.Context, orgID uuid.UUID, eventType st
 
 	webhooks, err := d.store.ByOrgAndEvent(ctx, orgID, eventType)
 	if err != nil {
-		d.log.Error("webhook dispatch load", "org_id", orgID, "event", eventType, "err", err)
+		// The org id is the tenant identifier; the access-log policy keeps it
+		// out of every log line, this one included. The event type is a
+		// bounded internal trigger name and is safe to keep.
+		d.log.Error("webhook dispatch load", "event", eventType, "err", err)
 		return err
 	}
 
@@ -91,7 +94,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, orgID uuid.UUID, eventType st
 		"data":       payload,
 	})
 	if err != nil {
-		d.log.Error("webhook dispatch marshal", "org_id", orgID, "event", eventType, "err", err)
+		d.log.Error("webhook dispatch marshal", "event", eventType, "err", err)
 		return err
 	}
 

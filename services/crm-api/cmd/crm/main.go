@@ -59,10 +59,10 @@ func main() {
 	}
 	defer srv.Close()
 
-	// Drain the CRM event outbox onto the bus (Track A3). Nothing in the
-	// domain enqueues an event yet — Track B decides which transitions
-	// publish — but the drain path runs from the start so wiring it in does
-	// not become a second, separate change later. It stops on the same
+	// Drain the CRM event outbox onto the bus. Only opportunity.closed_won
+	// is enqueued today (internal/domain/opportunity_events.go), but the
+	// drain path runs regardless so extending event coverage stays a
+	// domain-side change. It stops on the same
 	// signal that shuts the HTTP server down; events in flight are left
 	// `sent` with an attempt counted and a backoff set, so the next process
 	// picks them up.

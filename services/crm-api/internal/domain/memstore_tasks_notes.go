@@ -83,7 +83,7 @@ func (s *MemStore) CreateTask(ctx context.Context, scope Scope, v *Task) (*Task,
 	// A task created directly as completed is legitimate — logging work
 	// already done — so stamp it rather than rejecting it.
 	if v.Status == TaskCompleted {
-		applyTaskCompletion(v, v.CreatedBy, time.Now().UTC())
+		applyTaskCompletion(v, v.CreatedBy, nowStamp())
 	}
 	return s.task.create(scope, v)
 }
@@ -161,7 +161,7 @@ func (s *MemStore) UpdateTask(ctx context.Context, scope Scope, v *Task) (*Task,
 	}
 	sanitizeTaskLifecycle(v, existing)
 	v.CreatedBy = existing.CreatedBy
-	now := time.Now().UTC()
+	now := nowStamp()
 	switch {
 	case v.Status == TaskCompleted:
 		applyTaskCompletion(v, existing.CompletedBy, now)
@@ -194,7 +194,7 @@ func (s *MemStore) CompleteTask(_ context.Context, scope Scope, id, actor string
 		return existing, nil
 	}
 	updated := cloneTask(existing)
-	applyTaskCompletion(updated, actor, time.Now().UTC())
+	applyTaskCompletion(updated, actor, nowStamp())
 	return s.task.update(scope, updated)
 }
 
@@ -304,7 +304,7 @@ func (s *MemStore) UpdateNote(_ context.Context, scope Scope, v *Note) (*Note, e
 	if !v.UpdatedAt.IsZero() && !v.UpdatedAt.Equal(existing.UpdatedAt) {
 		return nil, fmt.Errorf("%w: Note %s was modified since it was last read", ErrConflict, v.ID)
 	}
-	applyNoteEdit(v, existing, time.Now().UTC())
+	applyNoteEdit(v, existing, nowStamp())
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
