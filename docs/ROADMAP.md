@@ -258,10 +258,11 @@ Dependencies: M2 core records and M1 scope enforcement.
 
 Acceptance criteria: a lead converts atomically to linked records; opportunity
 stage history is accurate; every workflow is tenant-isolated and auditably
-tested; the UI exposes it with permission-aware controls. **Lead and basic
-opportunity UI implementation are complete; configurable pipelines, Kanban,
-stage-history UI, and live workflow/tenant/RBAC verification remain in the QA
-and product workstreams.**
+tested; the UI exposes it with permission-aware controls. **Lead and
+opportunity UI, configurable pipelines, the Kanban board, and the stage-history
+view are all implemented (see the entries above). Individual-stage archival,
+historical reporting semantics, quotas/forecasts, and live workflow/tenant/RBAC
+verification remain in the QA and product workstreams.**
 
 ## M4 — Data productivity (0%)
 

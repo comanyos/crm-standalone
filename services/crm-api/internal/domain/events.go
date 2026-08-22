@@ -16,9 +16,9 @@ const SourceAppCRM = "crm"
 
 // Envelope matches the event envelope structure published across the suite.
 //
-// Track A3 builds this seam only — nothing in the domain constructs an
-// Envelope yet. Track B decides which state transitions publish, and calls
-// EnqueueEvent when it does.
+// opportunity_events.go constructs one today (opportunity.closed_won). Any
+// further transition that must publish builds an Envelope here and hands it
+// to EnqueueEvent.
 type Envelope struct {
 	ID            string          `json:"id"`
 	Type          string          `json:"type"`

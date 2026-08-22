@@ -65,13 +65,21 @@ authority can only come from server-side role grants.
 | OIDC/JWT integration | Live-verified via an automated browser test | `apps/web/tests-e2e/auth.spec.ts` (Playwright) exercises PKCE login, consent, live dashboard, reload, and logout end to end against the real stack. JWKS refresh/rotation and negative-path cases still need coverage. |
 | Tenant isolation | Proven by automated tests at four layers | All 36 CRM RPCs, the store against live PostgreSQL, a catalog-driven RLS check covering every table carrying `tenant_id`, and the outbox dispatcher's `crm_app`/`crm_drain` split. Audit-event and metric tenant labelling stays open because neither surface exists yet (§10.2). A token already issued outlives organization deactivation until it expires — see §1.3. |
 | Backend domain | Partially implemented | Accounts, contacts, leads, conversion, opportunities, activities, RLS, and tests exist. Production/contract coverage is incomplete. |
-| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard, and live CRUD workflows for accounts, contacts, leads, and basic opportunities. Configurable pipelines, Kanban, activities, and remaining product workflows are still pending. |
+| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard, and live CRUD workflows for accounts, contacts, leads, opportunities, and tasks, plus pipeline administration, an opportunity Kanban board, and an activity timeline with notes on four detail views. Search/automation/reporting screens and the remaining product workflows are still pending. |
 | Production operations | Not started | Local keys/credentials and Compose are development-only. |
 
-Approximate total product completion: **20%**. This is deliberately not an
-average of files present; most customer-visible and production capabilities
-remain unimplemented — in particular, no CRM entity can yet be viewed,
-created, or edited through the web app.
+Approximate total product completion: **55%** of the scoped product, and
+**~40%** including production operations. This is deliberately not an average
+of files present. The core record layer is live end to end — 47 RPCs and
+browser CRUD for accounts, contacts, leads, opportunities, and tasks — while
+communications, automation, reporting, bulk import/export, record-level
+permissions, and audit storage are not built, and nothing is deployed.
+
+Measured against the products a buyer compares this with, completion is far
+lower — roughly 15%, because the metadata, automation, reporting, and
+extensibility layers that define those products do not exist here. See
+`task_v2.md`, which plans that work; this file continues to track the
+originally scoped product.
 
 ## Shared engineering standards
 

@@ -15,9 +15,10 @@ import (
 // application is the consumer's job (a keyed, version-guarded upsert), not
 // the transport's.
 //
-// Track A3 builds the outbox, the dispatcher, and EnqueueEvent only. Nothing
-// in this module's domain calls EnqueueEvent yet — Track B decides which
-// state transitions publish an event and wires that call at the write site.
+// One state transition publishes today: opportunity_events.go enqueues
+// opportunity.closed_won the instant a deal is won. Every other transition
+// still writes nothing, so the outbox is a live path with narrow coverage,
+// not an unused seam — extending it is task_v2 6.5.
 
 // Outbox event states.
 //
