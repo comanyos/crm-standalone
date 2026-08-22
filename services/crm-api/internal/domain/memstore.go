@@ -1069,7 +1069,14 @@ func (s *MemStore) ListPipelines(_ context.Context, scope Scope) ([]*Pipeline, e
 	return s.pipeline.all(scope)
 }
 
-func (s *MemStore) UpdatePipeline(_ context.Context, scope Scope, v *Pipeline) (*Pipeline, error) {
+func (s *MemStore) UpdatePipeline(ctx context.Context, scope Scope, v *Pipeline) (*Pipeline, error) {
+	existing, err := s.pipeline.get(scope, v.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkPipelineArchival(ctx, s, scope, existing, v); err != nil {
+		return nil, err
+	}
 	if v.IsDefault && v.ArchivedAt.IsZero() {
 		all, err := s.pipeline.all(scope)
 		if err != nil {
@@ -1125,6 +1132,13 @@ func (s *MemStore) UpdatePipelineStage(ctx context.Context, scope Scope, v *Pipe
 	}
 	if !pipeline.ArchivedAt.IsZero() {
 		return nil, fmt.Errorf("%w: cannot update a stage in an archived pipeline", ErrInvalid)
+	}
+	existing, err := s.pipelineStage.get(scope, v.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkStageArchival(ctx, s, scope, existing, v); err != nil {
+		return nil, err
 	}
 	return s.pipelineStage.update(scope, v)
 }

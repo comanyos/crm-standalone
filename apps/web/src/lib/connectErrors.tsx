@@ -39,3 +39,21 @@ export function mutationErrorMessage(error: unknown): string {
       return "Something went wrong. Please try again.";
   }
 }
+
+/** For a mutation the server refuses with an explanation written to be read.
+ *
+ * `mutationErrorMessage` replaces the server's text with a generic line, which
+ * is right for a stale write — "someone else changed this, reload" is more
+ * useful than whatever the storage layer said. It is wrong for a refusal whose
+ * whole point is what it says: archiving a pipeline or stage that still holds
+ * open deals names those deals and the step that unblocks it, and a caller
+ * told only "reload the page" would reload it forever.
+ *
+ * rawMessage, not message: the latter is prefixed with the status code. */
+export function refusalMessage(error: unknown): string {
+  const err = ConnectError.from(error);
+  if (err.code === Code.Aborted || err.code === Code.FailedPrecondition) {
+    return err.rawMessage || mutationErrorMessage(error);
+  }
+  return mutationErrorMessage(error);
+}

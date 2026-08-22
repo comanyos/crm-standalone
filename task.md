@@ -959,27 +959,42 @@ Acceptance criteria:
   and the live `/settings/pipelines` administration screen are implemented.
   Administrators can edit pipeline/stage settings, atomically choose one
   default pipeline, and archive a pipeline without deleting its history.
-  Individual stage archival and opportunity migration are still pending.
 
-  **Archiving is currently a data trap, and this is the next thing to fix
-  here.** Nothing checks whether a pipeline or stage still holds deals.
-  `UpdateOpportunity` resolves the deal's current stage through
-  `activePipelineStage`, which refuses an archived pipeline or stage before
-  any other rule runs — so every deal left behind becomes permanently
-  unwritable: it cannot advance, cannot be closed, and cannot even be renamed.
-  It stays readable and keeps its amount, so it still counts toward any
-  forecast built later. The only exit is SQL. Pipeline archival is reachable
-  today from a button on `/settings/pipelines` whose confirm text promises the
-  records are merely retained for reporting; stage archival has the same hole
-  but no UI control yet, so adding one without a guard first would ship a
-  second copy of the trap.
+  Individual stage archival is now implemented, behind the guard it needed.
 
-  Decided policy: **refuse until empty.** Archival returns `ErrConflict`
-  naming the blocking deals, and the caller moves them off first through the
-  normal validated transition path — no bulk relocation, no silent
-  reassignment of records an admin never named. The UI then tells the
-  administrator how many deals must be moved before the stage or pipeline can
-  be retired.
+  **Archiving used to be a data trap.** Nothing checked whether a pipeline or
+  stage still held deals, and `activePipelineStage` resolves an Opportunity's
+  current stage before any other rule and refuses an archived one — so every
+  deal left behind became permanently unwritable: it could not advance, could
+  not be closed, and could not even be renamed. It stayed readable and kept
+  its amount, so it went on counting toward anything summed later, and the
+  only exit was SQL. Pipeline archival was reachable from a button on
+  `/settings/pipelines` whose confirmation promised the records were merely
+  retained for reporting.
+
+  Both paths now refuse with `ErrConflict` while **open** deals stand on the
+  thing being archived, naming the deals and the step that unblocks it
+  (`pipeline_archival.go`, enforced in both stores). Only open deals block: a
+  closed deal cannot be moved off, since every transition out of a terminal
+  stage is refused, so counting it would make any stage that has ever closed a
+  deal permanently unarchivable and the remedy impossible to follow.
+  `/settings/pipelines` now offers per-stage archival and shows the server's
+  refusal verbatim — `refusalMessage`, not the generic "reload the page" line,
+  which would send an administrator round a loop that never ends.
+
+  Still open here: **moving deals between pipelines**. There is no such
+  operation, and `prepareOpportunityStage` refuses one
+  ("an opportunity cannot move to another pipeline"), so a pipeline holding
+  open deals can only be emptied by closing them. That is the remaining half
+  of "deletion/archive rules".
+
+  One residual, deliberately not fixed: a closed deal whose terminal stage is
+  later archived can no longer be edited in place — a rename is refused,
+  because `activePipelineStage` runs before the same-stage no-op is
+  recognised. Nothing is lost and nothing is stranded that could have moved,
+  but the fix (letting a no-op write tolerate an archived current stage) was
+  out of scope for the guard.
+
 - [x] Migrate existing opportunity stage behavior to pipeline/stage IDs without
   data loss and retain immutable stage history. Migration `0013` binds prior
   records to a compatible, tenant-local Sales pipeline; new opportunities use

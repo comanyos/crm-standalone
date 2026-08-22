@@ -135,12 +135,19 @@ func (s *PgStore) UpdatePipeline(ctx context.Context, scope Scope, v *Pipeline) 
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
+	existing, err := s.GetPipeline(ctx, scope, v.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkPipelineArchival(ctx, s, scope, existing, v); err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 	// The partial unique index permits one active default per tenant. Clear a
 	// previous default in the same RLS-bound transaction before promoting this
 	// pipeline, so the API supports an intentional default change rather than
 	// leaking a raw database constraint error to the settings screen.
-	err := s.db.inTx(ctx, scope, pgx.TxOptions{}, func(tx pgx.Tx) error {
+	err = s.db.inTx(ctx, scope, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		if v.IsDefault && v.ArchivedAt.IsZero() {
 			if _, err := tx.Exec(ctx,
 				`UPDATE pipelines SET is_default = false, updated_at = $2 WHERE tenant_id = $1 AND id <> $3 AND is_default AND archived_at IS NULL`,
@@ -233,6 +240,13 @@ func (s *PgStore) UpdatePipelineStage(ctx context.Context, scope Scope, v *Pipel
 	if !pipeline.ArchivedAt.IsZero() {
 		return nil, fmt.Errorf("%w: cannot update a stage in an archived pipeline", ErrInvalid)
 	}
+	existingStage, err := s.getPipelineStage(ctx, scope, v.PipelineID, v.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkStageArchival(ctx, s, scope, existingStage, v); err != nil {
+		return nil, err
+	}
 	v.UpdatedAt = nowStamp()
 	tag, err := s.db.Exec(ctx, scope,
 		`UPDATE pipeline_stages SET name = $4, position = $5, probability = $6, terminal_type = $7, requires_close_reason = $8, archived_at = $9, updated_at = $10 WHERE tenant_id = $1 AND pipeline_id = $2 AND id = $3`,
@@ -249,6 +263,20 @@ func (s *PgStore) UpdatePipelineStage(ctx context.Context, scope Scope, v *Pipel
 	}
 	for _, stage := range rows {
 		if stage.ID == v.ID {
+			return stage, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+// getPipelineStage reads one stage of one pipeline in the scope's tenant.
+func (s *PgStore) getPipelineStage(ctx context.Context, scope Scope, pipelineID, stageID string) (*PipelineStage, error) {
+	stages, err := s.ListPipelineStages(ctx, scope, pipelineID)
+	if err != nil {
+		return nil, err
+	}
+	for _, stage := range stages {
+		if stage.ID == stageID {
 			return stage, nil
 		}
 	}

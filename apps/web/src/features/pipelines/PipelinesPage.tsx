@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/shell/PageHeader";
 import { Button } from "../../components/ui/Button";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Dialog } from "../../components/ui/Dialog";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/StatePanel";
-import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors";
+import { renderQueryError, mutationErrorMessage, refusalMessage } from "../../lib/connectErrors";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useAuth } from "../../auth/AuthProvider";
 import { useToast } from "../../components/ui/Toast";
@@ -28,6 +29,10 @@ export default function PipelinesPage() {
   const [requiresCloseReason, setRequiresCloseReason] = useState(false);
   const [editingPipeline, setEditingPipeline] = useState(false);
   const [editingStageID, setEditingStageID] = useState("");
+  // The stage an administrator has asked to archive, held while the
+  // confirmation is open. Archiving is refused server-side while open deals
+  // stand on the stage, so the confirmation promises retention, not safety.
+  const [archivingStage, setArchivingStage] = useState<NonNullable<typeof stageQuery.data>["stages"][number] | null>(null);
   const [pipelineIsDefault, setPipelineIsDefault] = useState(false);
   const canWrite = hasScope("crm:pipeline:write");
 
@@ -62,7 +67,19 @@ export default function PipelinesPage() {
   const archivePipeline = useMutation({
     mutationFn: (pipeline: NonNullable<typeof selectedPipeline>) => crm.updatePipeline({ pipeline: { ...pipeline, isDefault: false, archivedAt: timestampFromDate(new Date()) } }),
     onSuccess: () => { setSelectedID(""); queryClient.invalidateQueries({ queryKey: ["crm.listPipelines"] }); toast.show({ tone: "success", message: "Pipeline archived. Historical records are retained." }); },
-    onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
+    // refusalMessage, not mutationErrorMessage: the server refuses this while
+    // open deals still stand on the pipeline, and names them. That sentence is
+    // the whole value of the refusal.
+    onError: (error) => toast.show({ tone: "danger", message: refusalMessage(error) }),
+  });
+
+  const archiveStage = useMutation({
+    mutationFn: (stage: NonNullable<typeof stageQuery.data>["stages"][number]) =>
+      crm.updatePipelineStage({ stage: { ...stage, archivedAt: timestampFromDate(new Date()) } }),
+    onSuccess: () => { setArchivingStage(null); queryClient.invalidateQueries({ queryKey: ["crm.listPipelineStages", selectedID] }); toast.show({ tone: "success", message: "Stage archived. Deals already closed on it are retained." }); },
+    // The server refuses this while open deals still stand on the stage, and
+    // names them — see refusalMessage.
+    onError: (error) => { setArchivingStage(null); toast.show({ tone: "danger", message: refusalMessage(error) }); },
   });
 
   return <div>
@@ -76,10 +93,19 @@ export default function PipelinesPage() {
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-semibold text-slate-900">{selectedPipeline?.name ?? "Stages"}</h2><p className="text-xs text-slate-500">{selectedPipeline?.isDefault ? "Default pipeline for new opportunities." : "Not selected as the default pipeline."}</p></div>{canWrite && selectedPipeline && !selectedPipeline.archivedAt && <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setPipelineName(selectedPipeline.name); setPipelineIsDefault(selectedPipeline.isDefault); setEditingPipeline(true); }}>Edit</Button><Button size="sm" variant="secondary" onClick={() => { if (window.confirm(`Archive ${selectedPipeline.name}? It will remain available for historical reporting.`)) archivePipeline.mutate(selectedPipeline); }} loading={archivePipeline.isPending}>Archive</Button></div>}</div>
         {stageQuery.isPending && <SkeletonRows rows={3}/>}{stageQuery.error && renderQueryError(stageQuery.error, { onRetry: () => stageQuery.refetch() })}
-        <ol className="mb-5 space-y-2">{stageQuery.data?.stages.map((stage) => <li key={stage.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm"><span><span className="mr-2 text-slate-500">{stage.position + 1}.</span>{stage.name}{stage.archivedAt && <span className="ml-2 text-xs text-slate-500">Archived</span>}</span><span className="flex items-center gap-3 text-slate-500">{stage.probability}% · {stage.terminalType}{canWrite && !selectedPipeline?.archivedAt && <Button size="sm" variant="secondary" onClick={() => { setStageName(stage.name); setStagePosition(String(stage.position)); setStageProbability(String(stage.probability)); setTerminalType(stage.terminalType); setRequiresCloseReason(stage.requiresCloseReason); setEditingStageID(stage.id); }}>Edit</Button>}</span></li>)}</ol>{stageQuery.data?.stages.length === 0 && <p className="mb-5 text-sm text-slate-500">No stages yet.</p>}{canWrite && !selectedPipeline?.archivedAt && <form onSubmit={(event) => { event.preventDefault(); createStage.mutate(); }} className="grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-4"><Input label="Stage name" value={stageName} onChange={(event) => setStageName(event.target.value)} required /><Input label="Position" type="number" min={0} value={stagePosition} onChange={(event) => setStagePosition(event.target.value)} required /><Input label="Probability (%)" type="number" min={0} max={100} value={stageProbability} onChange={(event) => setStageProbability(event.target.value)} required /><Select label="Outcome" value={terminalType} onChange={(event) => { const value = event.target.value; setTerminalType(value); if (value === "won") setStageProbability("100"); if (value === "lost") setStageProbability("0"); }} options={[{ value: "open", label: "Open" }, { value: "won", label: "Won" }, { value: "lost", label: "Lost" }]} /><label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-3"><input type="checkbox" checked={requiresCloseReason} onChange={(event) => setRequiresCloseReason(event.target.checked)} /> Require a close reason</label><div><Button type="submit" loading={createStage.isPending}>Add stage</Button></div></form>}</section>
+        <ol className="mb-5 space-y-2">{stageQuery.data?.stages.map((stage) => <li key={stage.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm"><span><span className="mr-2 text-slate-500">{stage.position + 1}.</span>{stage.name}{stage.archivedAt && <span className="ml-2 text-xs text-slate-500">Archived</span>}</span><span className="flex items-center gap-3 text-slate-500">{stage.probability}% · {stage.terminalType}{canWrite && !selectedPipeline?.archivedAt && !stage.archivedAt && <><Button size="sm" variant="secondary" onClick={() => { setStageName(stage.name); setStagePosition(String(stage.position)); setStageProbability(String(stage.probability)); setTerminalType(stage.terminalType); setRequiresCloseReason(stage.requiresCloseReason); setEditingStageID(stage.id); }}>Edit</Button><Button size="sm" variant="secondary" onClick={() => setArchivingStage(stage)}>Archive</Button></>}</span></li>)}</ol>{stageQuery.data?.stages.length === 0 && <p className="mb-5 text-sm text-slate-500">No stages yet.</p>}{canWrite && !selectedPipeline?.archivedAt && <form onSubmit={(event) => { event.preventDefault(); createStage.mutate(); }} className="grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-4"><Input label="Stage name" value={stageName} onChange={(event) => setStageName(event.target.value)} required /><Input label="Position" type="number" min={0} value={stagePosition} onChange={(event) => setStagePosition(event.target.value)} required /><Input label="Probability (%)" type="number" min={0} max={100} value={stageProbability} onChange={(event) => setStageProbability(event.target.value)} required /><Select label="Outcome" value={terminalType} onChange={(event) => { const value = event.target.value; setTerminalType(value); if (value === "won") setStageProbability("100"); if (value === "lost") setStageProbability("0"); }} options={[{ value: "open", label: "Open" }, { value: "won", label: "Won" }, { value: "lost", label: "Lost" }]} /><label className="flex items-center gap-2 text-sm text-slate-700 md:col-span-3"><input type="checkbox" checked={requiresCloseReason} onChange={(event) => setRequiresCloseReason(event.target.checked)} /> Require a close reason</label><div><Button type="submit" loading={createStage.isPending}>Add stage</Button></div></form>}</section>
     </div>}
     <Dialog open={creatingPipeline} onClose={() => setCreatingPipeline(false)} title="New pipeline" footer={<><Button variant="secondary" onClick={() => setCreatingPipeline(false)} disabled={createPipeline.isPending}>Cancel</Button><Button onClick={() => createPipeline.mutate()} loading={createPipeline.isPending} disabled={!pipelineName.trim()}>Create pipeline</Button></>}><Input label="Pipeline name" value={pipelineName} onChange={(event) => setPipelineName(event.target.value)} placeholder="e.g. Enterprise sales" required /></Dialog>
     <Dialog open={editingPipeline} onClose={() => setEditingPipeline(false)} title="Edit pipeline" footer={<><Button variant="secondary" onClick={() => setEditingPipeline(false)} disabled={updatePipeline.isPending}>Cancel</Button><Button onClick={() => selectedPipeline && updatePipeline.mutate({ ...selectedPipeline, name: pipelineName.trim() || selectedPipeline.name, isDefault: pipelineIsDefault })} loading={updatePipeline.isPending}>Save changes</Button></>}><Input label="Pipeline name" value={pipelineName} onChange={(event) => setPipelineName(event.target.value)} /><label className="mt-4 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={pipelineIsDefault} onChange={(event) => setPipelineIsDefault(event.target.checked)} /> Use as the default pipeline</label><p className="mt-2 text-xs text-slate-500">There can be one active default pipeline per organization.</p></Dialog>
     {stageQuery.data?.stages.map((stage) => <Dialog key={stage.id} open={editingStageID === stage.id} onClose={() => setEditingStageID("")} title={`Edit ${stage.name}`} footer={<><Button variant="secondary" onClick={() => setEditingStageID("")} disabled={updateStage.isPending}>Cancel</Button><Button onClick={() => updateStage.mutate({ ...stage, name: stageName.trim() || stage.name, position: Number(stagePosition), probability: Number(stageProbability), terminalType, requiresCloseReason })} loading={updateStage.isPending}>Save changes</Button></>}><Input label="Stage name" value={stageName} onChange={(event) => setStageName(event.target.value)} /><div className="mt-3 grid grid-cols-2 gap-3"><Input label="Position" type="number" min={0} value={stagePosition} onChange={(event) => setStagePosition(event.target.value)} /><Input label="Probability (%)" type="number" min={0} max={100} value={stageProbability} onChange={(event) => setStageProbability(event.target.value)} /></div><div className="mt-3"><Select label="Outcome" value={terminalType} onChange={(event) => setTerminalType(event.target.value)} options={[{ value: "open", label: "Open" }, { value: "won", label: "Won" }, { value: "lost", label: "Lost" }]} /></div><label className="mt-3 flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={requiresCloseReason} onChange={(event) => setRequiresCloseReason(event.target.checked)} /> Require a close reason</label></Dialog>)}
+    <ConfirmDialog
+      open={!!archivingStage}
+      title={archivingStage ? `Archive ${archivingStage.name}?` : ""}
+      description="New deals cannot enter an archived stage and it stops being a destination. Deals already closed on it keep it, so historical reporting still explains itself. Open deals must be moved to another stage first."
+      confirmLabel="Archive stage"
+      loading={archiveStage.isPending}
+      onConfirm={() => archivingStage && archiveStage.mutate(archivingStage)}
+      onCancel={() => setArchivingStage(null)}
+    />
   </div>;
 }

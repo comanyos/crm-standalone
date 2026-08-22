@@ -254,3 +254,33 @@ helpers can run inside one. Reading definitions from the transaction also
 means a write is validated against the snapshot it commits in.
 `internal/domain/pgstore_revenue_workflow_test.go` pins this with a
 deliberately two-connection pool and more writers than that.
+
+## Archiving a pipeline or a stage
+
+Archival is retirement, not deletion: the record stays, so historical
+reporting still explains itself. That makes it look like a safe, purely
+additive flag, and it is not.
+
+`activePipelineStage` resolves an Opportunity's *current* stage before any
+other rule runs, and refuses an archived pipeline or stage. A deal left
+standing on something that gets archived is therefore not merely inconvenient
+— it is permanently unwritable. It cannot advance, cannot be closed, and
+cannot be renamed. It stays readable and keeps its amount, so it goes on
+counting toward anything summed later. No application path can undo it.
+
+So archival is **refused while open deals still stand on the thing being
+archived** (`internal/domain/pipeline_archival.go`, enforced in both stores).
+The refusal is an `ErrConflict` that names the blocking deals and the step
+that clears them, because a refusal an administrator cannot act on is only a
+different kind of dead end. `/settings/pipelines` shows that sentence
+verbatim rather than the generic conflict line.
+
+Only *open* deals block. A closed deal cannot be moved off — every transition
+out of a terminal stage is refused — so counting it would make any stage that
+has ever closed a deal permanently unarchivable, and the remedy the refusal
+names would be impossible to follow.
+
+What decides "open" is the stage the deal currently stands on, read through
+the same stage definitions the transition rules use, rather than a status
+copied onto the opportunity. A copy is a second source of truth, and the one
+that goes stale.
