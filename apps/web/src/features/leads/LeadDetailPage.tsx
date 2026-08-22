@@ -13,6 +13,8 @@ import { useCrmClients } from "../../lib/useCrmClients";
 import { useAuth } from "../../auth/AuthProvider";
 import { useToast } from "../../components/ui/Toast";
 import { ActivityTimeline } from "../../components/ActivityTimeline";
+import { TasksPanel } from "../../components/TasksPanel";
+import { NotesPanel } from "../../components/NotesPanel";
 
 function statusTone(status: string): BadgeTone {
   if (status === "qualified" || status === "converted") return "success";
@@ -99,6 +101,8 @@ export default function LeadDetailPage() {
           <Field label="Owner" value={lead.ownerId} />
         </dl>
       </section>
+      <TasksPanel subjectType="lead" subjectId={id} />
+      <NotesPanel subjectType="lead" subjectId={id} />
       <ActivityTimeline subjectType="lead" subjectId={id} />
       {lead.status === "converted" && <section className="mt-6 max-w-2xl rounded-lg border border-success-200 bg-success-50 p-4"><h2 className="mb-3 text-sm font-semibold text-success-700">Converted</h2><div className="flex flex-wrap gap-4 text-sm">{lead.convertedAccountId && <Link to={`/accounts/${lead.convertedAccountId}`} className="text-brand-700 underline">View account</Link>}{lead.convertedContactId && <Link to={`/contacts/${lead.convertedContactId}`} className="text-brand-700 underline">View contact</Link>}{lead.convertedOpportunityId && <Link to={`/opportunities/${lead.convertedOpportunityId}`} className="text-brand-700 underline">View opportunity</Link>}</div></section>}
       <ConfirmDialog open={confirmingDelete} title="Delete lead" description={`Delete ${lead.company}? This cannot be undone.`} confirmLabel="Delete" tone="danger" loading={deleteMutation.isPending} onConfirm={() => deleteMutation.mutate()} onCancel={() => setConfirmingDelete(false)} />

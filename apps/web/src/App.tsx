@@ -21,6 +21,8 @@ import OpportunityDetailPage from "./features/opportunities/OpportunityDetailPag
 import OpportunityFormPage from "./features/opportunities/OpportunityFormPage";
 import OpportunityBoardPage from "./features/opportunities/OpportunityBoardPage";
 import PipelinesPage from "./features/pipelines/PipelinesPage";
+import TasksListPage from "./features/tasks/TasksListPage";
+import TaskFormPage from "./features/tasks/TaskFormPage";
 
 /** A data router (rather than plain <BrowserRouter>) is required for
  * useBlocker, which the account/contact forms use for unsaved-change
@@ -59,6 +61,10 @@ export const router = createBrowserRouter(
         <Route path="/contacts/new" element={<ContactFormPage mode="create" />} />
         <Route path="/contacts/:id" element={<ContactDetailPage />} />
         <Route path="/contacts/:id/edit" element={<ContactFormPage mode="edit" />} />
+
+        <Route path="/tasks" element={<TasksListPage />} />
+        <Route path="/tasks/new" element={<TaskFormPage mode="create" />} />
+        <Route path="/tasks/:id/edit" element={<TaskFormPage mode="edit" />} />
 
         <Route path="/leads" element={<LeadsListPage />} />
         <Route path="/leads/new" element={<LeadFormPage mode="create" />} />

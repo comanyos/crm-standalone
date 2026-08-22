@@ -11,6 +11,8 @@ import { useCrmClients } from "../../lib/useCrmClients";
 import { useAuth } from "../../auth/AuthProvider";
 import { useToast } from "../../components/ui/Toast";
 import { ActivityTimeline } from "../../components/ActivityTimeline";
+import { TasksPanel } from "../../components/TasksPanel";
+import { NotesPanel } from "../../components/NotesPanel";
 import type { ReactNode } from "react";
 
 export default function ContactDetailPage() {
@@ -129,6 +131,8 @@ export default function ContactDetailPage() {
           />
         </dl>
       </section>
+      <TasksPanel subjectType="contact" subjectId={id} />
+      <NotesPanel subjectType="contact" subjectId={id} />
       <ActivityTimeline subjectType="contact" subjectId={id} />
 
       <ConfirmDialog

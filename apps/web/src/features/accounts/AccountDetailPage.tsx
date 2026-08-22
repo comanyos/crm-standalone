@@ -12,6 +12,8 @@ import { useCrmClients } from "../../lib/useCrmClients";
 import { useAuth } from "../../auth/AuthProvider";
 import { useToast } from "../../components/ui/Toast";
 import { ActivityTimeline } from "../../components/ActivityTimeline";
+import { TasksPanel } from "../../components/TasksPanel";
+import { NotesPanel } from "../../components/NotesPanel";
 
 export default function AccountDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
@@ -211,7 +213,9 @@ export default function AccountDetailPage() {
           )}
         </section>
 
-        <ActivityTimeline subjectType="account" subjectId={id} />
+        <TasksPanel subjectType="account" subjectId={id} />
+      <NotesPanel subjectType="account" subjectId={id} />
+      <ActivityTimeline subjectType="account" subjectId={id} />
       </div>
 
       <ConfirmDialog

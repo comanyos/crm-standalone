@@ -1007,11 +1007,36 @@ Acceptance criteria:
   - An undated task is never overdue. The default order puts undated tasks
     last rather than treating a zero time as "long ago", and the SQL, the
     in-memory sort and the keyset cursor all encode that same rule.
+
+  Two defects found while building the UI, both pre-existing:
+  - `components/ui/Dialog.tsx` hardcoded `id="dialog-title"`, so on any screen
+    with more than one dialog mounted — any list offering both "add" and
+    "edit" — every dialog took the *first* one's accessible name via
+    `aria-labelledby`. A screen reader announced "Add note" while the heading
+    read "Edit note". Now a per-instance `useId`.
+  - The account page's own **Edit**/**Delete** and a note's were both labelled
+    just that, which is ambiguous to assistive technology and broke the
+    existing `deleteFromDetailPage` e2e helper the moment a notes panel
+    appeared on the page. The note actions are now "Edit note"/"Delete note".
 - [~] Build a unified chronological timeline for account/contact/lead/
   opportunity with filtering and lazy loading. A shared API-backed timeline
   now renders on every record detail page and lets authorized users append
-  immutable calls, emails, meetings, and notes. Cross-record aggregation,
-  filters, lazy loading, and a dedicated activity workspace remain pending.
+  immutable calls, emails and meetings. Every record page also carries an
+  **Open tasks** panel and a **Notes** panel, ordered outstanding work →
+  what is known → what happened. "Note" was removed from the activity kinds
+  at the same time: with notes first-class, offering both would give one word
+  two meanings on one screen — an immutable log line and an editable note.
+  Activities already recorded with kind `note` still render.
+  Cross-record aggregation, timeline filters, lazy loading and a dedicated
+  activity workspace remain pending.
+
+  Web surface added with this: `/tasks` (a work list opening on **My open
+  tasks**, with Overdue and All views, and completion from the list),
+  `/tasks/new` and `/tasks/:id/edit`. Completion from any surface goes through
+  `CompleteTask`/`ReopenTask` rather than a whole-record update, so ticking a
+  box cannot lose a concurrent edit. Overdue styling is derived client-side
+  from the same rule the server filters by — an undated or completed task is
+  never overdue — so the badge and the Overdue view cannot disagree.
 
 ### 5.2 Attachments
 

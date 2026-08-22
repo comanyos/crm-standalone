@@ -13,6 +13,8 @@ import { useAuth } from "../../auth/AuthProvider";
 import { useToast } from "../../components/ui/Toast";
 import { isClosedStage, stageLabel, stageTone } from "./stages";
 import { ActivityTimeline } from "../../components/ActivityTimeline";
+import { TasksPanel } from "../../components/TasksPanel";
+import { NotesPanel } from "../../components/NotesPanel";
 
 export default function OpportunityDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
@@ -59,7 +61,9 @@ export default function OpportunityDetailPage() {
       {stageHistoryQuery.data?.changes.length === 0 && <p className="text-sm text-slate-500">No stage changes have been recorded yet.</p>}
       {stageHistoryQuery.data?.changes.length ? <ol className="space-y-3">{stageHistoryQuery.data.changes.map((change) => <li key={change.id} className="border-l-2 border-brand-200 pl-3 text-sm"><p className="font-medium text-slate-800">{stageLabel(change.fromStage) || "Created"} <span className="px-1 text-slate-400">→</span> {stageLabel(change.toStage)}</p><p className="mt-0.5 text-xs text-slate-500">{change.changedAt ? timestampDate(change.changedAt).toLocaleString() : "Recorded"}</p></li>)}</ol> : null}
     </section>
-    <ActivityTimeline subjectType="opportunity" subjectId={id} />
+    <TasksPanel subjectType="opportunity" subjectId={id} />
+      <NotesPanel subjectType="opportunity" subjectId={id} />
+      <ActivityTimeline subjectType="opportunity" subjectId={id} />
     {terminal && <p className="mt-4 max-w-2xl rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">Closed opportunities are final. Create a new opportunity to pursue a new deal.</p>}
     <ConfirmDialog open={confirmingDelete} title="Delete opportunity" description={`Delete ${opportunity.name}? This cannot be undone.`} confirmLabel="Delete" tone="danger" loading={deleteMutation.isPending} onConfirm={() => deleteMutation.mutate()} onCancel={() => setConfirmingDelete(false)} />
   </div>;

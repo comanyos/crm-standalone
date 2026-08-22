@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 interface DialogProps {
   open: boolean;
@@ -13,6 +13,13 @@ interface DialogProps {
  * hand-rolled focus-trap JS and works the same in every modern browser. */
 export function Dialog({ open, onClose, title, children, footer }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Unique per instance. The id was hardcoded to "dialog-title", so a screen
+  // on which two dialogs are mounted — any list offering both "add" and
+  // "edit" — gave every one of them the *first* dialog's accessible name,
+  // because aria-labelledby resolves to the first element with that id in the
+  // document. The heading said "Edit note" while the dialog announced itself
+  // as "Add note".
+  const titleId = useId();
 
   useEffect(() => {
     const el = ref.current;
@@ -43,12 +50,12 @@ export function Dialog({ open, onClose, title, children, footer }: DialogProps) 
   return (
     <dialog
       ref={ref}
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
       className="w-full max-w-md rounded-lg p-0 backdrop:bg-slate-900/50"
       onClose={onClose}
     >
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-        <h2 id="dialog-title" className="text-base font-semibold text-slate-900">
+        <h2 id={titleId} className="text-base font-semibold text-slate-900">
           {title}
         </h2>
         <button

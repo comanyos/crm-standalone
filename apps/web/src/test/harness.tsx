@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter, type RouteObject } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
 import { timestampFromDate, type Timestamp } from "@bufbuild/protobuf/wkt";
-import type { Account, Contact } from "@crm/contracts";
+import type { Account, Contact, Note, Task } from "@crm/contracts";
 
 /** Renders a route tree on a memory **data** router.
  *
@@ -62,6 +62,43 @@ export function makeContact(overrides: Partial<Contact> = {}): Contact {
     duplicateOfContactId: "",
     ...overrides,
   } as Contact;
+}
+
+/** A fully-populated Task. Defaults to an open, unattached, undated task —
+ * the shape a test has to opt out of rather than into, since "no due date"
+ * and "no subject" are real states rather than incomplete ones. */
+export function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    $typeName: "crm.v1.Task",
+    id: "task-1",
+    title: "Send the proposal",
+    description: "",
+    status: "open",
+    priority: "normal",
+    assigneeId: "user-1",
+    dueAt: undefined,
+    subjectType: "",
+    subjectId: "",
+    completedAt: undefined,
+    completedBy: "",
+    createdBy: "user-1",
+    ...overrides,
+  } as Task;
+}
+
+/** A fully-populated Note. editedAt is undefined by default: a new note has
+ * not been edited, and the panel renders that difference. */
+export function makeNote(overrides: Partial<Note> = {}): Note {
+  return {
+    $typeName: "crm.v1.Note",
+    id: "note-1",
+    body: "Renewal owner is now Priya.",
+    subjectType: "account",
+    subjectId: "acc-1",
+    authorId: "user-1",
+    editedAt: undefined,
+    ...overrides,
+  } as Note;
 }
 
 /** A protobuf Timestamp built the way the wire decoder builds one, for

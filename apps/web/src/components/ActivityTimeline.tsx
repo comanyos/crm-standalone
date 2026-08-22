@@ -10,11 +10,15 @@ import { useCrmClients } from "../lib/useCrmClients";
 import { useAuth } from "../auth/AuthProvider";
 import { useToast } from "./ui/Toast";
 
+// "note" is deliberately absent now that notes are a first-class entity
+// (task.md §5.1). Offering both would give the same word two meanings on one
+// screen: an immutable log line here, and an editable note in NotesPanel.
+// Activities already recorded with kind "note" still render — this only stops
+// new ones being created down the wrong path.
 const activityKinds = [
   { value: "call", label: "Call" },
   { value: "email", label: "Email" },
   { value: "meeting", label: "Meeting" },
-  { value: "note", label: "Note" },
 ];
 
 export function ActivityTimeline({ subjectType, subjectId }: { subjectType: "account" | "contact" | "lead" | "opportunity"; subjectId: string }) {
@@ -23,7 +27,7 @@ export function ActivityTimeline({ subjectType, subjectId }: { subjectType: "acc
   const queryClient = useQueryClient();
   const toast = useToast();
   const [logging, setLogging] = useState(false);
-  const [kind, setKind] = useState("note");
+  const [kind, setKind] = useState("call");
   const [notes, setNotes] = useState("");
   const canWrite = hasScope("crm:activity:write");
   const key = ["crm.listActivitiesForSubject", subjectType, subjectId] as const;

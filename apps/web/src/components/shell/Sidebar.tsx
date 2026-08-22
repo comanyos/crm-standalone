@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { to: "/contacts", label: "Contacts" },
   { to: "/leads", label: "Leads" },
   { to: "/opportunities", label: "Opportunities" },
+  { to: "/tasks", label: "Tasks" },
   { to: "/settings/pipelines", label: "Pipelines" },
 ];
 
