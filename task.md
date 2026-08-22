@@ -461,15 +461,12 @@ Acceptance criteria:
   real scope per tenant, that every published envelope's subject names its own
   tenant, and that one tenant's bus failure neither drops nor reattributes
   another's events.
-- [ ] Add tenant context to every audit event, metric label strategy, job, and
+- [~] Add tenant context to every audit event, metric label strategy, job, and
   integration callback while preventing high-cardinality/sensitive telemetry.
-  **Blocked, not skipped:** `services/crm-api` has no audit-event store, no
-  metrics exporter, and no integration callbacks to attach tenant context to
-  — the only recurring job is the outbox dispatcher, which is covered above.
-  This bullet cannot close before §10.2 builds those surfaces. The access log
-  (`internal/server/middleware.go`) also carries no tenant today, because it
-  runs as HTTP middleware, outside the Connect interceptor that resolves the
-  principal.
+  §10.2 now adds CRM/AuthinCore metrics, bounded operation labels, safe
+  request logs, and CRM outbox counters; tenant IDs are deliberately excluded
+  from all labels and worker/access logs. Audit-event storage and integration
+  callbacks still do not exist, so this remains open for those future surfaces.
 - [x] Add automated tests for host-domain tenant resolution, token-org/host
   mismatch, and safe handling of unknown/deactivated organizations, in
   `internal/auth/tenant_resolution_test.go`. This service has no host-domain
@@ -1175,11 +1172,25 @@ Acceptance criteria:
 
 ### 10.2 Observability and reliability
 
-- [ ] Add service metrics for HTTP/RPC, DB pools/query latency, NATS/outbox,
-  AuthinCore/OIDC, jobs, integrations, and user-visible errors.
-- [ ] Add distributed tracing and request/correlation IDs across web, CRM,
-  AuthinCore, workers, and webhooks.
-- [ ] Add structured logs with secret/PII redaction and retention controls.
+- [~] Add service metrics for HTTP/RPC, DB pools/query latency, NATS/outbox,
+  AuthinCore/OIDC, jobs, integrations, and user-visible errors. CRM and
+  AuthinCore now export Prometheus HTTP/Connect request counters and latency,
+  pool statistics, CRM outbox success/retry/failure, JWT/OIDC validation
+  failures, NATS connection state, and bounded database query latency.
+  Integration-specific metrics remain open because those integrations do not
+  yet exist. See `docs/OBSERVABILITY.md`.
+- [~] Add distributed tracing and request/correlation IDs across web, CRM,
+  AuthinCore, workers, and webhooks. Safe request IDs and W3C `traceparent`
+  now enter CRM and AuthinCore HTTP/Connect ingress; optional OTLP export is
+  wired for both services. The CRM web client creates opaque trace context and
+  the implemented CRM path persists/restores it through outbox delivery to
+  NATS. AuthinCore outbound flows plus future webhooks/integrations still need
+  explicit propagation when those features exist, so the cross-product item
+  remains open.
+- [~] Add structured logs with secret/PII redaction and retention controls.
+  CRM and AuthinCore use allowlist-based JSON access logs that omit headers,
+  bodies, query values, cookies, tokens, passwords, redirect locations, and
+  PII. Retention, shipping, and access controls remain deployment work.
 - [ ] Define SLOs, alert thresholds, dashboards, on-call ownership, runbooks,
   and synthetic checks for login and core CRM workflows.
 - [ ] Run load, soak, failure, restart, key rotation, database failover, and
@@ -1192,10 +1203,16 @@ Acceptance criteria:
   secret manager/KMS.
 - [ ] Create immutable deployment manifests/IaC, environment-specific config,
   least-privilege service accounts, network policies, and deployment pipeline.
-- [ ] Define migration forward/rollback/expand-contract process and test it on
-  realistic data volumes.
-- [ ] Implement encrypted backups, point-in-time recovery as needed, retention,
-  cross-region policy, restoration runbook, and documented RPO/RTO.
+- [~] Define migration forward/rollback/expand-contract process and test it on
+  realistic data volumes. The forward-only expand/contract and application
+  rollback policy is now documented in `docs/BACKUP_RESTORE.md`; realistic
+  volume/upgrade validation is still open.
+- [~] Implement encrypted backups, point-in-time recovery as needed, retention,
+  cross-region policy, restoration runbook, and documented RPO/RTO. Encrypted
+  local Compose logical backup/restore tools and a destructive-restore runbook
+  now exist (`scripts/backup-compose.sh`, `scripts/restore-compose.sh`,
+  `docs/BACKUP_RESTORE.md`). Provider-managed PITR, retention, cross-region
+  policy, and approved RPO/RTO remain unselected and therefore open.
 - [ ] Perform at least one restore drill and one production-like upgrade drill.
 
 ### 10.4 Release gate

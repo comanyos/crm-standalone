@@ -4,6 +4,12 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/santoshguru/crm/internal/tracing"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 func testEnvelope(tenant, entityID string, version int64) Envelope {
@@ -18,6 +24,29 @@ func testEnvelope(tenant, entityID string, version int64) Envelope {
 		SourceVersion: version,
 		Actor:         "tester",
 		OccurredAt:    time.Now().UTC(),
+	}
+}
+
+func TestEnqueueEventCapturesOnlyValidTraceParent(t *testing.T) {
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	otel.SetTracerProvider(sdktrace.NewTracerProvider())
+	t.Cleanup(func() { otel.SetTracerProvider(oteltrace.NewNoopTracerProvider()) })
+
+	const traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+	ctx := tracing.ContextWithTraceParent(context.Background(), traceparent)
+	store := NewMemStore()
+	ev, err := EnqueueEvent(ctx, store, Scope{TenantID: "tenant-a"}, testEnvelope("tenant-a", "opp-1", 1))
+	if err != nil {
+		t.Fatalf("EnqueueEvent: %v", err)
+	}
+	if ev.Envelope.TraceParent != traceparent {
+		t.Fatalf("TraceParent = %q, want %q", ev.Envelope.TraceParent, traceparent)
+	}
+
+	bad := testEnvelope("tenant-a", "opp-2", 1)
+	bad.TraceParent = "Bearer secret-token"
+	if _, err := NewOutboxEvent(bad); err == nil {
+		t.Fatal("NewOutboxEvent accepted arbitrary trace metadata")
 	}
 }
 

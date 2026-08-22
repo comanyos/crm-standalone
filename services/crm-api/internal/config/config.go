@@ -55,6 +55,10 @@ type Config struct {
 	AuthJWKSURL  string      // AuthinCore JWKS endpoint (empty = auth disabled in dev)
 	NATSURL      string      // event bus (empty = events logged locally)
 	DatabaseURL  string      // Postgres metadata store (empty = in-memory)
+	// MetricsToken protects /metrics when set. It is mandatory in staging and
+	// production; an empty value keeps the explicitly documented local/internal
+	// development scrape endpoint unauthenticated.
+	MetricsToken string
 
 	// OutboxDrainURL is the DSN the background event-outbox dispatcher
 	// connects with (Track A3). It must bypass row-level security —
@@ -81,6 +85,7 @@ func Load() Config {
 		AuthJWKSURL:    env("AUTH_JWKS_URL", ""),
 		NATSURL:        env("NATS_URL", ""),
 		DatabaseURL:    env("DATABASE_URL", ""),
+		MetricsToken:   env("CRM_METRICS_TOKEN", ""),
 		OutboxDrainURL: env("OUTBOX_DRAIN_DATABASE_URL", ""),
 		CORSOrigins:    splitCSV(env("CORS_ALLOWED_ORIGINS", "")),
 	}
@@ -134,6 +139,9 @@ func (c Config) Validate() error {
 		} else if pw := dsnPassword(c.OutboxDrainURL); weakPassword(pw) {
 			problems = append(problems, "OUTBOX_DRAIN_DATABASE_URL uses a development-default or weak password")
 		}
+	}
+	if len(c.MetricsToken) < 16 {
+		problems = append(problems, "CRM_METRICS_TOKEN is required and must be at least 16 characters")
 	}
 	for _, origin := range c.CORSOrigins {
 		if !strings.HasPrefix(origin, "https://") {

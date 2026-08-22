@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"unicode"
 
 	"github.com/google/uuid"
 )
@@ -88,13 +89,27 @@ func csrfDenied(w http.ResponseWriter) {
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rid := r.Header.Get("X-Request-ID")
-		if rid == "" {
+		if !validRequestID(rid) {
 			rid = uuid.New().String()
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyRequestID{}, rid)
 		w.Header().Set("X-Request-ID", rid)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// validRequestID prevents arbitrary header data, including accidental secrets,
+// from becoming a correlation field in structured logs.
+func validRequestID(id string) bool {
+	if len(id) < 8 || len(id) > 128 {
+		return false
+	}
+	for _, r := range id {
+		if !(unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("._-", r)) {
+			return false
+		}
+	}
+	return true
 }
 
 // SecurityHeaders sets secure HTTP response headers on every response.

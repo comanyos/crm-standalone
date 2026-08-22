@@ -1,4 +1,4 @@
-.PHONY: dev-key auth-ui up down logs ps test verify bootstrap reset-admin-password test-db-up test-db-down
+.PHONY: dev-key auth-ui up down logs ps test verify bootstrap reset-admin-password test-db-up test-db-down backup-local restore-local
 
 dev-key:
 	mkdir -p deploy/secrets
@@ -50,3 +50,13 @@ test-db-up:
 
 test-db-down:
 	docker compose --profile test rm -sf auth-postgres-test crm-postgres-test
+
+# Encrypted logical local backups only. See docs/BACKUP_RESTORE.md; callers
+# must provide an age recipient and an existing protected output directory.
+backup-local:
+	./scripts/backup-compose.sh
+
+# Destructive local restore only. The script requires an exact acknowledgement
+# and encrypted archive inputs; see docs/BACKUP_RESTORE.md.
+restore-local:
+	./scripts/restore-compose.sh

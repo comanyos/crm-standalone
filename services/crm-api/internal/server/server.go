@@ -1,9 +1,12 @@
 package server
 
 import (
+	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/santoshguru/crm/gen/crm/v1/crmv1connect"
@@ -12,18 +15,21 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/metrics"
 	"github.com/santoshguru/crm/internal/platform"
+	"github.com/santoshguru/crm/internal/tracing"
 )
 
 const moduleID = "crm"
 
 // Server holds the wired CRM HTTP server.
 type Server struct {
-	cfg     config.Config
-	store   domain.Store
-	emitter *platform.Emitter
-	authn   *auth.Authenticator
-	mux     *http.ServeMux
+	cfg       config.Config
+	store     domain.Store
+	emitter   *platform.Emitter
+	authn     *auth.Authenticator
+	mux       *http.ServeMux
+	readiness func(context.Context) error
 }
 
 // New builds the server and registers routes.
@@ -48,6 +54,11 @@ func New(
 		authn:   authn,
 		mux:     http.NewServeMux(),
 	}
+	if pinger, ok := store.(interface{ Ping(context.Context) error }); ok {
+		s.readiness = pinger.Ping
+	} else {
+		s.readiness = func(context.Context) error { return nil }
+	}
 	s.routes()
 	return s, nil
 }
@@ -67,7 +78,7 @@ func (s *Server) Publisher() *platform.Publisher {
 
 // Handler exposes the mux wrapped in middleware.
 func (s *Server) Handler() http.Handler {
-	mws := []func(http.Handler) http.Handler{requestIDMW, loggingMW, recoverMW}
+	mws := []func(http.Handler) http.Handler{requestIDMW, tracing.HTTPMiddleware, metrics.Middleware, loggingMW, recoverMW}
 	if len(s.cfg.CORSOrigins) > 0 {
 		mws = append(mws, corsMW(s.cfg.CORSOrigins))
 	}
@@ -95,9 +106,17 @@ func (s *Server) routes() {
 	// keeps the process alive and takes it out of the load balancer instead.
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		err := s.readiness(ctx)
+		cancel()
+		if err != nil {
+			slog.Warn("readiness check failed", "dependency", "database", "request_id", RequestID(r.Context()))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "not_ready", "reason": "dependencies unavailable"})
+			return
+		}
 		if err := s.authn.Ready(r.Context()); err != nil {
-			slog.Warn("readiness check failed", "err", err,
-				"request_id", RequestID(r.Context()))
+			slog.Warn("readiness check failed", "dependency", "signing_keys", "request_id", RequestID(r.Context()))
 			w.WriteHeader(http.StatusServiceUnavailable)
 			// The reason names the subsystem, never the JWKS URL's contents
 			// or any token material.
@@ -110,6 +129,20 @@ func (s *Server) routes() {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 
+	// Metrics contain aggregate counters and bounded operation labels only.
+	// Compose exposes this for local/internal development; production network
+	// policy must restrict access to the scrape endpoint.
+	metricsHandler := metrics.Handler(func() {
+		metrics.SetNATSStatus(s.emitter.NATSStatus())
+		if store, ok := s.store.(interface {
+			PoolStats() (int32, int32, int32, int32)
+		}); ok {
+			acquired, idle, total, max := store.PoolStats()
+			metrics.SetDBPoolStats(metrics.DBPoolStats{Acquired: acquired, Idle: idle, Total: total, Max: max})
+		}
+	})
+	s.mux.Handle("GET /metrics", s.requireMetricsToken(metricsHandler))
+
 	interceptors := connect.WithInterceptors(s.authn.Interceptor(scopePolicy))
 
 	modPath, modHandler := platformv1connect.NewModuleServiceHandler(
@@ -119,4 +152,25 @@ func (s *Server) routes() {
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
 		api.NewCRMService(s.cfg, s.store), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
+}
+
+// requireMetricsToken protects scrape data when CRM_METRICS_TOKEN is set. An
+// empty token is intentionally the local/internal Compose posture documented
+// in docs/OBSERVABILITY.md; production config validation rejects that state.
+func (s *Server) requireMetricsToken(next http.Handler) http.Handler {
+	if s.cfg.MetricsToken == "" {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const prefix = "Bearer "
+		provided := r.Header.Get("Authorization")
+		if len(provided) <= len(prefix) || provided[:len(prefix)] != prefix ||
+			subtle.ConstantTimeCompare([]byte(provided[len(prefix):]), []byte(s.cfg.MetricsToken)) != 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

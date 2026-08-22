@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -26,6 +27,16 @@ var (
 		Help:    "HTTP request latency in seconds.",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"method", "path"})
+
+	OIDCValidationFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "authincore_oidc_validation_failures_total",
+		Help: "OAuth/OIDC validation failures partitioned by protocol error code.",
+	}, []string{"code"})
+
+	DBPoolAcquired = promauto.NewGauge(prometheus.GaugeOpts{Name: "authincore_db_pool_acquired_connections", Help: "Current acquired AuthinCore database pool connections."})
+	DBPoolIdle     = promauto.NewGauge(prometheus.GaugeOpts{Name: "authincore_db_pool_idle_connections", Help: "Current idle AuthinCore database pool connections."})
+	DBPoolTotal    = promauto.NewGauge(prometheus.GaugeOpts{Name: "authincore_db_pool_total_connections", Help: "Current total AuthinCore database pool connections."})
+	DBPoolMax      = promauto.NewGauge(prometheus.GaugeOpts{Name: "authincore_db_pool_max_connections", Help: "Configured maximum AuthinCore database pool connections."})
 
 	// Auth flows
 
@@ -87,8 +98,18 @@ var (
 )
 
 // Handler returns the Prometheus metrics HTTP handler for GET /metrics.
-func Handler() http.Handler {
-	return promhttp.Handler()
+func Handler(pool *pgxpool.Pool) http.Handler {
+	h := promhttp.Handler()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if pool != nil {
+			stats := pool.Stat()
+			DBPoolAcquired.Set(float64(stats.AcquiredConns()))
+			DBPoolIdle.Set(float64(stats.IdleConns()))
+			DBPoolTotal.Set(float64(stats.TotalConns()))
+			DBPoolMax.Set(float64(stats.MaxConns()))
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 // statusRecorder wraps ResponseWriter to capture the status code written.
@@ -116,11 +137,23 @@ func Middleware(next http.Handler) http.Handler {
 		next.ServeHTTP(rec, r)
 		dur := time.Since(start).Seconds()
 		// Use the matched pattern as the path label to avoid high cardinality.
-		pattern := r.Pattern
-		if pattern == "" {
-			pattern = r.URL.Path
-		}
+		pattern := route(r)
 		HTTPRequestsTotal.WithLabelValues(r.Method, pattern, strconv.Itoa(rec.status)).Inc()
 		HTTPRequestDuration.WithLabelValues(r.Method, pattern).Observe(dur)
 	})
+}
+
+func route(r *http.Request) string {
+	if r.Pattern != "" {
+		return r.Pattern
+	}
+	path := r.URL.Path
+	if path == "/healthz" || path == "/readyz" || path == "/metrics" {
+		return path
+	}
+	// Connect RPC paths are fixed at build time and are safe label values.
+	if len(path) > 1 && path[0] == '/' && (len(path) >= len("/authincore.v1.") && path[:len("/authincore.v1.")] == "/authincore.v1.") {
+		return path
+	}
+	return "unmatched"
 }

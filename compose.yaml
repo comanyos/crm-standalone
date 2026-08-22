@@ -225,6 +225,9 @@ services:
       CRM_ADDR: ":9431"
       DATABASE_URL: postgres://crm_app:${CRM_DB_APP_PASSWORD:-crm_app}@crm-postgres:5432/crm?sslmode=disable
       OUTBOX_DRAIN_DATABASE_URL: postgres://crm_drain:${CRM_DB_DRAIN_PASSWORD:-crm_drain}@crm-postgres:5432/crm?sslmode=disable
+      # Empty only in local Compose: /metrics is intentionally local/internal
+      # unauthenticated there. Staging/production requires CRM_METRICS_TOKEN.
+      CRM_METRICS_TOKEN: ${CRM_METRICS_TOKEN:-}
       AUTH_ISSUER: ${AUTH_PUBLIC_URL:-http://localhost:18080}
       AUTH_AUDIENCE: ${AUTH_PUBLIC_URL:-http://localhost:18080}
       AUTH_JWKS_URL: http://authincore:8080/oauth2/keys

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 // A publish that can fail out loud. Emitter, above, is deliberately
@@ -107,11 +109,7 @@ func (p *Publisher) PublishWithID(ctx context.Context, subject string, payload [
 		return ErrNoBus
 	}
 
-	msg := &nats.Msg{Subject: subject, Data: payload}
-	if msgID != "" {
-		msg.Header = nats.Header{}
-		msg.Header.Set(nats.MsgIdHdr, msgID)
-	}
+	msg := newPublishMessage(ctx, subject, payload, msgID)
 
 	if p.js != nil {
 		pubCtx, cancel := context.WithTimeout(ctx, p.flushTimeout)
@@ -132,4 +130,24 @@ func (p *Publisher) PublishWithID(ctx context.Context, subject string, payload [
 		return fmt.Errorf("flush %s: %w", subject, err)
 	}
 	return nil
+}
+
+func newPublishMessage(ctx context.Context, subject string, payload []byte, msgID string) *nats.Msg {
+	msg := &nats.Msg{Subject: subject, Data: payload, Header: nats.Header{}}
+	// A message continues the dispatcher producer span for consumers that
+	// understand W3C Trace Context. No request headers, payload fields, tenant
+	// identifiers, or credentials are copied into transport metadata.
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	// nats.Header is case-sensitive, whereas HTTP headers are not. Copy only
+	// the standard W3C keys with their wire-format lowercase spelling.
+	for _, key := range []string{"traceparent", "tracestate"} {
+		if value := carrier.Get(key); value != "" {
+			msg.Header.Set(key, value)
+		}
+	}
+	if msgID != "" {
+		msg.Header.Set(nats.MsgIdHdr, msgID)
+	}
+	return msg
 }

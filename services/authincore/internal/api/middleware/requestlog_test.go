@@ -36,26 +36,25 @@ func TestRequestLogRedactsTheAuthorizationCode(t *testing.T) {
 	if strings.Contains(string(raw), "SECRET-CODE") {
 		t.Fatalf("authorization code leaked into the log line: %s", raw)
 	}
-	loc, _ := line["location"].(string)
-	if !strings.Contains(loc, "state=abc") {
-		t.Fatalf("location = %q, want the non-secret params kept", loc)
+	if _, ok := line["location"]; ok {
+		t.Fatalf("redirect location must not be logged: %v", line)
 	}
 }
 
-// A login bounce is only diagnosable if the log shows where the browser was
-// sent, and return_to holds the whole interrupted authorize request.
-func TestRequestLogKeepsTheNestedReturnTo(t *testing.T) {
+func TestRequestLogOmitsQueryValuesAndCookieValues(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet,
-		"/login?return_to=%2Foauth2%2Fauthorize%3Fclient_id%3Dcrm-web%26response_type%3Dcode", nil)
+		"/login?email=person@example.test&access_token=SECRET-TOKEN", nil)
+	req.AddCookie(&http.Cookie{Name: "authincore_session", Value: "a-real-session-jwt"})
 	line := logOneRequest(t, req, func(w http.ResponseWriter, _ *http.Request) {})
-
-	query, _ := line["query"].(string)
-	if !strings.Contains(query, "client_id") || !strings.Contains(query, "response_type") {
-		t.Fatalf("query = %q, want the nested authorize params readable", query)
+	raw, _ := json.Marshal(line)
+	for _, secret := range []string{"person@example.test", "SECRET-TOKEN", "a-real-session-jwt"} {
+		if strings.Contains(string(raw), secret) {
+			t.Fatalf("sensitive value leaked into the log line: %s", raw)
+		}
 	}
 }
 
-func TestRequestLogRecordsStatusAndSessionCookieName(t *testing.T) {
+func TestRequestLogRecordsStatusWithoutCookieMetadata(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/self-service/login?flow=1", nil)
 	req.AddCookie(&http.Cookie{Name: "authincore_session", Value: "a-real-session-jwt"})
 	line := logOneRequest(t, req, func(w http.ResponseWriter, _ *http.Request) {
@@ -65,12 +64,8 @@ func TestRequestLogRecordsStatusAndSessionCookieName(t *testing.T) {
 	if got := line["status"]; got != float64(http.StatusTooManyRequests) {
 		t.Fatalf("status = %v, want 429", got)
 	}
-	if got := line["session_cookie"]; got != "authincore_session" {
-		t.Fatalf("session_cookie = %v, want the cookie name", got)
-	}
-	raw, _ := json.Marshal(line)
-	if strings.Contains(string(raw), "a-real-session-jwt") {
-		t.Fatalf("session cookie value leaked into the log line: %s", raw)
+	if _, ok := line["session_cookie"]; ok {
+		t.Fatalf("session cookie metadata must not be logged: %v", line)
 	}
 }
 
@@ -85,5 +80,29 @@ func TestRequestLogDefaultsToOKWhenTheHandlerOnlyWrites(t *testing.T) {
 	}
 	if got := line["level"]; got != "DEBUG" {
 		t.Fatalf("level = %v, want health probes at DEBUG", got)
+	}
+}
+
+func TestRequestIDPreservesSafeValueAndReplacesUnsafeValue(t *testing.T) {
+	h := RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := RequestIDFromContext(r.Context()); got != w.Header().Get("X-Request-ID") {
+			t.Fatalf("context request id=%q response=%q", got, w.Header().Get("X-Request-ID"))
+		}
+	}))
+	for _, tc := range []struct {
+		inbound  string
+		preserve bool
+	}{
+		{inbound: "trace-12345678", preserve: true},
+		{inbound: "Bearer TOP-SECRET", preserve: false},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+		req.Header.Set("X-Request-ID", tc.inbound)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		got := rec.Header().Get("X-Request-ID")
+		if got == "" || (tc.preserve && got != tc.inbound) || (!tc.preserve && got == tc.inbound) {
+			t.Fatalf("inbound=%q got=%q preserve=%v", tc.inbound, got, tc.preserve)
+		}
 	}
 }

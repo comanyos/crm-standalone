@@ -1,6 +1,9 @@
 package platform_test
 
 import (
+	"bytes"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,4 +50,29 @@ func TestEmitPreservesExplicitFields(t *testing.T) {
 func TestEmitWithoutSinkDoesNotPanic(_ *testing.T) {
 	platform.NewEmitter("crm", "").Emit(platform.Event{Type: "x"})
 	platform.NewEmitter("crm", "nats://localhost:4222").Emit(platform.Event{Type: "x"})
+}
+
+func TestLogOnlyEmitterRedactsEventPayload(t *testing.T) {
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(old) })
+
+	platform.NewEmitter("crm", "").Emit(platform.Event{
+		Type: "contact.created", TenantID: "tenant-secret", Actor: "person@example.test",
+		Data: map[string]any{"access_token": "TOP-SECRET"},
+	})
+	line := buf.String()
+	for _, secret := range []string{"tenant-secret", "person@example.test", "TOP-SECRET"} {
+		if strings.Contains(line, secret) {
+			t.Fatalf("event payload leaked into log: %s", line)
+		}
+	}
+}
+
+func TestNATSStatusDistinguishesDisabledBus(t *testing.T) {
+	configured, connected := platform.NewEmitter("crm", "").NATSStatus()
+	if configured || connected {
+		t.Fatalf("disabled bus status = configured:%v connected:%v", configured, connected)
+	}
 }

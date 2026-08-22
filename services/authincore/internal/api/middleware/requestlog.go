@@ -3,25 +3,9 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
-
-// sensitiveParams are query parameters whose values are credentials or
-// single-use secrets. They are replaced with a marker rather than dropped, so a
-// log line still shows that the parameter was present.
-var sensitiveParams = map[string]struct{}{
-	"code":            {},
-	"code_verifier":   {},
-	"access_token":    {},
-	"id_token":        {},
-	"refresh_token":   {},
-	"token":           {},
-	"password":        {},
-	"consent_id":      {},
-	"login_challenge": {},
-}
 
 // RequestLog writes one structured line per HTTP request.
 //
@@ -43,23 +27,12 @@ func RequestLog(log *slog.Logger) func(http.Handler) http.Handler {
 
 			attrs := []any{
 				"method", r.Method,
-				"path", r.URL.Path,
+				"route", safeRoute(r),
 				"status", rec.status,
 				"duration_ms", time.Since(start).Milliseconds(),
 			}
-			if q := redactQuery(r.URL.RawQuery); q != "" {
-				attrs = append(attrs, "query", q)
-			}
 			if rid := RequestIDFromContext(r.Context()); rid != "" {
 				attrs = append(attrs, "request_id", rid)
-			}
-			// Which session cookie the browser presented (by name, never value)
-			// is the difference between "no session" and "session rejected".
-			if name := sessionCookieName(r); name != "" {
-				attrs = append(attrs, "session_cookie", name)
-			}
-			if loc := rec.Header().Get("Location"); loc != "" {
-				attrs = append(attrs, "location", redactLocation(loc))
 			}
 
 			level := slog.LevelInfo
@@ -73,64 +46,20 @@ func RequestLog(log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// sessionCookieName reports which of the session cookie names the request
-// carried, in the same precedence the authorize endpoint resolves them.
-func sessionCookieName(r *http.Request) string {
-	for _, name := range []string{"__Host-authincore_session", "authincore_session", "ory_session"} {
-		if _, err := r.Cookie(name); err == nil {
-			return name
-		}
-	}
-	return ""
-}
-
 func isGlobalProbe(path string) bool {
 	return path == "/healthz" || path == "/readyz"
 }
 
-// redactLocation redacts a Location header, which on a successful authorize
-// carries the authorization code.
-func redactLocation(loc string) string {
-	u, err := url.Parse(loc)
-	if err != nil {
-		return "<unparseable>"
+// safeRoute returns a registered route pattern, never request values or a
+// dynamic URL. This keeps identifiers and query/body PII out of logs.
+func safeRoute(r *http.Request) string {
+	if r.Pattern != "" {
+		return r.Pattern
 	}
-	u.RawQuery = redactQuery(u.RawQuery)
-	return u.String()
-}
-
-// redactQuery keeps parameter names and non-sensitive values. return_to is
-// recursively redacted: it carries a whole authorize URL, and that nested URL
-// is exactly what a redirect-loop investigation needs to read.
-func redactQuery(raw string) string {
-	if raw == "" {
-		return ""
+	if strings.HasPrefix(r.URL.Path, "/authincore.v1.") {
+		return r.URL.Path
 	}
-	values, err := url.ParseQuery(raw)
-	if err != nil {
-		return "<unparseable>"
-	}
-	for key, vs := range values {
-		if _, sensitive := sensitiveParams[strings.ToLower(key)]; sensitive {
-			values[key] = []string{"<redacted>"}
-			continue
-		}
-		if strings.EqualFold(key, "return_to") {
-			for i, v := range vs {
-				vs[i] = redactReturnTo(v)
-			}
-		}
-	}
-	return values.Encode()
-}
-
-func redactReturnTo(v string) string {
-	u, err := url.Parse(v)
-	if err != nil {
-		return "<unparseable>"
-	}
-	u.RawQuery = redactQuery(u.RawQuery)
-	return u.String()
+	return "unmatched"
 }
 
 type logStatusRecorder struct {

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/authincore/authincore/internal/metrics"
 	"github.com/authincore/authincore/internal/token"
 	"github.com/google/uuid"
 )
@@ -706,6 +707,7 @@ func redirectWithError(w http.ResponseWriter, r *http.Request, redirectURI, stat
 }
 
 func tokenError(w http.ResponseWriter, errCode, desc string) {
+	metrics.OIDCValidationFailures.WithLabelValues(errCode).Inc()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
 	_ = json.NewEncoder(w).Encode(map[string]string{

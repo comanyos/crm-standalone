@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -55,6 +56,9 @@ func TestCORSMW_PreflightAllowed(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
 		t.Fatal("expected Access-Control-Allow-Headers on a preflight response")
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(strings.ToLower(got), "traceparent") {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want traceparent", got)
 	}
 }
 

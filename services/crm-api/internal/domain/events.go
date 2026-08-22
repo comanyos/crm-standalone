@@ -32,6 +32,9 @@ type Envelope struct {
 	Actor         string          `json:"actor"`
 	OccurredAt    time.Time       `json:"occurred_at"`
 	Payload       json.RawMessage `json:"payload,omitempty"`
+	// TraceParent is W3C Trace Context retained for the asynchronous outbox
+	// hand-off. It is opaque telemetry context, never an authorization input.
+	TraceParent string `json:"traceparent,omitempty"`
 }
 
 // WithPayload attaches the record the event is about.
@@ -69,6 +72,25 @@ func (e Envelope) Validate() error {
 		return fmt.Errorf(
 			"%w: event %s has source version %d; a projection cannot detect staleness without one",
 			ErrInvalid, e.ID, e.SourceVersion)
+	case e.TraceParent != "" && !validTraceParent(e.TraceParent):
+		return fmt.Errorf("%w: event %s has an invalid traceparent", ErrInvalid, e.ID)
 	}
 	return nil
+}
+
+// validTraceParent accepts the W3C version 00 wire format. It keeps the
+// durable envelope from becoming a general-purpose untrusted metadata store.
+func validTraceParent(v string) bool {
+	if len(v) != 55 || v[0:3] != "00-" || v[35] != '-' || v[52] != '-' {
+		return false
+	}
+	for i, c := range v {
+		if i == 2 || i == 35 || i == 52 {
+			continue
+		}
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
 }

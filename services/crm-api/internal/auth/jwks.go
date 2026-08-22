@@ -78,9 +78,9 @@ func newFromJWKS(ctx context.Context, jwksURL, issuer, audience string) (*Authen
 		NoErrorReturnFirstHTTPReq: true,
 		RefreshInterval:           jwksRefreshInterval,
 		RefreshErrorHandler: func(ctx context.Context, err error) {
-			slog.ErrorContext(ctx, "failed to refresh the JWK Set; "+
-				"token verification will keep using the cached keys until this succeeds",
-				"err", err, "jwks_url", jwksURL)
+			// The upstream error and URL can disclose credentials or topology.
+			// Readiness surfaces the safe operational state instead.
+			slog.ErrorContext(ctx, "JWK Set refresh failed; cached keys remain in use")
 		},
 	})
 	if err != nil {

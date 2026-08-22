@@ -15,16 +15,17 @@ type Sink func(Event)
 // falls back to structured logging when no bus is configured.
 // Emits are fire-and-forget — callers are never blocked.
 type Emitter struct {
-	module string
-	nc     *nats.Conn // nil when no NATS URL configured
-	sink   Sink
+	module        string
+	nc            *nats.Conn // nil when no NATS URL configured
+	sink          Sink
+	busConfigured bool
 }
 
 // NewEmitter builds an emitter. busURL empty = log-only (dev default).
 // NATS connection failures are logged and degraded to log-only — the module
 // must still start and function without a running bus.
 func NewEmitter(module, busURL string) *Emitter {
-	e := &Emitter{module: module}
+	e := &Emitter{module: module, busConfigured: busURL != ""}
 	if busURL != "" {
 		nc, err := nats.Connect(busURL,
 			nats.Name(module+"-emitter"),
@@ -32,8 +33,9 @@ func NewEmitter(module, busURL string) *Emitter {
 			nats.ReconnectWait(2*time.Second),
 		)
 		if err != nil {
-			slog.Warn("nats connect failed — events will be logged locally",
-				"module", module, "url", busURL, "err", err)
+			// Connection errors and URLs can disclose internal topology or
+			// credentials. Metrics report the safe aggregate state instead.
+			slog.Warn("nats connection unavailable; events will be logged locally", "module", module)
 		} else {
 			e.nc = nc
 		}
@@ -71,20 +73,33 @@ func (e *Emitter) Emit(ev Event) {
 		return
 	}
 
-	b, _ := json.Marshal(ev)
-
 	if e.nc != nil {
 		subject := "platform." + ev.Module + "." + ev.Type
-		if err := e.nc.Publish(subject, b); err != nil {
-			slog.Warn("nats publish failed", "subject", subject, "err", err)
+		payload, _ := json.Marshal(ev)
+		if err := e.nc.Publish(subject, payload); err != nil {
+			slog.Warn("nats publish failed", "module", ev.Module, "event_type", ev.Type)
 		}
 		return
 	}
 
-	slog.Info("event", "module", ev.Module, "type", ev.Type, "payload", json.RawMessage(b))
+	// Event fields contain tenant, actor, subject, links and arbitrary data.
+	// The log is an operational breadcrumb, not a second event store.
+	slog.Info("event not published", "module", ev.Module, "event_type", ev.Type)
 }
 
 // NATSConn returns the underlying NATS connection handle.
 func (e *Emitter) NATSConn() *nats.Conn {
 	return e.nc
+}
+
+// NATSStatus reports whether a bus was configured and is currently connected.
+// It deliberately returns booleans only, so metrics never expose a NATS URL.
+func (e *Emitter) NATSStatus() (configured, connected bool) {
+	if e == nil {
+		return false, false
+	}
+	if e.nc == nil {
+		return e.busConfigured, false
+	}
+	return true, e.nc.Status() == nats.CONNECTED
 }

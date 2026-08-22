@@ -63,6 +63,7 @@ with the checked-in local defaults.
 | `AUTH_JWKS_URL` | *(empty)* | Yes, `https://` |
 | `DATABASE_URL` | *(empty — in-memory store)* | Yes, no `sslmode=disable`, strong password |
 | `OUTBOX_DRAIN_DATABASE_URL` | *(empty — shares the app pool)* | Yes, alongside `DATABASE_URL` |
+| `CRM_METRICS_TOKEN` | *(empty — local/internal scrape only)* | Yes, at least 16 characters; use `Authorization: Bearer …` for `/metrics` |
 | `NATS_URL` | *(empty — events logged locally)* | Recommended |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` (compose default; comma-separated) | Every entry must be `https://` |
 
@@ -177,19 +178,13 @@ both matter:
 Giving each worker its own identity would *not* help — the counter is keyed
 on IP, not identity.
 
-## Request logging
+## Request logging and metrics
 
-AuthinCore writes one structured line per HTTP request
-(`internal/api/middleware.RequestLog`), carrying method, path, status,
-duration, request ID, the name of the session cookie the request presented,
-and — for redirects — the `Location` it was sent to. `/healthz` and
-`/readyz` log at `DEBUG`; everything else at `INFO`, or `ERROR` for 5xx.
-
-Values that are credentials are redacted: authorization codes, tokens,
-passwords and consent IDs appear as `<redacted>`, and cookie values are
-never logged, only the cookie's name. `return_to` is redacted recursively so
-the interrupted authorize request nested inside it stays readable — that
-nesting is what makes a login redirect loop diagnosable at all.
+Both services use safe JSON request logs and correlation IDs. They log only
+method, registered route/RPC procedure, status, duration, and request ID; they
+do not log query values, redirect locations, headers, cookies, bodies,
+tenant/user identifiers, or PII. See `docs/OBSERVABILITY.md` for the endpoint
+contract, exact metrics, redaction policy, and local verification commands.
 
 ## Disposable integration-test databases
 

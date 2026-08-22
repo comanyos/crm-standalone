@@ -39,6 +39,7 @@ import (
 	"github.com/authincore/authincore/internal/tracing"
 	"github.com/authincore/authincore/internal/util"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -70,6 +71,7 @@ type Deps struct {
 	TrustedProxies  []*net.IPNet            // optional; forwarded IP headers are ignored when empty
 	DBPinger        Pinger                  // optional; used by readyz
 	CachePinger     Pinger                  // optional; used by readyz
+	MetricsPool     *pgxpool.Pool           // optional; exports aggregate pool stats on /metrics
 	ConsentHandler  *oidc.ConsentHandler    // optional; nil disables consent screen
 	SAMLSP          *saml.SP                // optional; nil disables SAML SP routes
 	SAMLIdP         *saml.IdP               // optional; nil disables SAML IdP routes
@@ -113,7 +115,7 @@ func (s *Server) Start(ctx context.Context) error {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /readyz", s.handleReadyz)
-	mux.Handle("GET /metrics", s.requireAdminAuth(metrics.Handler().ServeHTTP))
+	mux.Handle("GET /metrics", s.requireAdminAuth(metrics.Handler(s.deps.MetricsPool).ServeHTTP))
 
 	// --- OIDC discovery ---
 	mux.HandleFunc("GET /.well-known/openid-configuration", s.deps.OIDC.WellKnownHandler)
@@ -269,7 +271,6 @@ func (s *Server) Start(ctx context.Context) error {
 
 	mw := []func(http.Handler) http.Handler{
 		metrics.Middleware,
-		middleware.RequestID,
 		// Outside SecurityHeaders and CSRF so a request rejected by either is
 		// still logged — a login that fails at the CSRF check is otherwise
 		// indistinguishable from one that never arrived.
@@ -286,6 +287,10 @@ func (s *Server) Start(ctx context.Context) error {
 	if s.deps.Resolver != nil {
 		handler = tenancy.Middleware(s.deps.Resolver)(handler)
 	}
+	// Keep the correlation field at the outermost application ingress so
+	// tenancy resolution and every downstream handler share one request ID.
+	handler = tracing.HTTPMiddleware(handler)
+	handler = middleware.RequestID(handler)
 
 	srv := &http.Server{
 		Addr:         s.cfg.Addr,
@@ -728,7 +733,10 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(failed) > 0 {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "degraded", "checks": failed})
+		// Dependency errors can contain DSNs, hosts, or provider detail. The
+		// probe is intentionally useful to orchestration but not diagnostic to
+		// an unauthenticated caller.
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready", "reason": "dependencies unavailable"})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

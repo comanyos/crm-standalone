@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/authincore/authincore/internal/metrics"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,6 +29,7 @@ func Connect(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 	if cfg.MinConns > 0 {
 		poolCfg.MinConns = cfg.MinConns
 	}
+	poolCfg.ConnConfig.Tracer = metrics.QueryTracer{}
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {

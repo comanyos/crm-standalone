@@ -11,6 +11,7 @@ func validConfig() Config {
 		AuthJWKSURL:    "https://auth.example.com/.well-known/jwks.json",
 		DatabaseURL:    "postgres://crm_app:a-sufficiently-long-generated-password@db.internal:5432/crm?sslmode=verify-full",
 		OutboxDrainURL: "postgres://crm_drain:another-long-generated-password@db.internal:5432/crm?sslmode=verify-full",
+		MetricsToken:   "a-sufficiently-long-metrics-token",
 	}
 }
 
@@ -121,5 +122,14 @@ func TestValidate_ProductionAcceptsHTTPSCORSOrigin(t *testing.T) {
 	c.CORSOrigins = []string{"https://app.example.com"}
 	if err := c.Validate(); err != nil {
 		t.Fatalf("expected https CORS origin to validate, got: %v", err)
+	}
+}
+
+func TestValidate_ProductionRequiresMetricsToken(t *testing.T) {
+	c := validConfig()
+	c.Environment = EnvProduction
+	c.MetricsToken = "short"
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected production to reject a missing or weak CRM_METRICS_TOKEN")
 	}
 }

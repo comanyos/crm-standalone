@@ -15,10 +15,36 @@ function authInterceptor(getAccessToken: () => string | null): Interceptor {
   };
 }
 
+/** Starts a W3C trace for each browser-to-CRM RPC. The value is opaque random
+ * telemetry context only: it contains no user, tenant, token, URL, or request
+ * body data. CRM continues it when OTLP export is enabled. */
+export function traceContextInterceptor(): Interceptor {
+  return (next) => async (req) => {
+    if (!req.header.has("traceparent")) {
+      const traceparent = createTraceParent();
+      if (traceparent) req.header.set("traceparent", traceparent);
+    }
+    return next(req);
+  };
+}
+
+export function createTraceParent(): string | undefined {
+  if (!globalThis.crypto?.getRandomValues) return undefined;
+  const traceID = new Uint8Array(16);
+  const spanID = new Uint8Array(8);
+  globalThis.crypto.getRandomValues(traceID);
+  globalThis.crypto.getRandomValues(spanID);
+  return `00-${hex(traceID)}-${hex(spanID)}-01`;
+}
+
+function hex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function createCrmClients(baseUrl: string, getAccessToken: () => string | null) {
   const transport = createConnectTransport({
     baseUrl,
-    interceptors: [authInterceptor(getAccessToken)],
+    interceptors: [traceContextInterceptor(), authInterceptor(getAccessToken)],
   });
   return {
     crm: createClient(CRMService, transport),

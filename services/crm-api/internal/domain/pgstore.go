@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/santoshguru/crm/internal/metrics"
 )
 
 // PgStore is the PostgreSQL Store. Every statement filters on tenant_id, which is
@@ -27,6 +28,15 @@ type PgStore struct {
 	drain *pgxpool.Pool
 }
 
+// Ping verifies the application database dependency without revealing its DSN.
+func (s *PgStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+
+// PoolStats returns only aggregate application-pool state for metrics.
+func (s *PgStore) PoolStats() (acquired, idle, total, max int32) {
+	stats := s.pool.Stat()
+	return stats.AcquiredConns(), stats.IdleConns(), stats.TotalConns(), stats.MaxConns()
+}
+
 // NewPgStore connects to Postgres and verifies the connection before returning.
 func NewPgStore(ctx context.Context, dsn string) (*PgStore, error) {
 	return NewPgStoreWithDrain(ctx, dsn, "")
@@ -37,7 +47,12 @@ func NewPgStore(ctx context.Context, dsn string) (*PgStore, error) {
 // DueOutboxTenants — the one cross-tenant read the outbox dispatcher needs
 // (migrations/0004_event_outbox.sql).
 func NewPgStoreWithDrain(ctx context.Context, dsn, drainDSN string) (*PgStore, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	poolCfg.ConnConfig.Tracer = metrics.QueryTracer{}
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}
@@ -51,7 +66,13 @@ func NewPgStoreWithDrain(ctx context.Context, dsn, drainDSN string) (*PgStore, e
 		return s, nil
 	}
 
-	drain, err := pgxpool.New(ctx, drainDSN)
+	drainCfg, err := pgxpool.ParseConfig(drainDSN)
+	if err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("parse drain config: %w", err)
+	}
+	drainCfg.ConnConfig.Tracer = metrics.QueryTracer{}
+	drain, err := pgxpool.NewWithConfig(ctx, drainCfg)
 	if err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("connect drain: %w", err)

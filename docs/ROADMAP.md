@@ -291,17 +291,32 @@ Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
 retryable.
 
-## M6 — Production readiness and release (5%)
+## M6 — Production readiness and release (25%)
 
 Dependencies: target hosting, domains/TLS, production secrets/KMS, SMTP, and
 backup ownership supplied by the product owner.
 
 - [x] Containers use a persistent signing-key secret boundary and local health
-  endpoints; CRM includes request IDs and structured HTTP logs.
-- [ ] Add metrics, tracing correlation, alertable health checks, audit log
-  export, rate limits, security headers/CORS review, and dependency scanning.
-- [ ] Define encrypted backups, restore drills, migration rollback policy,
-  deployment manifests, CI/CD, release checklist, and load/security tests.
+  endpoints. CRM and AuthinCore now have safe request IDs, structured access
+  logs, liveness/readiness endpoints, Prometheus HTTP/Connect metrics,
+  database pool/query-latency gauges, NATS state, and safe CRM outbox/Auth
+  OIDC/JWKS failure counters. Both ingress paths continue W3C `traceparent`
+  and can export optional OTLP spans. The CRM browser → API → durable outbox
+  → NATS path now persists/restores W3C context without putting request data
+  in trace metadata. `docs/OBSERVABILITY.md` documents scrape/auth posture,
+  labels, redaction, tracing, verification, and alert candidates. This is a
+  local/internal observability foundation, not a production monitoring
+  deployment.
+- [ ] Add alert configuration, dashboards/SLOs/on-call, audit log export,
+  integration-specific metrics and trace propagation, retention controls, rate
+  limits, security headers/CORS review, and dependency scanning.
+- [~] Encrypted Compose logical backup/restore scripts, explicit destructive
+  restore confirmation, and an expand/contract + rollback policy are in
+  `docs/BACKUP_RESTORE.md`. They are local/operator tooling, not managed PITR
+  or evidence of a restore drill.
+- [ ] Select backup/PITR and retention policy, perform restore/upgrade drills,
+  then add production deployment manifests, CI/CD, release checklist, and
+  load/security tests.
 - [ ] Confirm AuthinCore license provenance before external distribution.
 
 Acceptance criteria: deployment and restore are rehearsed; no development

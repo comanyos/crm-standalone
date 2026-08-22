@@ -54,6 +54,9 @@ and how to recover an administrator who cannot sign in, see
 [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md). Bootstrap deliberately never changes an
 existing password; `make reset-admin-password` is the command that does.
 
+For encrypted local logical backups, destructive restore safeguards, and the
+migration/rollback policy, see [docs/BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md).
+
 ### Web app
 
 Set `CRM_WEB_AUTH_ORG_ID` in the ignored root `.env` to the organization ID

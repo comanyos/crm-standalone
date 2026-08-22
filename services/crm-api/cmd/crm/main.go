@@ -18,11 +18,18 @@ import (
 	"github.com/santoshguru/crm/internal/domain"
 	"github.com/santoshguru/crm/internal/platform"
 	"github.com/santoshguru/crm/internal/server"
+	"github.com/santoshguru/crm/internal/tracing"
 )
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(log)
+	shutdownTracing, err := tracing.Init(context.Background(), "crm-api")
+	if err != nil {
+		slog.Error("tracing init failed")
+		os.Exit(1)
+	}
+	defer func() { _ = shutdownTracing(context.Background()) }()
 
 	cfg := config.Load()
 	if err := cfg.Validate(); err != nil {

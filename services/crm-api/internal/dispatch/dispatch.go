@@ -21,7 +21,9 @@ import (
 	"time"
 
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/metrics"
 	"github.com/santoshguru/crm/internal/platform"
+	"github.com/santoshguru/crm/internal/tracing"
 )
 
 // DefaultInterval is how often the dispatcher looks for work.
@@ -38,6 +40,9 @@ func NewBusPublisher(pub *platform.Publisher) *BusPublisher { return &BusPublish
 // Publish renders the envelope and hands it to the bus on
 // Envelope.Subject() — "crm.<entity_type>.<tenant>".
 func (b *BusPublisher) Publish(ctx context.Context, env domain.Envelope) error {
+	ctx = tracing.ContextWithTraceParent(ctx, env.TraceParent)
+	ctx, span := tracing.StartOutboxPublish(ctx)
+	defer span.End()
 	payload, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("%w: marshal event %s: %v", domain.ErrInvalid, env.ID, err)
@@ -94,7 +99,7 @@ func (d *Dispatcher) Run(ctx context.Context) {
 			published, err := d.Once(ctx, time.Now())
 			if err != nil {
 				if !errors.Is(err, context.Canceled) && ctx.Err() == nil {
-					d.log.Error("outbox drain failed", "err", err)
+					d.log.Error("outbox drain failed")
 				}
 			} else if published > 0 {
 				d.log.Info("outbox drained", "published", published)
@@ -126,10 +131,20 @@ func (d *Dispatcher) Once(ctx context.Context, now time.Time) (int, error) {
 			return total, ctx.Err()
 		}
 		scope := domain.Scope{TenantID: tenant}
-		published, err := domain.DrainEventOutbox(ctx, d.store, scope, d.publisher, now)
-		total += published
+		stats, err := domain.DrainEventOutboxWithStats(ctx, d.store, scope, d.publisher, now)
+		total += stats.Published
+		if stats.Published > 0 {
+			metrics.OutboxProcessedTotal.WithLabelValues("success").Add(float64(stats.Published))
+		}
+		if stats.Retried > 0 {
+			metrics.OutboxProcessedTotal.WithLabelValues("retry").Add(float64(stats.Retried))
+		}
+		if stats.Failed > 0 {
+			metrics.OutboxProcessedTotal.WithLabelValues("failure").Add(float64(stats.Failed))
+		}
 		if err != nil {
-			d.log.Error("outbox drain failed for tenant", "tenant", tenant, "err", err)
+			// Tenant IDs and payloads are intentionally absent from worker logs.
+			d.log.Error("outbox drain failed")
 			if firstErr == nil {
 				firstErr = err
 			}

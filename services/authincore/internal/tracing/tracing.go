@@ -7,12 +7,14 @@ package tracing
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
@@ -26,6 +28,7 @@ const tracerName = "authincore"
 // callers don't need to guard every Span call.
 // Returns a shutdown function that must be called before process exit.
 func Init(ctx context.Context, serviceName string) (shutdown func(context.Context) error, err error) {
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
 		// No exporter configured — use no-op so instrumentation compiles but is free.
@@ -57,6 +60,17 @@ func Init(ctx context.Context, serviceName string) (shutdown func(context.Contex
 	)
 	otel.SetTracerProvider(tp)
 	return tp.Shutdown, nil
+}
+
+// HTTPMiddleware extracts W3C Trace Context and creates a server span without
+// exporting request values, headers, tenant identifiers, or bodies.
+func HTTPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+		ctx, span := Tracer().Start(ctx, "http.server", trace.WithSpanKind(trace.SpanKindServer))
+		defer span.End()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 // Tracer returns the named tracer for a package.

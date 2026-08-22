@@ -13,6 +13,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/MicahParks/jwkset"
+	"github.com/santoshguru/crm/internal/metrics"
 )
 
 // Principal is the authenticated caller, derived from JWT claims.
@@ -156,10 +157,12 @@ func (a *Authenticator) Interceptor(policy ScopePolicy) connect.UnaryInterceptor
 			}
 			tok := bearer(req.Header().Get("Authorization"))
 			if tok == "" {
+				metrics.JWKSValidationFailuresTotal.WithLabelValues("missing_bearer_token").Inc()
 				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("missing bearer token"))
 			}
 			p, err := a.v.verify(ctx, tok)
 			if err != nil {
+				metrics.JWKSValidationFailuresTotal.WithLabelValues("invalid_token").Inc()
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
 
@@ -169,8 +172,7 @@ func (a *Authenticator) Interceptor(policy ScopePolicy) connect.UnaryInterceptor
 				// Deliberately vague to the caller and loud in the log: the
 				// caller learns nothing about what exists, and the operator
 				// learns a handler shipped without a policy entry.
-				slog.Error("refusing an RPC with no scope policy entry",
-					"procedure", procedure, "org_id", p.OrgID)
+				slog.Error("refusing an RPC with no scope policy entry", "procedure", procedure)
 				return nil, connect.NewError(connect.CodePermissionDenied,
 					errors.New("this procedure is not available"))
 			}

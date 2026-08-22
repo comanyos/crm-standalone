@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/santoshguru/crm/internal/tracing"
 )
 
 // The transactional outbox (Track A3). Mirrors leave's event_outbox.go /
@@ -217,6 +219,9 @@ func EnqueueEvent(ctx context.Context, store EventOutboxStore, scope Scope, env 
 	if env.TenantID == "" {
 		env.TenantID = scope.TenantID
 	}
+	if env.TraceParent == "" {
+		env.TraceParent = tracing.TraceParent(ctx)
+	}
 	ev, err := NewOutboxEvent(env)
 	if err != nil {
 		return nil, err
@@ -236,9 +241,26 @@ func DrainEventOutbox(
 	publisher EventPublisher,
 	now time.Time,
 ) (published int, err error) {
+	stats, err := DrainEventOutboxWithStats(ctx, store, scope, publisher, now)
+	return stats.Published, err
+}
+
+// OutboxDrainStats records delivery outcomes without carrying an event,
+// tenant, payload, or error value into the metrics layer.
+type OutboxDrainStats struct{ Published, Retried, Failed int }
+
+// DrainEventOutboxWithStats is DrainEventOutbox with safe aggregate outcomes
+// for the worker's Prometheus counters.
+func DrainEventOutboxWithStats(
+	ctx context.Context,
+	store EventOutboxStore,
+	scope Scope,
+	publisher EventPublisher,
+	now time.Time,
+) (stats OutboxDrainStats, err error) {
 	due, err := store.DueOutboxEvents(ctx, scope, now)
 	if err != nil {
-		return 0, err
+		return stats, err
 	}
 
 	var lastPubErr error
@@ -247,7 +269,7 @@ func DrainEventOutbox(
 			continue
 		}
 		if err := store.UpdateOutboxEvent(ctx, scope, ev); err != nil {
-			return published, err
+			return stats, err
 		}
 
 		pubErr := publisher.Publish(ctx, ev.Envelope)
@@ -257,19 +279,26 @@ func DrainEventOutbox(
 		switch {
 		case pubErr == nil:
 			_ = ev.MarkPublished()
-			published++
+			stats.Published++
 		case errors.Is(pubErr, ErrInvalid):
 			ev.Attempts = MaxEventAttempts
 			_ = ev.MarkRetry(now, pubErr.Error())
 		default:
 			_ = ev.MarkRetry(now, pubErr.Error())
 		}
+		if pubErr != nil {
+			if ev.Status == EventFailed {
+				stats.Failed++
+			} else {
+				stats.Retried++
+			}
+		}
 
 		if err := store.UpdateOutboxEvent(ctx, scope, ev); err != nil {
-			return published, err
+			return stats, err
 		}
 	}
-	return published, lastPubErr
+	return stats, lastPubErr
 }
 
 func cloneOutboxEvent(v *OutboxEvent) *OutboxEvent {

@@ -48,6 +48,7 @@ import (
 	passkeystrategy "github.com/authincore/authincore/internal/flow/strategy/webauthn"
 	"github.com/authincore/authincore/internal/identity/schema"
 	"github.com/authincore/authincore/internal/invitation"
+	"github.com/authincore/authincore/internal/metrics"
 	"github.com/authincore/authincore/internal/platform"
 	"github.com/authincore/authincore/internal/policy/engine"
 	"github.com/authincore/authincore/internal/protocol/oidc"
@@ -357,6 +358,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 		TrustedProxies:  trustedProxies,
 		DBPinger:        pool,
 		CachePinger:     cacheClient,
+		MetricsPool:     pool,
 		ConsentHandler:  consentHandler,
 		SAMLSP:          samlSP,
 		SAMLIdP:         samlIdP,
@@ -470,6 +472,9 @@ func resolveSMSSender(log *slog.Logger) sms.Sender {
 // startGRPC runs the connect-go mux on its own port in background goroutines.
 // It shuts down cleanly when ctx is cancelled.
 func startGRPC(ctx context.Context, h http.Handler, port string, log *slog.Logger) {
+	// The Connect listener is a separate ingress, so it needs the same safe
+	// correlation, access logging, and low-cardinality HTTP metrics as port 8080.
+	h = middleware.Chain(middleware.RequestID, tracing.HTTPMiddleware, metrics.Middleware, middleware.RequestLog(log))(h)
 	srv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           h,

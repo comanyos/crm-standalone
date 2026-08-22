@@ -1,6 +1,7 @@
 .env
 .DS_Store
 deploy/secrets/
+deploy/backups/
 **/bin/
 **/dist/
 **/node_modules/
