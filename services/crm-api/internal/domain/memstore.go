@@ -187,6 +187,7 @@ type MemStore struct {
 	outbox           *memTable[*OutboxEvent]
 	stageHistory     *memTable[*OpportunityStageChange]
 	ownershipHistory *memTable[*AccountOwnershipHistory]
+	customField      *memTable[*CustomFieldDefinition]
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -204,6 +205,7 @@ func NewMemStore() *MemStore {
 		outbox:           newMemTable(cloneOutboxEvent),
 		stageHistory:     newMemTable(cloneOpportunityStageChange),
 		ownershipHistory: newMemTable(cloneAccountOwnershipHistory),
+		customField:      newMemTable(cloneCustomFieldDefinition),
 	}
 }
 

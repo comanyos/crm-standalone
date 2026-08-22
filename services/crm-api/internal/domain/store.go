@@ -97,6 +97,27 @@ type Store interface {
 	UpdateNote(ctx context.Context, scope Scope, v *Note) (*Note, error)
 	DeleteNote(ctx context.Context, scope Scope, id string) error
 
+	// The metadata layer's definitions (task_v2 Phase 1.1). These describe
+	// tenant-authored fields; the values they describe live in a jsonb
+	// document on the row they belong to, not behind these methods. See
+	// custom_field.go and docs/DESIGN_METADATA_LAYER.md.
+	CreateCustomFieldDefinition(ctx context.Context, scope Scope, v *CustomFieldDefinition) (*CustomFieldDefinition, error)
+	GetCustomFieldDefinition(ctx context.Context, scope Scope, id string) (*CustomFieldDefinition, error)
+	// ListCustomFieldDefinitions returns one object's fields, ordered by
+	// field key. includeArchived is explicit rather than a filter struct
+	// because every write path wants live fields only and must not be able to
+	// pick up an archived one by forgetting to set something.
+	ListCustomFieldDefinitions(ctx context.Context, scope Scope, objectType string, includeArchived bool) ([]*CustomFieldDefinition, error)
+	// UpdateCustomFieldDefinition changes a field's label, requiredness, and
+	// type-specific config. ObjectType, FieldKey and DataType are immutable
+	// after creation — see UpdateCustomFieldDefinition's implementation for
+	// why each one is.
+	UpdateCustomFieldDefinition(ctx context.Context, scope Scope, v *CustomFieldDefinition) (*CustomFieldDefinition, error)
+	// ArchiveCustomFieldDefinition retires a field. There is deliberately no
+	// delete: removing the definition would orphan values already written
+	// into rows under its key. Idempotent.
+	ArchiveCustomFieldDefinition(ctx context.Context, scope Scope, id string) (*CustomFieldDefinition, error)
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 

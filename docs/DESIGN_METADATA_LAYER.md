@@ -1,8 +1,8 @@
 # Design — the metadata layer (task_v2 Phase 1)
 
-Status: **proposed**. Two decisions in here are owner decisions (§1 storage,
-§5 wire contract) and are listed as such in `task_v2.md`. Nothing is
-implemented until they are made.
+Status: **accepted** (2026-08-22). Both owner decisions are made: §1 storage
+is JSONB values with relational definitions, and §5 wire contract is
+`map<string, CustomValue>` with a typed oneof. Implementation follows §8.
 
 ## Why this document exists first
 
