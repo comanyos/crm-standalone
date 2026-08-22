@@ -14,6 +14,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/metrics"
 )
 
 func newObservabilityServer(t *testing.T) *Server {
@@ -140,5 +141,56 @@ func TestMetricsTokenProtectsConfiguredScrapeEndpoint(t *testing.T) {
 				t.Fatalf("metrics response leaked token: %s", rec.Body.String())
 			}
 		})
+	}
+}
+
+// The middleware chain must not sever http.ResponseController. It walks the
+// Unwrap chain and stops at the first wrapper that does not implement it, so
+// one wrapper without Unwrap disables flush, hijack, and deadline control for
+// every handler behind it — which is how a streaming RPC or an SSE response
+// silently stops working.
+func TestMiddlewareChainPreservesResponseController(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		mws  []func(http.Handler) http.Handler
+	}{
+		{"logging only", []func(http.Handler) http.Handler{loggingMW}},
+		{"metrics only", []func(http.Handler) http.Handler{metrics.Middleware}},
+		{"full server chain", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var flushErr error
+			probe := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				flushErr = http.NewResponseController(w).Flush()
+			})
+
+			var h http.Handler
+			if tc.mws == nil {
+				srv := newObservabilityServer(t)
+				srv.mux = http.NewServeMux()
+				srv.mux.Handle("GET /probe", probe)
+				h = srv.Handler()
+			} else {
+				h = chain(probe, tc.mws...)
+			}
+
+			h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/probe", nil))
+			if flushErr != nil {
+				t.Fatalf("Flush through the chain failed: %v", flushErr)
+			}
+		})
+	}
+}
+
+// The access log must report the status the client actually received. A
+// handler that calls WriteHeader twice gets the first one on the wire, so the
+// log has to agree.
+func TestStatusWriterRecordsTheStatusTheClientReceived(t *testing.T) {
+	rec := httptest.NewRecorder()
+	sw := &statusWriter{ResponseWriter: rec, status: http.StatusOK}
+	sw.WriteHeader(http.StatusForbidden)
+	sw.WriteHeader(http.StatusOK)
+	if sw.status != http.StatusForbidden {
+		t.Fatalf("recorded status=%d, want %d (the first one sent)", sw.status, http.StatusForbidden)
 	}
 }
