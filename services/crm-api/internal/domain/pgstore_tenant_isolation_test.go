@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/santoshguru/crm/internal/pgtest"
 )
 
 // Two-organization isolation proof at the database and store layers
@@ -709,7 +711,7 @@ func TestOutboxDrainRoleIsTheOnlyCrossTenantReader(t *testing.T) {
 	// outbox that drains nothing looks exactly like one with no work.
 	appOnly, err := NewPgStore(ctx, restrictedDSN(t))
 	if err != nil {
-		t.Skipf("cannot open a crm_app store: %v", err)
+		pgtest.Unavailable(t, "cannot open a crm_app store: %v", err)
 	}
 	defer func() { _ = appOnly.Close() }()
 
@@ -727,8 +729,8 @@ func TestOutboxDrainRoleIsTheOnlyCrossTenantReader(t *testing.T) {
 	// Correctly configured: application pool as crm_app, discovery as crm_drain.
 	drained, err := NewPgStoreWithDrain(ctx, restrictedDSN(t), drainDSN(t))
 	if err != nil {
-		t.Skipf("cannot open a crm_app + crm_drain store (migration 0003 creates crm_drain "+
-			"only under a superuser): %v", err)
+		pgtest.Unavailable(t, "cannot open a crm_app + crm_drain store (migration 0003 creates "+
+			"crm_drain only under a superuser): %v", err)
 	}
 	defer func() { _ = drained.Close() }()
 

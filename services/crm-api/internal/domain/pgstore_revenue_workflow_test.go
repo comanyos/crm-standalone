@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/santoshguru/crm/internal/pgtest"
 )
 
 // M3's revenue workflows against real PostgreSQL (docs/ROADMAP.md M3:
@@ -908,7 +910,7 @@ func smallPoolStore(t *testing.T, scope Scope) *PgStore {
 	}
 	s, err := NewPgStore(context.Background(), dsn+sep+"pool_max_conns=2&pool_min_conns=1")
 	if err != nil {
-		t.Skipf("cannot open a size-2 pool: %v", err)
+		pgtest.Unavailable(t, "cannot open a size-2 pool: %v", err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
 
@@ -1002,7 +1004,7 @@ func restrictedRevenueStore(t *testing.T) *PgStore {
 
 	s, err := NewPgStore(context.Background(), restrictedDSN(t))
 	if err != nil {
-		t.Skipf("cannot open a crm_app store (migration 0003 needs a superuser connection): %v", err)
+		pgtest.Unavailable(t, "cannot open a crm_app store (migration 0003 needs a superuser connection): %v", err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	return s

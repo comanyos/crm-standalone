@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/santoshguru/crm/internal/pgtest"
 )
 
 // alreadyApplied reports whether an error is only the migration having run
@@ -35,38 +37,18 @@ func alreadyApplied(err error) bool {
 	return false
 }
 
-// defaultTestDSN is this repository's own disposable test instance —
-// `make test-db-up`, compose service crm-postgres-test, tmpfs-backed, on a
-// port of its own. It is a superuser connection so migration 0003 can create
-// both crm_app and crm_drain, which the tenant-isolation tests connect as.
-//
-// The default has to name a database this repository owns. It previously
-// named a port belonging to an unrelated local project, where it could only
-// ever fail to connect — and a failed connection here is t.Skip, so the
-// entire PostgreSQL tier, row-level security and cross-tenant proofs
-// included, quietly did not run for anyone who had not set
-// TEST_DATABASE_URL.
-const defaultTestDSN = "postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable"
-
-// testDSN is the connection every test in this tier uses, honouring the two
-// documented overrides (CONTRIBUTING.md) before falling back to the
-// disposable instance `make test-db-up` starts.
-func testDSN() string {
-	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
-		return dsn
-	}
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		return dsn
-	}
-	return defaultTestDSN
-}
+// testDSN is the connection every test in this tier uses. The policy — the
+// two documented overrides and the disposable instance they fall back to —
+// lives in internal/pgtest, shared with internal/server's Postgres tier so
+// the two cannot drift onto different databases.
+func testDSN() string { return pgtest.DSN() }
 
 func livePgStore(t *testing.T) *PgStore {
 	t.Helper()
 	dsn := testDSN()
 	s, err := NewPgStore(context.Background(), dsn)
 	if err != nil {
-		t.Skipf("skipping live Postgres test (cannot connect to %s): %v", dsn, err)
+		pgtest.Unavailable(t, "skipping live Postgres test (cannot connect to %s): %v", dsn, err)
 		return nil
 	}
 	t.Cleanup(func() { _ = s.Close() })

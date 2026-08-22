@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +18,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/pgtest"
 )
 
 // M3's revenue workflows end to end: a real HTTP server, real RS256 tokens
@@ -33,20 +33,7 @@ import (
 // actually reaches is the thing RLS actually constrains — which is what
 // docs/ROADMAP.md M3 asks for and what the earlier tiers each half-answer.
 
-// pgTestDSN is the same default the domain tier uses: this repository's own
-// disposable instance from `make test-db-up`. See CONTRIBUTING.md for the
-// overrides.
-const pgTestDSN = "postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable"
-
-func superuserDSN() string {
-	if dsn := os.Getenv("TEST_DATABASE_URL"); dsn != "" {
-		return dsn
-	}
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		return dsn
-	}
-	return pgTestDSN
-}
+func superuserDSN() string { return pgtest.DSN() }
 
 // appRoleDSN rewrites the DSN to connect as crm_app, which does not bypass
 // row-level security. Connecting as the superuser instead would make every
@@ -58,7 +45,7 @@ func appRoleDSN(t *testing.T) string {
 	at := strings.Index(dsn, "@")
 	scheme := strings.Index(dsn, "://")
 	if at < 0 || scheme < 0 {
-		t.Skipf("cannot derive a crm_app DSN from %q", dsn)
+		pgtest.Unavailable(t, "cannot derive a crm_app DSN from %q", dsn)
 	}
 	return dsn[:scheme+3] + "crm_app:crm_app" + dsn[at:]
 }
@@ -82,11 +69,11 @@ func holdSchemaLock(t *testing.T) {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, superuserDSN())
 	if err != nil {
-		t.Skipf("skipping live Postgres test (cannot connect): %v", err)
+		pgtest.Unavailable(t, "skipping live Postgres test (cannot connect): %v", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		t.Skipf("skipping live Postgres test (cannot reach %s — run `make test-db-up`): %v", superuserDSN(), err)
+		pgtest.Unavailable(t, "skipping live Postgres test (cannot reach %s — run `make test-db-up`): %v", superuserDSN(), err)
 	}
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
@@ -115,7 +102,7 @@ func requireSchema(t *testing.T) {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, superuserDSN())
 	if err != nil {
-		t.Skipf("skipping live Postgres test (cannot connect): %v", err)
+		pgtest.Unavailable(t, "skipping live Postgres test (cannot connect): %v", err)
 	}
 	defer pool.Close()
 
@@ -123,10 +110,10 @@ func requireSchema(t *testing.T) {
 	if err := pool.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'opportunity_stage_history' AND relkind = 'r')
 		    AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'crm_app')`).Scan(&ok); err != nil {
-		t.Skipf("skipping live Postgres test (cannot read the catalog): %v", err)
+		pgtest.Unavailable(t, "skipping live Postgres test (cannot read the catalog): %v", err)
 	}
 	if !ok {
-		t.Skip("skipping live Postgres test: the CRM schema and the crm_app role are not present — run `make test-db-up`")
+		pgtest.Unavailable(t, "the CRM schema and the crm_app role are not present — run `make test-db-up`")
 	}
 }
 
@@ -139,7 +126,7 @@ func livePgServer(t *testing.T) (crmv1connect.CRMServiceClient, func(org string,
 
 	store, err := domain.NewPgStore(context.Background(), appRoleDSN(t))
 	if err != nil {
-		t.Skipf("cannot open a crm_app store (migration 0003 needs a superuser connection): %v", err)
+		pgtest.Unavailable(t, "cannot open a crm_app store (migration 0003 needs a superuser connection): %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 

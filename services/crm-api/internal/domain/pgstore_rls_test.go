@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/santoshguru/crm/internal/pgtest"
 )
 
 // restrictedDSN rewrites the test DSN to connect as crm_app — the role
@@ -24,7 +26,7 @@ func restrictedDSN(t *testing.T) string {
 	at := strings.Index(dsn, "@")
 	scheme := strings.Index(dsn, "://")
 	if at < 0 || scheme < 0 {
-		t.Skipf("cannot derive a restricted DSN from %q", dsn)
+		pgtest.Unavailable(t, "cannot derive a restricted DSN from %q", dsn)
 	}
 	return dsn[:scheme+3] + "crm_app:crm_app" + dsn[at:]
 }
@@ -34,11 +36,11 @@ func restrictedPool(t *testing.T) *pgxpool.Pool {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, restrictedDSN(t))
 	if err != nil {
-		t.Skipf("skipping RLS test (cannot build restricted pool): %v", err)
+		pgtest.Unavailable(t, "skipping RLS test (cannot build restricted pool): %v", err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		t.Skipf("skipping RLS test (role crm_app cannot connect — migration 0003 needs a superuser): %v", err)
+		pgtest.Unavailable(t, "skipping RLS test (role crm_app cannot connect — migration 0003 needs a superuser): %v", err)
 	}
 	t.Cleanup(pool.Close)
 	return pool

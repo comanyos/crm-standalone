@@ -61,7 +61,37 @@ jobs:
           version: latest
       - name: build
         run: go build ./...
+      # The PostgreSQL tier — row-level security, tenant isolation, the
+      # transaction and row-lock behaviour of the revenue workflows — skips
+      # itself when no database is reachable. This job started none, so all of
+      # it skipped on every pull request while CI reported green. Bring up the
+      # repository's own disposable instance, the same one `make test-db-up`
+      # starts, so CI and a developer's machine run the same tier against the
+      # same schema.
+      #
+      # Compose, rather than a bare `services:` container, because
+      # crm-postgres-test mounts migrations/ as initdb.d: the schema and the
+      # crm_app/crm_drain roles exist before the first test connects. Without
+      # that, internal/server (which runs no DDL of its own and checks the
+      # catalog) could reach its check before internal/domain has applied the
+      # migrations — the two packages run as concurrent processes — and now
+      # that a missing schema is fatal rather than skipped, that race would be
+      # a flaky red instead of a silent green.
+      #
+      # CRM_WEB_AUTH_ORG_ID is compose's `:?` guard on an unrelated service;
+      # `docker compose` parses the whole file whatever you ask it to start,
+      # so supply the same placeholder the compose-config job uses.
+      - name: Start the test database
+        env:
+          CRM_WEB_AUTH_ORG_ID: 00000000-0000-0000-0000-000000000000
+        working-directory: .
+        run: docker compose --profile test up -d --wait crm-postgres-test
       - name: test
+        env:
+          TEST_DATABASE_URL: postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable
+          # Without this a database that fails to start puts the tier straight
+          # back to skipping, and the run back to a green that proves nothing.
+          REQUIRE_LIVE_POSTGRES: "1"
         run: go test -race -cover ./...
 
   authincore:
@@ -108,7 +138,18 @@ jobs:
           version: latest
       - name: build
         run: go build ./cmd/...
+      # Same reasoning as the crm-api job: cmd/authinctl's bootstrap tier is a
+      # live-database tier that skips itself, so CI has to provide the
+      # database and refuse to accept a skip.
+      - name: Start the test database
+        env:
+          CRM_WEB_AUTH_ORG_ID: 00000000-0000-0000-0000-000000000000
+        working-directory: .
+        run: docker compose --profile test up -d --wait auth-postgres-test
       - name: test
+        env:
+          AUTH_TEST_DATABASE_URL: postgres://authincore:authincore_test@localhost:15532/authincore?sslmode=disable
+          REQUIRE_LIVE_POSTGRES: "1"
         run: go test -race -cover ./...
 
   web:

@@ -18,20 +18,26 @@ import (
 // honest. The behaviour-in-depth (SQL, transactions, row locks) stays in the
 // PgStore file; this is the contract both must meet.
 
-func revenueStores(t *testing.T) map[string]Store {
+// eachRevenueStore runs body against both stores.
+//
+// PgStore is resolved inside its own subtest, not while building a list of
+// stores: livePgStore ends the test it is handed when no database is
+// reachable, so constructing the pair up front skipped the *whole* test —
+// MemStore half included. That silently removed the only half that can run
+// without a database, which is the half covering what the service does with
+// DATABASE_URL unset.
+func eachRevenueStore(t *testing.T, body func(t *testing.T, name string, s Store)) {
 	t.Helper()
-	return map[string]Store{
-		"MemStore": NewMemStore(),
-		"PgStore":  livePgStore(t),
-	}
+	t.Run("MemStore", func(t *testing.T) { body(t, "MemStore", NewMemStore()) })
+	t.Run("PgStore", func(t *testing.T) { body(t, "PgStore", livePgStore(t)) })
 }
 
 // TestLeadOptimisticConcurrencyIsTheSameInBothStores pins the contract
 // UpdateAccount already had and leads did not: a non-zero UpdatedAt that
 // disagrees with the stored record is ErrConflict, a zero one opts out.
 func TestLeadOptimisticConcurrencyIsTheSameInBothStores(t *testing.T) {
-	for name, s := range revenueStores(t) {
-		t.Run(name, func(t *testing.T) {
+	eachRevenueStore(t, func(t *testing.T, name string, s Store) {
+		{
 			ctx := context.Background()
 			scope := revenueScope("parity-lead-" + name)
 
@@ -65,15 +71,15 @@ func TestLeadOptimisticConcurrencyIsTheSameInBothStores(t *testing.T) {
 			if _, err := s.UpdateLead(ctx, scope, &optedOut); err != nil {
 				t.Fatalf("save without a version: %v, want it allowed", err)
 			}
-		})
-	}
+		}
+	})
 }
 
 // TestOpportunityOptimisticConcurrencyIsTheSameInBothStores is the same
 // contract for the opportunity, on the write that matters: a stage move.
 func TestOpportunityOptimisticConcurrencyIsTheSameInBothStores(t *testing.T) {
-	for name, s := range revenueStores(t) {
-		t.Run(name, func(t *testing.T) {
+	eachRevenueStore(t, func(t *testing.T, name string, s Store) {
+		{
 			ctx := context.Background()
 			scope := revenueScope("parity-opp-" + name)
 
@@ -105,8 +111,8 @@ func TestOpportunityOptimisticConcurrencyIsTheSameInBothStores(t *testing.T) {
 			if len(history) != 0 {
 				t.Fatalf("a refused move recorded %d history entries, want 0", len(history))
 			}
-		})
-	}
+		}
+	})
 }
 
 // TestConcurrentConversionConvertsOnceInBothStores is the conversion race in
@@ -115,8 +121,8 @@ func TestOpportunityOptimisticConcurrencyIsTheSameInBothStores(t *testing.T) {
 // observable guarantee has to be identical either way, because the API tier
 // only ever sees this one.
 func TestConcurrentConversionConvertsOnceInBothStores(t *testing.T) {
-	for name, s := range revenueStores(t) {
-		t.Run(name, func(t *testing.T) {
+	eachRevenueStore(t, func(t *testing.T, name string, s Store) {
+		{
 			ctx := context.Background()
 			scope := revenueScope("parity-race-" + name)
 
@@ -157,15 +163,15 @@ func TestConcurrentConversionConvertsOnceInBothStores(t *testing.T) {
 			if len(opps) != 1 {
 				t.Fatalf("%d concurrent conversions created %d opportunities, want 1", callers, len(opps))
 			}
-		})
-	}
+		}
+	})
 }
 
 // TestConcurrentStageAdvanceRecordsOneMoveInBothStores is the stage-history
 // half of the same parity argument.
 func TestConcurrentStageAdvanceRecordsOneMoveInBothStores(t *testing.T) {
-	for name, s := range revenueStores(t) {
-		t.Run(name, func(t *testing.T) {
+	eachRevenueStore(t, func(t *testing.T, name string, s Store) {
+		{
 			ctx := context.Background()
 			scope := revenueScope("parity-stage-" + name)
 
@@ -203,6 +209,6 @@ func TestConcurrentStageAdvanceRecordsOneMoveInBothStores(t *testing.T) {
 				t.Fatalf("%d concurrent advances recorded %d history entries, want 1: %+v",
 					callers, len(history), history)
 			}
-		})
-	}
+		}
+	})
 }

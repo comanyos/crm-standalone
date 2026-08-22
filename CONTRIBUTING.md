@@ -106,6 +106,21 @@ identities or credentials.
    tenant-isolation tests connect as both to prove row-level security applies
    to the role the service actually uses.
 
+   **This tier runs in CI.** The `crm-api` and `authincore` jobs start the
+   same disposable instances `make test-db-up` does, and set
+   `REQUIRE_LIVE_POSTGRES=1`, which turns "the database is unreachable" from a
+   skip into a failure. That matters because a skip is indistinguishable from
+   a pass in every summary anyone reads: before CI started a database, every
+   PostgreSQL test in the repository skipped on every pull request while the
+   run reported green. Locally the same tests still skip, so a contributor
+   without the test instance running is not blocked — run `go test -v` and
+   look for SKIP if you need to know which tier you actually exercised, or set
+   `REQUIRE_LIVE_POSTGRES=1` yourself to be told.
+
+   Which database a test connects to, and what happens when it cannot, are
+   both decided in `internal/pgtest` so the two packages below cannot drift
+   onto different instances or different policies.
+
    Two packages now use this database: `internal/domain` and, for the revenue
    workflows end to end, `internal/server`. `go test ./...` runs them in
    separate processes at the same time, so they coordinate over one Postgres

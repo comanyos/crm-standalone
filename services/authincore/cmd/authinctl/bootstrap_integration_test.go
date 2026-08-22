@@ -38,12 +38,28 @@ const defaultAuthTestDSN = "postgres://authincore:authincore_test@localhost:1553
 // migrateOnce guards the schema setup so parallel packages do not race goose.
 var migrated bool
 
+// requireLiveAuthPostgresEnv, when set to anything non-empty, turns "the
+// database is not reachable" from a skip into a failure. CI sets it, because
+// a skip is indistinguishable from a pass in every summary anyone reads, and
+// a tier that skips is a tier that has silently stopped running.
+const requireLiveAuthPostgresEnv = "REQUIRE_LIVE_POSTGRES"
+
+// authDBUnavailable ends a test that cannot reach its database — a skip on a
+// developer's machine, a failure wherever the tier is declared mandatory.
+func authDBUnavailable(t *testing.T, format string, args ...any) {
+	t.Helper()
+	if os.Getenv(requireLiveAuthPostgresEnv) != "" {
+		t.Fatalf(requireLiveAuthPostgresEnv+" is set, so this cannot be skipped: "+format, args...)
+	}
+	t.Skipf(format, args...)
+}
+
 // liveAuthDB returns a pool against a migrated AuthinCore database.
 //
 // It skips when the database is unreachable, which is the only sensible thing
-// to do — but a skip here silently removes every check in this file, so run
-// `go test -v` and look for SKIP before treating a green run as proof. See
-// CONTRIBUTING.md's test tiers.
+// to do on a machine that has no test instance — but a skip here silently
+// removes every check in this file, so CI sets REQUIRE_LIVE_POSTGRES to make
+// that condition fail loudly instead. See CONTRIBUTING.md's test tiers.
 func liveAuthDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := os.Getenv("AUTH_TEST_DATABASE_URL")
@@ -54,11 +70,11 @@ func liveAuthDB(t *testing.T) *pgxpool.Pool {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
-		t.Skipf("skipping bootstrap integration test (cannot build pool for %s): %v", dsn, err)
+		authDBUnavailable(t, "skipping bootstrap integration test (cannot build pool for %s): %v", dsn, err)
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		t.Skipf("skipping bootstrap integration test (cannot reach %s — run `make test-db-up`): %v", dsn, err)
+		authDBUnavailable(t, "skipping bootstrap integration test (cannot reach %s — run `make test-db-up`): %v", dsn, err)
 	}
 	t.Cleanup(pool.Close)
 
