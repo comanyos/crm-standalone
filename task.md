@@ -152,13 +152,24 @@ originally scoped product.
   activating button nested one control inside another all over again.
   Keyboard activation and the row header are both pinned by tests.
 
-  Coverage now includes the settings and pipelines screens, which had no
-  tests at all. Those are the dialog-heavy ones, so each dialog is opened and
-  scanned — axe only sees what is rendered, and a closed dialog is not
-  rendered. It found a sixth empty `<th>`, on the custom objects table: the
+  Every page, embedded panel and fallback state is now scanned, so the check
+  is a floor under the whole app rather than a spot check: a new screen
+  assembled from the shared primitives inherits it, and a regression in
+  those primitives fails somewhere. Coverage includes the settings and
+  pipelines screens, which had no tests at all. Those are the dialog-heavy
+  ones, so each dialog is opened and scanned — axe only sees what is
+  rendered, and a closed dialog is not rendered. It found a sixth empty `<th>`, on the custom objects table: the
   earlier sweep's search missed it because that file writes `header:""` with
   no space. Both settings pages and the pipelines page are also scanned as a
   reader without write scope, since hiding controls changes the markup.
+
+  Two states are covered directly because scanning the pages that use them
+  never reached them. `StatePanel`'s empty, error, forbidden, not-found and
+  unavailable panels are what every screen falls back to, and a reader meets
+  them exactly when something has already gone wrong. And the detail pages
+  render the activity timeline with an empty list, so the populated timeline
+  and its composer dialog had never been scanned — an empty state is not
+  evidence about the state people spend their time in. Both were clean.
 
   Still open: the browser half. No Lighthouse run, no axe against the running
   app (contrast and target size are only checkable there), and no
