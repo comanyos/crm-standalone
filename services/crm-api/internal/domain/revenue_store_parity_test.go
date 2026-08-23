@@ -115,6 +115,98 @@ func TestOpportunityOptimisticConcurrencyIsTheSameInBothStores(t *testing.T) {
 	})
 }
 
+// TestMoveOpportunityToPipelineIsTheSameInBothStores covers the escape hatch
+// pipeline archival relies on: an open deal can leave a pipeline only through
+// an explicit, version-checked move to an open stage in another pipeline.
+func TestMoveOpportunityToPipelineIsTheSameInBothStores(t *testing.T) {
+	eachRevenueStore(t, func(t *testing.T, name string, s Store) {
+		ctx := context.Background()
+		scope := revenueScope("pipeline-move-" + name)
+		_, opportunity := openOpportunity(ctx, t, s, scope, "Transfer deal")
+		original := *opportunity
+
+		destination, err := s.CreatePipeline(ctx, scope, &Pipeline{Name: "Partner sales"})
+		if err != nil {
+			t.Fatalf("create destination pipeline: %v", err)
+		}
+		target, err := s.CreatePipelineStage(ctx, scope, &PipelineStage{
+			PipelineID: destination.ID, Name: "Discovery", Position: 0, Probability: 15, TerminalType: "open",
+		})
+		if err != nil {
+			t.Fatalf("create destination stage: %v", err)
+		}
+
+		moved, err := s.MoveOpportunityToPipeline(ctx, scope, MoveOpportunityToPipelineInput{
+			OpportunityID: opportunity.ID, PipelineID: destination.ID, StageID: target.ID, UpdatedAt: opportunity.UpdatedAt,
+		})
+		if err != nil {
+			t.Fatalf("move opportunity: %v", err)
+		}
+		if moved.PipelineID != destination.ID || moved.StageID != target.ID || moved.Stage != target.Name {
+			t.Fatalf("destination = pipeline %q stage %q (%q), want %q %q (%q)", moved.PipelineID, moved.StageID, moved.Stage, destination.ID, target.ID, target.Name)
+		}
+		if moved.Name != original.Name || moved.AccountID != original.AccountID || moved.Amount != original.Amount || moved.Probability != original.Probability {
+			t.Fatalf("pipeline move changed unrelated fields: before=%+v after=%+v", original, *moved)
+		}
+		if moved.UpdatedAt.IsZero() || moved.UpdatedAt.Equal(original.UpdatedAt) {
+			t.Fatalf("UpdatedAt = %v, want a fresh version distinct from %v", moved.UpdatedAt, original.UpdatedAt)
+		}
+		history, err := s.ListStageHistory(ctx, scope, opportunity.ID)
+		if err != nil {
+			t.Fatalf("list stage history: %v", err)
+		}
+		if len(history) != 1 || history[0].FromStage != original.Stage || history[0].ToStage != target.Name {
+			t.Fatalf("history = %+v, want %q -> %q", history, original.Stage, target.Name)
+		}
+
+		// The version check happens while the record is locked, before the move
+		// is evaluated. A stale caller cannot send the deal back to its old
+		// pipeline after another caller has already moved it.
+		_, err = s.MoveOpportunityToPipeline(ctx, scope, MoveOpportunityToPipelineInput{
+			OpportunityID: opportunity.ID, PipelineID: original.PipelineID, StageID: original.StageID, UpdatedAt: original.UpdatedAt,
+		})
+		if !errors.Is(err, ErrConflict) {
+			t.Fatalf("stale pipeline move: %v, want ErrConflict", err)
+		}
+
+		_, closedOpportunity := openOpportunity(ctx, t, s, scope, "Closed transfer deal")
+		closing := *closedOpportunity
+		closing.Stage = ""
+		closing.StageID = StageClosedLost
+		closing.CloseReason = "Not a fit"
+		closed, err := s.UpdateOpportunity(ctx, scope, &closing)
+		if err != nil {
+			t.Fatalf("close opportunity: %v", err)
+		}
+		_, err = s.MoveOpportunityToPipeline(ctx, scope, MoveOpportunityToPipelineInput{
+			OpportunityID: closedOpportunity.ID, PipelineID: destination.ID, StageID: target.ID, UpdatedAt: closed.UpdatedAt,
+		})
+		if !errors.Is(err, ErrInvalidTransition) {
+			t.Fatalf("move closed opportunity: %v, want ErrInvalidTransition", err)
+		}
+
+		closedDestination, err := s.CreatePipelineStage(ctx, scope, &PipelineStage{
+			PipelineID: destination.ID, Name: "Rejected", Position: 1, Probability: 0, TerminalType: "lost",
+		})
+		if err != nil {
+			t.Fatalf("create closed destination stage: %v", err)
+		}
+		_, anotherOpen := openOpportunity(ctx, t, s, scope, "Terminal destination deal")
+		_, err = s.MoveOpportunityToPipeline(ctx, scope, MoveOpportunityToPipelineInput{
+			OpportunityID: anotherOpen.ID, PipelineID: destination.ID, StageID: closedDestination.ID, UpdatedAt: anotherOpen.UpdatedAt,
+		})
+		if !errors.Is(err, ErrInvalidTransition) {
+			t.Fatalf("move to closed destination: %v, want ErrInvalidTransition", err)
+		}
+		_, err = s.MoveOpportunityToPipeline(ctx, scope, MoveOpportunityToPipelineInput{
+			OpportunityID: anotherOpen.ID, PipelineID: destination.ID, StageID: target.ID,
+		})
+		if !errors.Is(err, ErrInvalid) {
+			t.Fatalf("unversioned pipeline move: %v, want ErrInvalid", err)
+		}
+	})
+}
+
 // TestConcurrentConversionConvertsOnceInBothStores is the conversion race in
 // both implementations. PgStore serializes on the lead row; MemStore, which
 // has no rows to lock, serializes the compound write paths on one mutex. The

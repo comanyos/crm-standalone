@@ -38,6 +38,10 @@ service CRMService {
   rpc GetOpportunity(GetOpportunityRequest) returns (GetOpportunityResponse);
   rpc ListOpportunities(ListOpportunitiesRequest) returns (ListOpportunitiesResponse);
   rpc UpdateOpportunity(UpdateOpportunityRequest) returns (UpdateOpportunityResponse);
+  // MoveOpportunityToPipeline is deliberately narrower than UpdateOpportunity:
+  // cross-pipeline moves require an explicit destination pipeline and open
+  // stage, while preserving the deal's other fields and its audit history.
+  rpc MoveOpportunityToPipeline(MoveOpportunityToPipelineRequest) returns (MoveOpportunityToPipelineResponse);
   rpc DeleteOpportunity(DeleteOpportunityRequest) returns (DeleteOpportunityResponse);
   // Returns the append-only history for an opportunity. This is intentionally
   // separate from the mutable opportunity response so history remains useful
@@ -416,6 +420,17 @@ message ListOpportunitiesResponse {
 
 message UpdateOpportunityRequest { Opportunity opportunity = 1; }
 message UpdateOpportunityResponse { Opportunity opportunity = 1; }
+
+message MoveOpportunityToPipelineRequest {
+  string opportunity_id = 1;
+  string pipeline_id = 2;
+  string stage_id = 3;
+  // The version last read by the caller. This is required: unlike the older
+  // full-document update, this endpoint was introduced after versioning and
+  // never permits an unversioned cross-pipeline move.
+  google.protobuf.Timestamp updated_at = 4;
+}
+message MoveOpportunityToPipelineResponse { Opportunity opportunity = 1; }
 
 message DeleteOpportunityRequest { string id = 1; }
 message DeleteOpportunityResponse {}

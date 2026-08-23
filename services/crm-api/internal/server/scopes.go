@@ -50,6 +50,7 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/GetOpportunity":              "crm:opportunity:read",
 	"/crm.v1.CRMService/ListOpportunities":           "crm:opportunity:read",
 	"/crm.v1.CRMService/UpdateOpportunity":           "crm:opportunity:write",
+	"/crm.v1.CRMService/MoveOpportunityToPipeline":   "crm:opportunity:write",
 	"/crm.v1.CRMService/DeleteOpportunity":           "crm:opportunity:write",
 	"/crm.v1.CRMService/ListOpportunityStageHistory": "crm:opportunity:read",
 	"/crm.v1.CRMService/CreatePipeline":              "crm:pipeline:write",

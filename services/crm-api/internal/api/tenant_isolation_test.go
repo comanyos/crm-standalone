@@ -342,6 +342,12 @@ var crossTenantProbes = map[string]isolationProbe{
 		}))
 		wantNotFound(t, "UpdateOpportunity", err)
 	},
+	"MoveOpportunityToPipeline": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.MoveOpportunityToPipeline(ctxB, connect.NewRequest(&crmv1.MoveOpportunityToPipelineRequest{
+			OpportunityId: a.opportunityID, PipelineId: a.pipelineID, StageId: a.stageID,
+		}))
+		wantNotFound(t, "MoveOpportunityToPipeline", err)
+	},
 	"DeleteOpportunity": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.DeleteOpportunity(ctxB, connect.NewRequest(&crmv1.DeleteOpportunityRequest{Id: a.opportunityID}))
 		wantNotFound(t, "DeleteOpportunity", err)

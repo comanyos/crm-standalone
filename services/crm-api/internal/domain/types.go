@@ -326,6 +326,17 @@ type Opportunity struct {
 	CustomFields CustomValues `json:"custom_fields"`
 }
 
+// MoveOpportunityToPipelineInput names every value needed to relocate an
+// open opportunity without accepting a full, stale replacement document.
+// Destination selection is explicit: inferring a stage from its position or
+// name can put a deal in the wrong part of a differently configured pipeline.
+type MoveOpportunityToPipelineInput struct {
+	OpportunityID string
+	PipelineID    string
+	StageID       string
+	UpdatedAt     time.Time
+}
+
 // EntityID returns the record's identifier.
 func (e *Opportunity) EntityID() string { return e.ID }
 

@@ -497,6 +497,33 @@ func (s *CRMService) UpdateOpportunity(
 	return connect.NewResponse(&crmv1.UpdateOpportunityResponse{Opportunity: result}), nil
 }
 
+// MoveOpportunityToPipeline relocates an open opportunity to the caller's
+// explicit destination. It intentionally accepts no replacement document, so
+// an administrative move cannot overwrite a concurrently edited name,
+// amount, close reason, or custom-field document.
+func (s *CRMService) MoveOpportunityToPipeline(
+	ctx context.Context, req *connect.Request[crmv1.MoveOpportunityToPipelineRequest],
+) (*connect.Response[crmv1.MoveOpportunityToPipelineResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.store.MoveOpportunityToPipeline(ctx, scope, domain.MoveOpportunityToPipelineInput{
+		OpportunityID: req.Msg.GetOpportunityId(),
+		PipelineID:    req.Msg.GetPipelineId(),
+		StageID:       req.Msg.GetStageId(),
+		UpdatedAt:     protoTimestamp(req.Msg.GetUpdatedAt()),
+	})
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	result, err := s.opportunityForRead(ctx, scope, out)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.MoveOpportunityToPipelineResponse{Opportunity: result}), nil
+}
+
 // DeleteOpportunity removes an Opportunity.
 func (s *CRMService) DeleteOpportunity(
 	ctx context.Context, req *connect.Request[crmv1.DeleteOpportunityRequest],

@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OpportunityFormPage from "./OpportunityFormPage";
 import { makeAccount, makeOpportunity, makeSalesStages, renderRoutes } from "../../test/harness";
@@ -8,6 +9,7 @@ const { crm, auth } = vi.hoisted(() => ({
   crm: {
     getOpportunity: vi.fn(),
     updateOpportunity: vi.fn(),
+    moveOpportunityToPipeline: vi.fn(),
     getAccount: vi.fn(),
     listAccounts: vi.fn(),
     listPipelines: vi.fn(),
@@ -40,10 +42,14 @@ beforeEach(() => {
   crm.getAccount.mockResolvedValue({ account: makeAccount() });
   crm.listAccounts.mockResolvedValue({ accounts: [makeAccount()], nextPageToken: "" });
   crm.listPipelines.mockResolvedValue({
-    pipelines: [{ $typeName: "crm.v1.Pipeline", id: "system-sales", name: "Sales", isDefault: true }],
+    pipelines: [
+      { $typeName: "crm.v1.Pipeline", id: "system-sales", name: "Sales", isDefault: true },
+      { $typeName: "crm.v1.Pipeline", id: "partner-sales", name: "Partner sales", isDefault: false },
+    ],
   });
   crm.listPipelineStages.mockResolvedValue({ stages: makeSalesStages() });
   crm.updateOpportunity.mockResolvedValue({ opportunity: makeOpportunity() });
+  crm.moveOpportunityToPipeline.mockResolvedValue({ opportunity: makeOpportunity({ pipelineId: "partner-sales", stageId: "discovery", stage: "Discovery" }) });
 });
 
 async function stageChoices() {
@@ -90,6 +96,30 @@ describe("OpportunityFormPage stage options", () => {
     const { container } = renderRoutes(routes, ["/opportunities/opp-1/edit"]);
     await waitFor(() => expect(screen.getByLabelText(/^Opportunity name/)).toHaveValue("Acme renewal"));
     await expectNoA11yViolations(container);
+  });
+
+  it("moves an open deal through the narrow pipeline-transfer RPC", async () => {
+    const version = timestampFromDate(new Date("2026-08-23T06:40:00.000Z"));
+    crm.getOpportunity.mockResolvedValue({ opportunity: makeOpportunity({ updatedAt: version }) });
+    crm.listPipelineStages.mockImplementation(({ pipelineId }: { pipelineId: string }) => Promise.resolve({
+      stages: pipelineId === "partner-sales"
+        ? [{ $typeName: "crm.v1.PipelineStage", id: "discovery", pipelineId, name: "Discovery", position: 0, probability: 10, terminalType: "open", requiresCloseReason: false }]
+        : makeSalesStages(),
+    }));
+    renderRoutes(routes, ["/opportunities/opp-1/edit"]);
+    await waitFor(() => expect(screen.getByLabelText(/^Opportunity name/)).toHaveValue("Acme renewal"));
+
+    fireEvent.change(screen.getByLabelText("Destination pipeline"), { target: { value: "partner-sales" } });
+    await waitFor(() => expect(screen.getByLabelText("Destination stage")).toBeEnabled());
+    await screen.findByRole("option", { name: "Discovery" });
+    fireEvent.change(screen.getByLabelText("Destination stage"), { target: { value: "discovery" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Move opportunity" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Move opportunity" }));
+
+    await waitFor(() => expect(crm.moveOpportunityToPipeline).toHaveBeenCalledWith({
+      opportunityId: "opp-1", pipelineId: "partner-sales", stageId: "discovery", updatedAt: version,
+    }));
+    expect(crm.updateOpportunity).not.toHaveBeenCalled();
   });
 
 });
