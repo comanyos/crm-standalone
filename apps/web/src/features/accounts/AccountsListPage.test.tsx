@@ -126,4 +126,31 @@ describe("AccountsListPage", () => {
     await expectNoA11yViolations(container);
   });
 
+
+  // Keyboard coverage for the row-activation pattern. The row used to carry
+  // role="button" and tabIndex, which made it reachable but broke the table's
+  // semantics; the control is now a real button in the row header cell, so
+  // this pins that the keyboard path survived the change.
+  it("opens a record from the keyboard, not only the mouse", async () => {
+    const { router } = renderRoutes(routes, ["/accounts"]);
+    await screen.findByRole("table");
+
+    const opener = screen.getByRole("button", { name: "Acme Corp" });
+    opener.focus();
+    expect(opener).toHaveFocus();
+    fireEvent.click(opener); // what Enter and Space dispatch on a real button
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/accounts/acc-1"));
+  });
+
+  // The row names itself, so a cell read on its own says which record it
+  // belongs to rather than only which column.
+  it("gives every row a row header", async () => {
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByRole("table");
+
+    const rowHeader = screen.getByRole("rowheader", { name: /Acme Corp/ });
+    expect(rowHeader).toBeInTheDocument();
+  });
+
 });

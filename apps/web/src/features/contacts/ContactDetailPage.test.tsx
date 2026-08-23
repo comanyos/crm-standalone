@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import ContactDetailPage from "./ContactDetailPage";
 import { makeAccount, makeContact, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { getContact: vi.fn(), getAccount: vi.fn(), deleteContact: vi.fn() },
@@ -103,4 +104,12 @@ describe("ContactDetailPage", () => {
     );
     expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
   });
+
+  // Static a11y over a detail page with the activity timeline and notes panels.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/contacts/con-1"]);
+    await screen.findByRole("heading", { name: /Ada/ });
+    await expectNoA11yViolations(container);
+  });
+
 });

@@ -133,12 +133,24 @@ originally scoped product.
   and target-size cannot be judged here. What is left is the markup half:
   roles, names, label association, landmarks, table headers.
 
-  It found one real defect on its first run. Five list pages rendered an
-  empty `<th>` for their badge and action columns, and a screen reader
-  announcing a cell names its column — so those cells were announced with no
-  context at all. `Table`'s `Column` now takes `headerHidden`, which renders
-  the header for screen readers only: the text is required, hiding it is the
-  design choice. Each column is named for what it actually holds.
+  It found two real defects. Five list pages rendered an empty `<th>` for
+  their badge and action columns, and a screen reader announcing a cell names
+  its column — so those cells were announced with no context at all.
+  `Table`'s `Column` now takes `headerHidden`, which renders the header for
+  screen readers only: the text is required, hiding it is the design choice.
+
+  The second is why the primitive counts as accessible now rather than
+  before. Activatable rows carried `role="button"` and `tabIndex`, which took
+  the `<tr>` out of the table — its cells stopped being cells, so the
+  row/column relationship was lost — and made every real control inside a row
+  a control nested inside a control (`nested-interactive`, serious, on the
+  tasks and contacts tables). The row is a row again; the activating control
+  is a button in the row's header cell, so the keyboard path is a real named
+  control rather than a row pretending to be one. `Column.rowHeader` marks
+  which column names the row, because the first column is not always it — the
+  tasks table leads with a completion checkbox, and wrapping that in the
+  activating button nested one control inside another all over again.
+  Keyboard activation and the row header are both pinned by tests.
 
   Still open: the browser half. No Lighthouse run, no axe against the running
   app (contrast and target size are only checkable there), and no

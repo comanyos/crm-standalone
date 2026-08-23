@@ -14,6 +14,17 @@ export interface Column<T> {
    * all; axe reports it as `empty-table-header`. Hiding the label visually is
    * a design choice, omitting it is a defect. */
   headerHidden?: boolean;
+  /** Marks the column that names the row. It becomes the row's
+   * `<th scope="row">` — so a cell read on its own says which record it
+   * belongs to — and, on an activatable table, holds the control that opens
+   * it.
+   *
+   * Defaults to the first column, which is right for most tables and wrong
+   * for any whose first column is itself a control: the tasks table leads
+   * with a completion checkbox, and wrapping that in the activating button
+   * nests one control inside another. Mark the naming column explicitly
+   * there. */
+  rowHeader?: boolean;
 }
 
 interface TableProps<T> {
@@ -26,6 +37,9 @@ interface TableProps<T> {
 }
 
 export function Table<T>({ caption, columns, rows, getRowKey, onRowActivate }: TableProps<T>) {
+  const marked = columns.findIndex((col) => col.rowHeader);
+  const headerIndex = marked === -1 ? 0 : marked;
+
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -50,35 +64,53 @@ export function Table<T>({ caption, columns, rows, getRowKey, onRowActivate }: T
             const key = getRowKey(row);
             const interactive = !!onRowActivate;
             return (
+              // The row keeps a click for pointer users, but it is not itself
+              // a control. It used to carry role="button" and tabIndex, which
+              // took the <tr> out of the table: its cells stopped being cells,
+              // so a screen reader lost the row/column relationship, and any
+              // real control inside the row — the tasks table has a checkbox
+              // and two buttons — became a control nested inside a control,
+              // which axe reports as `nested-interactive` (serious).
+              //
+              // The keyboard and screen-reader path is now the button in the
+              // row header cell below, which is a real control with a real
+              // name.
               <tr
                 key={key}
-                tabIndex={interactive ? 0 : undefined}
-                role={interactive ? "button" : undefined}
                 onClick={interactive ? () => onRowActivate(row) : undefined}
-                onKeyDown={
-                  interactive
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onRowActivate(row);
-                        }
-                      }
-                    : undefined
-                }
-                className={
-                  interactive
-                    ? "cursor-pointer hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none"
-                    : undefined
-                }
+                className={interactive ? "cursor-pointer hover:bg-slate-50" : undefined}
               >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={`px-4 py-2 text-slate-800 ${col.align === "right" ? "text-right" : ""}`}
-                  >
-                    {col.render(row)}
-                  </td>
-                ))}
+                {columns.map((col, index) => {
+                  const content = col.render(row);
+                  const className = `px-4 py-2 text-slate-800 ${col.align === "right" ? "text-right" : ""}`;
+                  if (index === headerIndex) {
+                    return (
+                      <th key={col.key} scope="row" className={`${className} font-normal`}>
+                        {interactive ? (
+                          <button
+                            type="button"
+                            // The row's own click would fire again as this
+                            // bubbles; harmless but for one navigation, not two.
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onRowActivate(row);
+                            }}
+                            className="text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+                          >
+                            {content}
+                          </button>
+                        ) : (
+                          content
+                        )}
+                      </th>
+                    );
+                  }
+                  return (
+                    <td key={col.key} className={className}>
+                      {content}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}

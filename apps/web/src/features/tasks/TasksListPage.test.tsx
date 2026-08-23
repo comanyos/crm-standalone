@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import TasksListPage from "./TasksListPage";
 import { makeTask, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { listTasks: vi.fn(), completeTask: vi.fn(), reopenTask: vi.fn() },
@@ -146,4 +147,12 @@ describe("TasksListPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Overdue" }));
     expect(await screen.findByText("Nothing overdue")).toBeInTheDocument();
   });
+
+  // Static a11y over the tasks table, whose action column carries real controls.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/tasks"]);
+    await screen.findByRole("table");
+    await expectNoA11yViolations(container);
+  });
+
 });

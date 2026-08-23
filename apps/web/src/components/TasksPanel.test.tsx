@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { TasksPanel } from "./TasksPanel";
 import { makeTask, renderRoutes } from "../test/harness";
+import { expectNoA11yViolations } from "../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { listTasks: vi.fn(), completeTask: vi.fn() },
@@ -100,4 +101,12 @@ describe("TasksPanel", () => {
     renderRoutes(routes);
     expect(await screen.findByText("Nothing outstanding.")).toBeInTheDocument();
   });
+
+  // Static a11y over an embedded panel with its own dialog and row controls.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes);
+    await screen.findByText("Send the proposal");
+    await expectNoA11yViolations(container);
+  });
+
 });

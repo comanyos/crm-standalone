@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotesPanel } from "./NotesPanel";
 import { makeNote, makeTimestamp, renderRoutes } from "../test/harness";
+import { expectNoA11yViolations } from "../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { listNotes: vi.fn(), createNote: vi.fn(), updateNote: vi.fn(), deleteNote: vi.fn() },
@@ -113,4 +114,12 @@ describe("NotesPanel", () => {
     expect(screen.queryByRole("button", { name: "Edit note" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete note" })).not.toBeInTheDocument();
   });
+
+  // Static a11y over an embedded panel with its own dialog and row controls.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes);
+    await screen.findByText("Renewal owner is now Priya.");
+    await expectNoA11yViolations(container);
+  });
+
 });

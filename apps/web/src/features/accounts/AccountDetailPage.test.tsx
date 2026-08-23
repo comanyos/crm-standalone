@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import AccountDetailPage from "./AccountDetailPage";
 import { makeAccount, makeContact, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
@@ -159,4 +160,12 @@ describe("AccountDetailPage — partial failures", () => {
     expect(await screen.findByText("The service is temporarily unavailable")).toBeInTheDocument();
     expect(screen.queryByText("No activity recorded.")).not.toBeInTheDocument();
   });
+
+  // Static a11y over a detail page: definition lists, panels and their headings.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/accounts/acc-1"]);
+    await screen.findByRole("heading", { name: /Acme Corp/ });
+    await expectNoA11yViolations(container);
+  });
+
 });

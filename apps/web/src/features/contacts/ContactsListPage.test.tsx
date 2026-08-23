@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import ContactsListPage from "./ContactsListPage";
 import { makeContact, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { listContacts: vi.fn() },
@@ -85,4 +86,12 @@ describe("ContactsListPage", () => {
     expect(await screen.findByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New contact" })).not.toBeInTheDocument();
   });
+
+  // Static a11y over another table, to catch a per-page column definition rather than a shared one.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/contacts"]);
+    await screen.findByRole("table");
+    await expectNoA11yViolations(container);
+  });
+
 });

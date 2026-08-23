@@ -103,6 +103,7 @@ export default function TasksListPage() {
     },
     {
       key: "title",
+      rowHeader: true,
       header: "Task",
       render: (task) => (
         <span className={task.status === "completed" ? "text-slate-400 line-through" : "font-medium text-slate-900"}>
