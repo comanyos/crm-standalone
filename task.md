@@ -1404,8 +1404,15 @@ redirect URLs, privacy/retention policy, and deployment secret ownership.
   idempotency, dead-letter/retry handling, and tenant routing.
 - [~] Add clear user/admin controls for disconnect, purge, and sync health.
   Connect, reconnect, disconnect and purge are live on the Connected accounts
-  page, along with an administrative connection list behind its own scope.
-  Sync health has nothing to report until the sync jobs exist.
+  page, along with an administrative connection list behind its own scope, and
+  both sync streams report progress, backfill state and a translated failure
+  reason.
+
+  Data-subject requests against synced content are served through
+  EraseSyncedContentForContact, SuppressSyncAddress, ReleaseSyncAddress and
+  ListSyncSuppressions, all behind crm:integration_admin. Retention is
+  configurable and off by default. Open: no UI for any of it — an
+  administrator uses the RPCs — and no subject-access export.
 
 Acceptance criteria:
 
@@ -1446,7 +1453,7 @@ Acceptance criteria:
 - [ ] Enforce production TLS/HSTS, secure cookies, CSP, CORS allowlists, CSRF,
   rate limits, request-body limits, safe error handling, and security headers.
 - [ ] Implement account lockout/MFA policy and administrator session controls.
-- [ ] Establish data retention, deletion, privacy request, audit retention,
+- [~] Establish data retention, deletion, privacy request, audit retention,
   incident response, and access review procedures.
 
 ### 10.2 Observability and reliability

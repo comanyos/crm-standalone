@@ -337,7 +337,7 @@ Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
 
-## M5 — Communications and automation (55%)
+## M5 — Communications and automation (60%)
 
 Dependencies: provider ownership, OAuth credentials, retention policy, and
 webhook security decisions from the product owner.
@@ -378,16 +378,20 @@ webhook security decisions from the product owner.
   mirror follows it in place, and only status and start changes reach the
   append-only timeline.
 
+  **Done — data-subject erasure and retention.** Synced email and meetings can
+  be erased on request, as redacted tombstones that keep deduplication working
+  while removing every readable field, together with a suppression list that
+  stops the next poll from re-collecting the same person. Retention
+  (`SYNC_RETENTION_DAYS`, off by default) uses the same erasure inside the sync
+  pass. Every erasure is audited through the outbox with counts and no content.
+
   **Not done — what the connection still owes.** Sync is one-way in both
   streams: the CRM never creates, moves or cancels an event, and `gmail.send`
   is requested but unused. Only the `primary` calendar is read. Recurring
   series sync as individual instances, so moving a series posts one entry per
   instance. Synced email and meetings attach to matched Contacts only, not to
   their Accounts or open Opportunities. `thread_id` and `recurring_event_id`
-  are stored but nothing groups a conversation or a series in the UI. There is
-  no operation to erase synced content on request, which a data-subject
-  erasure would need, and sealing-key rotation still has no re-encryption
-  path. Google verification submission stays deferred until a truthful demo
+  are stored but nothing groups a conversation or a series in the UI. Sealing-key rotation still has no re-encryption path. Google verification submission stays deferred until a truthful demo
   can be recorded. Microsoft remains deliberately unconfigured.
 - [ ] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.

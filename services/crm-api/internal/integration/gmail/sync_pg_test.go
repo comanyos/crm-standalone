@@ -276,3 +276,138 @@ func TestDisconnectKeepsTheDeduplicationIndexOverPostgres(t *testing.T) {
 		t.Errorf("timeline holds %d entries after a disconnect and reconnect, want 1", len(activities))
 	}
 }
+
+// TestErasureIsNotUndoneByTheNextPass is the end-to-end proof that this
+// feature is not theatre, over the store where it actually has to hold.
+//
+// It is the whole loop: sync collects, an erasure removes and suppresses, and
+// then a real pass runs again over the same mailbox — including the same
+// message and a new one from the same person. Nothing may come back.
+func TestErasureIsNotUndoneByTheNextPass(t *testing.T) {
+	store, scope, contact := livePgFixture(t)
+	ctx := context.Background()
+	at := time.Now().UTC().Add(-time.Hour)
+
+	api := &stubAPI{
+		profile: Profile{HistoryID: "1"},
+		pages:   []stubPage{{ids: []string{"pg-erase-1"}}},
+		messages: map[string]Message{
+			"pg-erase-1": message("pg-erase-1", contact.Email, mailboxAddress, "Confidential terms", at),
+		},
+	}
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
+	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(activities) != 1 {
+		t.Fatalf("timeline holds %d entries before erasure, want 1", len(activities))
+	}
+
+	// The erasure, exactly as the RPC performs it.
+	result, err := store.EraseSyncedContent(ctx, scope, domain.EraseSubject{
+		SubjectType: domain.SubjectContact, SubjectID: contact.ID,
+		Actor: "admin-1", Reason: "erasure request",
+		SuppressAddresses: []string{contact.Email},
+	})
+	if err != nil {
+		t.Fatalf("erase: %v", err)
+	}
+	if result.ActivitiesDeleted != 1 || result.AddressesSuppressed != 1 {
+		t.Fatalf("erasure = %+v", result)
+	}
+
+	// Now a real pass, over the erased message and a new one from the same
+	// person. Force a backfill so both are examined, as an expired history
+	// cursor would.
+	state, err := store.GetGmailSyncState(ctx, scope, mailboxOwner)
+	if err != nil {
+		t.Fatalf("read cursor: %v", err)
+	}
+	state.BackfillComplete, state.BackfillPageToken, state.LastHistoryID = false, "", ""
+	if _, err := store.SaveGmailSyncState(ctx, scope, state); err != nil {
+		t.Fatalf("reset cursor: %v", err)
+	}
+	api.pages = []stubPage{{ids: []string{"pg-erase-1", "pg-erase-2"}}}
+	api.messages["pg-erase-2"] = message("pg-erase-2", contact.Email, mailboxAddress, "Another one", at)
+
+	second, err := syncer.SyncMailbox(ctx, scope, mailboxOwner)
+	if err != nil {
+		t.Fatalf("sync after erasure: %v", err)
+	}
+	if second.EntriesCreated != 0 {
+		t.Errorf("a pass after erasure created %d entries", second.EntriesCreated)
+	}
+	if second.MessagesMatched != 0 {
+		t.Errorf("a pass after erasure matched %d messages from a suppressed address",
+			second.MessagesMatched)
+	}
+
+	activities, err = store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(activities) != 0 {
+		t.Fatalf("erased content returned to the timeline: %d entries", len(activities))
+	}
+
+	// And the tombstone is still redacted — nothing refreshed its subject.
+	entries, err := store.ListGmailMessagesForSubject(ctx, scope, domain.SubjectContact, contact.ID, 0)
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.MessageSubject != "" {
+			t.Errorf("a tombstone regained content: %q", entry.MessageSubject)
+		}
+	}
+}
+
+// TestRetentionOverPostgresAgesOutOldMailInsideTheSyncPass.
+func TestRetentionOverPostgresAgesOutOldMailInsideTheSyncPass(t *testing.T) {
+	store, scope, contact := livePgFixture(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	// One old message, seeded directly.
+	activityID := domain.NewID()
+	if _, err := store.RecordGmailActivity(ctx, scope, &domain.GmailMessage{
+		OwnerID: mailboxOwner, ProviderMessageID: "pg-old",
+		SubjectType: domain.SubjectContact, SubjectID: contact.ID,
+		ActivityID: activityID, MessageSubject: "Ancient", FromAddress: contact.Email,
+		Direction: domain.GmailInbound, OccurredAt: now.Add(-100 * 24 * time.Hour),
+	}, &domain.Activity{
+		ID: activityID, Kind: domain.GmailActivityKind,
+		SubjectType: domain.SubjectContact, SubjectID: contact.ID,
+		Notes: "Email received: Ancient", ActorID: mailboxOwner,
+		OccurredAt: now.Add(-100 * 24 * time.Hour),
+	}); err != nil {
+		t.Fatalf("seed old message: %v", err)
+	}
+
+	api := &stubAPI{profile: Profile{HistoryID: "1"}, pages: []stubPage{{}}, messages: map[string]Message{}}
+	syncer := NewSyncer(store, api, staticToken{},
+		retainer{store: store, window: 90 * 24 * time.Hour}, nil)
+	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(activities) != 0 {
+		t.Errorf("the retention window did not age out the old message over PostgreSQL: %d entries",
+			len(activities))
+	}
+	entries, err := store.ListGmailMessagesForSubject(ctx, scope, domain.SubjectContact, contact.ID, 0)
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	if len(entries) != 1 || entries[0].ErasedAt.IsZero() {
+		t.Errorf("the aged-out message left no tombstone, so it would be re-collected: %+v", entries)
+	}
+}

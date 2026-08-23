@@ -38,6 +38,16 @@ func NewCRMService(
 	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
 	privacySvc *privacy.Service,
 ) *CRMService {
+	if privacySvc == nil {
+		// Unlike the Google services, this one is not optional: a
+		// data-subject request must be servable for content collected before
+		// the integration was switched off, and there is no honest way to
+		// answer "we cannot delete your data because the feature that
+		// collected it is disabled". Defaulting here means no call site can
+		// leave it nil and turn an erasure into a panic. Retention stays off,
+		// which is the safe half to default.
+		privacySvc = privacy.New(store, 0, nil)
+	}
 	return &CRMService{
 		cfg: cfg, store: store, google: googleSvc,
 		gmail: gmailSyncer, calendar: calendarSyncer, privacy: privacySvc,

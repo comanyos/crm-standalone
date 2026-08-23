@@ -330,6 +330,99 @@ Gmail's one — calendars change far less often than mailboxes — as its own
 loop rather than sharing a pass, so a Gmail quota problem cannot stop meetings
 reaching timelines and an expired calendar cursor cannot delay anybody's mail.
 
+## Erasing synced content, and retention
+
+Sync puts people's correspondence and meetings into this CRM. This is how it
+comes back out. It takes two mechanisms, and only one of them is obvious.
+
+### Why deleting is not enough
+
+`gmail_messages` and `calendar_events` are the deduplication memory — they are
+what stops a re-sync posting a second copy of everything. Deleting those rows
+to erase somebody would make the next poll, a minute later, re-create every
+Activity it had just removed.
+
+So an erased row becomes a **redacted tombstone**: the provider's opaque
+message or event id survives, because dedup needs it, and every readable field
+is blanked. `erased_at` records that it happened.
+
+| Kept in a tombstone | Blanked |
+| --- | --- |
+| provider message / event id | subject line, meeting title |
+| subject type and id | sender address, organizer address |
+| direction, timestamps | thread id, iCalUID, recurring id |
+
+A provider message id is not personal data in any useful sense; a subject
+line, a meeting title and a sender address are. Keeping the first to suppress
+the second is the whole trick.
+
+A tombstone is also never resurrected. A cancelled meeting that Google later
+reports as rescheduled would otherwise post a fresh timeline entry carrying
+the title that was just erased, so `RecordCalendarEvent` returns early on an
+erased row without touching the mirror either.
+
+### Why erasure alone is theatre
+
+Tombstones only cover what has already been seen. Without more, the next email
+that person sends is indexed as though nothing had been asked.
+
+`sync_suppressions` is that more: an address the matcher checks **before** the
+Contact lookup, in both syncers, loaded once per pass and failing closed — a
+pass that cannot read the list does no matching at all, because the list
+records people who asked not to be tracked.
+
+Erasing for a contact suppresses their address **in the same transaction**.
+The two are not offered separately, because doing only the first reads as
+success and is undone within the minute.
+
+Erasing a *mailbox* deliberately suppresses nobody. "Undo what my mailbox put
+into this CRM" is not "stop tracking these people", and suppressing every
+correspondent of a departing employee would quietly stop their colleagues'
+syncs from recording the same customers.
+
+### What erasure never touches
+
+An Activity a person authored. A note somebody typed about a customer, or a
+call they logged by hand, is this organization's own record; deleting it
+because a third party asked would destroy business records under cover of a
+privacy request. The delete filters on `kind IN ('email_synced',
+'meeting_synced')` rather than trusting the ids it collected.
+
+### Retention
+
+`SYNC_RETENTION_DAYS` erases synced content older than the window, using the
+same redacting erasure a request does. It runs **inside the sync pass** that
+already holds the mailbox's lease: no second scheduler, and no window in which
+a pass re-indexes what another job is concurrently deleting.
+
+It is **off by default**. A CRM that silently deleted an organization's
+correspondence history after ninety days because nobody configured it would be
+losing records it was never told to lose. An unparseable value falls back to
+the default rather than to zero — a typo meaning "keep forever" is survivable,
+one meaning "delete everything older than now" is not.
+
+### The surface
+
+| RPC | Scope | What it does |
+| --- | --- | --- |
+| `EraseSyncedContentForContact` | `crm:integration_admin:write` | erases and suppresses, together |
+| `SuppressSyncAddress` | `crm:integration_admin:write` | stops future collection, keeps history |
+| `ReleaseSyncAddress` | `crm:integration_admin:write` | lifts a suppression added in error |
+| `ListSyncSuppressions` | `crm:integration_admin:read` | who has asked not to be tracked |
+
+These are administrative rather than personal, unlike the sync RPCs: the
+person exercising a right is usually not the person holding the CRM login, so
+an administrator has to be able to name the record.
+
+### Audit
+
+Every erasure that did something writes `sync_erasure.content_erased` through
+the outbox, carrying counts, scope and reason — and no content, because an
+audit record quoting the subject lines it had just erased would defeat the
+erasure it was recording. Retention sweeps are marked `automatic: true`, so an
+auditor can tell "it aged out" from "we were asked". An erasure that found
+nothing writes nothing, so the ones that did something are not buried.
+
 ## Audit and metrics
 
 Lifecycle events go through the module's transactional outbox on subject
@@ -351,6 +444,10 @@ only label is a bounded reason-code set; no tenant, user, mailbox address or
 provider message is ever a metric label.
 
 `crm_calendar_sync_passes_total{outcome}` is the calendar equivalent.
+
+`crm_sync_erasures_total{outcome}` counts erasures, labelled by whether they
+came from a request or the retention sweep and whether they found anything —
+never who asked, or about whom.
 
 `crm_gmail_timeline_entries_total` and `crm_calendar_timeline_entries_total`
 count entries written by sync and have no labels at all — a per-tenant or
@@ -395,6 +492,13 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
 
 ## What is not built yet
 
+- **Erasure beyond synced content** — the CRM records a person's name, email
+  and history in Contacts and Activities that people typed. Erasing those is
+  ordinary record deletion and is deliberately not what these operations do.
+  A complete data-subject workflow would coordinate both.
+- **Export for a subject-access request** — "tell me what you hold about me"
+  is the other half of the same regulation, and there is no operation for it.
+
 - **Writing to Google** — sync is one-way in both streams. The CRM never
   creates, moves or cancels an event, and `gmail.send` is requested but
   nothing sends. Google is authoritative for everything synced; there is no
@@ -408,10 +512,6 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
   Contacts only. Rolling that up to the Contact's Account, or onto an open
   Opportunity, needs a rule for which of several open deals an email belongs
   to, and that is a product decision.
-- **Erasing synced content on request** — disconnecting stops sync but keeps
-  the Activities already created. A deliberate "delete the email this CRM
-  holds about me" operation does not exist, and a data-subject erasure request
-  cannot be served without one.
 - **Thread grouping in the UI** — `thread_id` is stored but nothing reads it;
   a conversation shows as separate timeline entries.
 - **Sealing-key rotation** with re-encryption.

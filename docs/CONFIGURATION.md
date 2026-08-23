@@ -70,6 +70,7 @@ with the checked-in local defaults.
 | `GOOGLE_OAUTH_REDIRECT_URL` | *(unset)* | Required with Google integration; `https://` |
 | `GOOGLE_OAUTH_TOKEN_KEY` | *(unset)* | Required with Google integration; base64-encoded 32-byte encryption key |
 | `CRM_WEB_APP_BASE_URL` | *(unset — the OAuth callback renders its own result page)* | `https://` when set; the origin the Google callback returns the browser to |
+| `SYNC_RETENTION_DAYS` | `0` (keep synced email and meetings indefinitely) | Set deliberately; see `docs/GOOGLE_INTEGRATION.md` |
 
 ### `services/authincore`
 
