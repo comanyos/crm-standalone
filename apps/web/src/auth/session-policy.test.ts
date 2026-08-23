@@ -79,11 +79,42 @@ describe("cross-tab sign-out", () => {
   /** Stands in for another tab: a second BroadcastChannel on the same
    * channel name, which is what a second document would hold. */
   function otherTab(): BroadcastChannel {
-    return new BroadcastChannel("crm_auth_sign_out");
+    return new BroadcastChannel(CHANNEL);
   }
 
-  /** BroadcastChannel delivery is asynchronous, so assertions wait a turn. */
-  const delivered = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const CHANNEL = "crm_auth_sign_out";
+  /** A type the module's listener does not recognise, so it is inert. */
+  const SETTLED = "__test-settled__";
+
+  /** Waits until everything `via` has posted so far has been delivered, by
+   * posting a sentinel through **the same channel instance** and waiting for
+   * it to arrive.
+   *
+   * The instance matters. BroadcastChannel guarantees ordering for messages
+   * posted from one instance; between two instances it guarantees nothing, so
+   * a sentinel sent down a second channel can overtake the message it was
+   * meant to follow. Posting it through the same instance makes the sentinel
+   * a real happens-before rather than a second guess.
+   *
+   * What this replaced was a single `setTimeout(0)`. Delivery takes exactly
+   * one macrotask, so that had no margin: whenever the runtime scheduled the
+   * test's timer ahead of the channel's dispatch, the assertion ran early —
+   * failing that test and leaving the message in flight to arrive during the
+   * next one, where a negative assertion was waiting. That is why these
+   * failed in pairs, and only under the load of a full run. */
+  async function settled(via: BroadcastChannel) {
+    const probe = new BroadcastChannel(CHANNEL);
+    try {
+      await new Promise<void>((resolve) => {
+        probe.addEventListener("message", (event: MessageEvent) => {
+          if ((event.data as { type?: string } | null)?.type === SETTLED) resolve();
+        });
+        via.postMessage({ type: SETTLED });
+      });
+    } finally {
+      probe.close();
+    }
+  }
 
   it("notifies when another tab signs out", async () => {
     const onSignOut = vi.fn();
@@ -91,7 +122,7 @@ describe("cross-tab sign-out", () => {
 
     const other = otherTab();
     other.postMessage({ type: "signed-out", at: Date.now() });
-    await delivered();
+    await settled(other);
 
     expect(onSignOut).toHaveBeenCalledTimes(1);
     other.close();
@@ -109,7 +140,7 @@ describe("cross-tab sign-out", () => {
     other.postMessage({ type: "something-else" });
     other.postMessage("signed-out");
     other.postMessage(null);
-    await delivered();
+    await settled(other);
 
     expect(onSignOut).not.toHaveBeenCalled();
     other.close();
@@ -121,10 +152,21 @@ describe("cross-tab sign-out", () => {
     const onSignOut = vi.fn();
     const stop = watchForSignOutElsewhere(onSignOut);
 
+    // The message comes from the module's channel, so there is no instance
+    // here to send a sentinel through. Wait for another tab to receive it —
+    // one dispatch reaches every instance, so once a witness has it, this
+    // tab's listener has had its chance too.
+    const witness = otherTab();
+    const heard = new Promise<void>((resolve) => {
+      witness.addEventListener("message", (event: MessageEvent) => {
+        if ((event.data as { type?: string } | null)?.type === "signed-out") resolve();
+      });
+    });
     broadcastSignOut();
-    await delivered();
+    await heard;
 
     expect(onSignOut).not.toHaveBeenCalled();
+    witness.close();
     stop();
   });
 
@@ -136,9 +178,7 @@ describe("cross-tab sign-out", () => {
     });
 
     broadcastSignOut();
-    await delivered();
-
-    expect(heard).toHaveBeenCalledWith("signed-out");
+    await vi.waitFor(() => expect(heard).toHaveBeenCalledWith("signed-out"));
     other.close();
   });
 
@@ -148,7 +188,7 @@ describe("cross-tab sign-out", () => {
 
     const other = otherTab();
     other.postMessage({ type: "signed-out", at: Date.now() });
-    await delivered();
+    await settled(other);
 
     expect(onSignOut).not.toHaveBeenCalled();
     other.close();
@@ -162,7 +202,7 @@ describe("cross-tab sign-out", () => {
     other.addEventListener("message", (event: MessageEvent) => seen.push(event.data));
 
     broadcastSignOut();
-    await delivered();
+    await vi.waitFor(() => expect(seen).not.toHaveLength(0));
 
     expect(seen).toHaveLength(1);
     expect(Object.keys(seen[0] as object).sort()).toEqual(["at", "type"]);
