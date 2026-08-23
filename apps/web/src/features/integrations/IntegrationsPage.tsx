@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
-import type { GoogleConnection } from "@crm/contracts";
+import type { GmailSyncStatus, GoogleConnection } from "@crm/contracts";
 import { PageHeader } from "../../components/shell/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
@@ -64,6 +64,20 @@ function formatMoment(value: GoogleConnection["connectedAt"]): string {
   return timestampDate(value).toLocaleString();
 }
 
+/** The bounded reason codes a sync pass can record, in words a user can act
+ * on. As with the callback reasons, an unrecognized code is not printed: the
+ * set belongs to the server, and echoing an unknown value would put
+ * server-chosen text on the page. */
+const SYNC_REASON: Record<string, string> = {
+  not_connected:
+    "Gmail access is not available for this account. Reconnect and make sure you grant permission to read your email.",
+  token_unavailable: "Google would not renew the CRM's access. Reconnect your account.",
+  history_expired:
+    "The CRM was out of sync for long enough that Google no longer has the change history. A fresh pass over recent mail is running.",
+  provider_error: "Google could not be reached on the last attempt. The CRM will try again shortly.",
+  storage_failed: "The last pass could not be saved. If this persists, contact your administrator.",
+};
+
 /** Connected accounts. Today that means Google; Microsoft is deliberately not
  * here yet rather than present and disabled, because a greyed-out button is a
  * promise this CRM has not made.
@@ -90,6 +104,7 @@ export default function IntegrationsPage() {
   });
 
   const connection = query.data?.connection;
+  const sync: GmailSyncStatus | undefined = query.data?.gmailSync;
   const configured = query.data?.configured ?? false;
   const requestedScopes = useMemo(() => query.data?.requestedScopes ?? [], [query.data]);
   const status = connection?.status ?? "";
@@ -126,6 +141,25 @@ export default function IntegrationsPage() {
       // A full navigation, not a popup: Google's consent screen refuses to
       // render in a frame, and a popup is the thing browsers block.
       window.location.assign(response.authorizationUrl);
+    },
+    onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
+  });
+
+  const syncNow = useMutation({
+    mutationFn: () => crm.syncGoogleMailbox({}),
+    onSuccess: (response) => {
+      void queryClient.invalidateQueries({ queryKey: ["crm.getGoogleConnection"] });
+      // The count that means something to a user is entries added to their
+      // records, not messages Gmail was asked about — most mail has no CRM
+      // counterparty and is never recorded.
+      const created = response.entriesCreated;
+      toast.show({
+        tone: "success",
+        message:
+          created > 0
+            ? `Added ${created} email${created === 1 ? "" : "s"} to your contacts' timelines.`
+            : "Mailbox checked. No new email involving your contacts.",
+      });
     },
     onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
   });
@@ -221,6 +255,64 @@ export default function IntegrationsPage() {
                 </div>
               )}
             </dl>
+          )}
+
+          {configured && status === "connected" && (
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-semibold text-slate-900">Email sync</h3>
+              <p className="mt-1 max-w-prose text-sm text-slate-600">
+                The CRM checks your mailbox for messages involving people already in your
+                contacts, and adds those to the contact's timeline. Email with no matching
+                contact is never read into the CRM.
+              </p>
+
+              {sync ? (
+                <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-slate-500">Emails added to timelines</dt>
+                    <dd className="font-medium text-slate-900">{Number(sync.activitiesCreated)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Last checked</dt>
+                    <dd className="font-medium text-slate-900">
+                      {formatMoment(sync.lastSyncedAt) || "Not yet"}
+                    </dd>
+                  </div>
+                  {!sync.backfillComplete && (
+                    <div className="sm:col-span-2">
+                      <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+                        Still working through your recent mail. This runs in the background and
+                        may take a few passes.
+                      </p>
+                    </div>
+                  )}
+                  {sync.lastError && SYNC_REASON[sync.lastError] && (
+                    <div className="sm:col-span-2">
+                      <p className="rounded-md bg-warning-50 p-3 text-sm text-warning-700">
+                        {SYNC_REASON[sync.lastError]}
+                      </p>
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <p className="mt-3 text-sm text-slate-600">
+                  Sync has not run yet. It starts automatically, or you can check now.
+                </p>
+              )}
+
+              {canWrite && (
+                <div className="mt-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={syncNow.isPending}
+                    onClick={() => syncNow.mutate()}
+                  >
+                    Check for new email
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
 
           {configured && status === "reauthorization_required" && (

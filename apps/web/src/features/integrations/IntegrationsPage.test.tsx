@@ -10,6 +10,7 @@ const { crm, auth } = vi.hoisted(() => ({
     getGoogleConnection: vi.fn(),
     startGoogleConnection: vi.fn(),
     disconnectGoogleConnection: vi.fn(),
+    syncGoogleMailbox: vi.fn(),
   },
   auth: { hasScope: vi.fn(), session: { claims: { sub: "user-1" } } },
 }));
@@ -43,6 +44,18 @@ function connectionResponse(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function syncStatus(overrides: Record<string, unknown> = {}) {
+  return {
+    $typeName: "crm.v1.GmailSyncStatus",
+    backfillComplete: true,
+    messagesIndexed: 12n,
+    activitiesCreated: 9n,
+    lastError: "",
+    lastSyncedAt: timestampFromDate(new Date("2026-08-02T08:00:00Z")),
+    ...overrides,
+  };
+}
+
 function connectedResponse() {
   return connectionResponse({
     id: "conn-1",
@@ -54,6 +67,10 @@ function connectedResponse() {
     ],
     connectedAt: timestampFromDate(new Date("2026-08-01T10:00:00Z")),
   });
+}
+
+function connectedWithSync(sync: Record<string, unknown> = {}) {
+  return { ...connectedResponse(), gmailSync: syncStatus(sync) };
 }
 
 // window.location.assign is how the page hands the browser to Google's
@@ -69,6 +86,7 @@ beforeEach(() => {
     authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?client_id=x&state=y",
   });
   crm.disconnectGoogleConnection.mockResolvedValue({ connection: connectionResponse().connection });
+  crm.syncGoogleMailbox.mockResolvedValue({ messagesExamined: 40, entriesCreated: 3 });
   Object.defineProperty(window, "location", {
     configurable: true,
     value: { ...window.location, assign },
@@ -187,13 +205,76 @@ describe("IntegrationsPage", () => {
     expect(screen.queryByRole("button", { name: /Connect Google/ })).not.toBeInTheDocument();
   });
 
+  it("explains that only email involving contacts is read into the CRM", async () => {
+    crm.getGoogleConnection.mockResolvedValue(connectedWithSync());
+    const { container } = renderRoutes(routes, ["/settings/integrations"]);
+
+    // The privacy boundary is the thing a user most needs stated plainly, so
+    // it is on the page rather than buried in documentation.
+    expect(
+      await screen.findByText(/Email with no matching contact is never read into the CRM/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("9")).toBeInTheDocument();
+    await expectNoA11yViolations(container);
+  });
+
+  it("checks for new email on demand and reports what was added", async () => {
+    crm.getGoogleConnection.mockResolvedValue(connectedWithSync());
+    renderRoutes(routes, ["/settings/integrations"]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Check for new email" }));
+    await waitFor(() => expect(crm.syncGoogleMailbox).toHaveBeenCalledWith({}));
+    // The number that means something is entries added to records, not
+    // messages Gmail was asked about.
+    expect(await screen.findByText(/Added 3 emails to your contacts' timelines/i)).toBeInTheDocument();
+  });
+
+  it("says so plainly when a pass found nothing", async () => {
+    crm.getGoogleConnection.mockResolvedValue(connectedWithSync());
+    crm.syncGoogleMailbox.mockResolvedValue({ messagesExamined: 40, entriesCreated: 0 });
+    renderRoutes(routes, ["/settings/integrations"]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Check for new email" }));
+    expect(
+      await screen.findByText(/No new email involving your contacts/i),
+    ).toBeInTheDocument();
+  });
+
+  it("reports that a backfill is still in progress", async () => {
+    crm.getGoogleConnection.mockResolvedValue(connectedWithSync({ backfillComplete: false }));
+    renderRoutes(routes, ["/settings/integrations"]);
+
+    expect(await screen.findByText(/Still working through your recent mail/i)).toBeInTheDocument();
+  });
+
+  it("translates a sync failure reason and never prints an unknown one", async () => {
+    crm.getGoogleConnection.mockResolvedValue(connectedWithSync({ lastError: "token_unavailable" }));
+    const { unmount } = renderRoutes(routes, ["/settings/integrations"]);
+    expect(await screen.findByText(/Google would not renew the CRM's access/i)).toBeInTheDocument();
+    unmount();
+
+    crm.getGoogleConnection.mockResolvedValue(
+      connectedWithSync({ lastError: "<img src=x onerror=alert(1)>" }),
+    );
+    renderRoutes(routes, ["/settings/integrations"]);
+    expect(await screen.findByText("person@example.com")).toBeInTheDocument();
+    expect(screen.queryByText(/onerror/)).not.toBeInTheDocument();
+  });
+
+  it("does not offer sync before the account is connected", async () => {
+    renderRoutes(routes, ["/settings/integrations"]);
+    await screen.findByRole("button", { name: "Connect Google" });
+    expect(screen.queryByRole("button", { name: "Check for new email" })).not.toBeInTheDocument();
+  });
+
   it("hides the controls from a user who may look but not change", async () => {
     auth.hasScope.mockImplementation((scope: string) => scope === "crm:integration:read");
-    crm.getGoogleConnection.mockResolvedValue(connectedResponse());
+    crm.getGoogleConnection.mockResolvedValue(connectedWithSync());
     renderRoutes(routes, ["/settings/integrations"]);
 
     expect(await screen.findByText("person@example.com")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Disconnect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check for new email" })).not.toBeInTheDocument();
     expect(screen.getByText(/status but not change it/i)).toBeInTheDocument();
   });
 
