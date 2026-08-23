@@ -45,7 +45,10 @@
     "crm:custom_object:read",
     "crm:custom_object:write",
     "crm:summary:read",
-    "crm:search:read"
+    "crm:search:read",
+    "crm:integration:read",
+    "crm:integration:write",
+    "crm:integration_admin:read"
   ],
   "roles": [
     {
@@ -67,7 +70,9 @@
         "crm:task:read", "crm:task:write",
         "crm:note:read", "crm:note:write",
         "crm:summary:read",
-        "crm:search:read"
+        "crm:search:read",
+        "crm:integration:read",
+        "crm:integration:write"
       ],
       "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role."
     },
@@ -84,7 +89,9 @@
         "crm:task:read", "crm:task:write",
         "crm:note:read", "crm:note:write",
         "crm:summary:read",
-        "crm:search:read"
+        "crm:search:read",
+        "crm:integration:read",
+        "crm:integration:write"
       ],
       "rationale": "An individual contributor works their own contacts, leads, opportunities and activities, but does not create or rename the accounts they hang off, and does not configure pipelines. Tasks and notes are the bulk of an individual contributor's day, so both are read/write here. crm:pipeline:read is not optional despite pipelines being manager-owned: an opportunity is meaningless without its stage names, ordering and close-reason rules, so the opportunity form and board cannot render without it."
     },
@@ -103,7 +110,7 @@
         "crm:summary:read",
         "crm:search:read"
       ],
-      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list."
+      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list. It holds no crm:integration scope either: linking a Google mailbox is consent this role has no CRM records to sync into."
     }
   ]
 }

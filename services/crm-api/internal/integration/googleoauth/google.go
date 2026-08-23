@@ -24,7 +24,14 @@ import (
 const (
 	authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth"
 	tokenEndpoint         = "https://oauth2.googleapis.com/token"
-	pendingLifetime       = 10 * time.Minute
+	revokeEndpoint        = "https://oauth2.googleapis.com/revoke"
+	// profileEndpoint is Gmail's users.getProfile. It is what identifies the
+	// account the user actually consented with, and it works under
+	// gmail.readonly — so reading it costs no extra scope. Asking for
+	// openid/email purely to learn the address would widen consent for no
+	// functional gain.
+	profileEndpoint = "https://gmail.googleapis.com/gmail/v1/users/me/profile"
+	pendingLifetime = 10 * time.Minute
 )
 
 var scopes = []string{
@@ -52,6 +59,15 @@ type Client struct {
 	redirectURL  string
 	aead         cipher.AEAD
 	httpClient   *http.Client
+
+	// The provider endpoints, copied from the constants above at
+	// construction. They are fields rather than direct references so the
+	// package's own tests can point them at a local server; nothing outside
+	// this package can change them.
+	authorizationEndpoint string
+	tokenEndpoint         string
+	revokeEndpoint        string
+	profileEndpoint       string
 }
 
 // PendingAuthorization contains the values that must be stored on the server
@@ -98,7 +114,46 @@ func New(cfg Config, httpClient *http.Client) (*Client, error) {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 15 * time.Second}
 	}
-	return &Client{clientID: cfg.ClientID, clientSecret: cfg.ClientSecret, redirectURL: cfg.RedirectURL, aead: aead, httpClient: httpClient}, nil
+	return &Client{
+		clientID:              cfg.ClientID,
+		clientSecret:          cfg.ClientSecret,
+		redirectURL:           cfg.RedirectURL,
+		aead:                  aead,
+		httpClient:            httpClient,
+		authorizationEndpoint: authorizationEndpoint,
+		tokenEndpoint:         tokenEndpoint,
+		revokeEndpoint:        revokeEndpoint,
+		profileEndpoint:       profileEndpoint,
+	}, nil
+}
+
+// Scopes returns the consent this integration asks for, so the connection UI
+// can tell a user what they are about to grant without restating the list and
+// drifting from what is actually requested.
+func Scopes() []string { return append([]string(nil), scopes...) }
+
+// AssociatedData is the AEAD binding for one tenant's connection.
+//
+// It binds to (tenant, owner) rather than to the connection's surrogate id,
+// because (tenant, owner) *is* the connection's identity — the schema has a
+// unique index on exactly that pair. It is also the only identity known
+// before the first insert, so sealing does not have to wait for a generated
+// id or, worse, re-seal after one.
+//
+// This exists as a function so callers cannot derive the binding slightly
+// differently from one another. Encrypt and Decrypt authenticate the value
+// without storing it, so a ciphertext moved to another tenant or another
+// owner fails to open rather than decrypting into a usable credential — which
+// only holds while every call site builds it the same way.
+func AssociatedData(tenantID, ownerID string) []byte {
+	return []byte("google-connection:" + tenantID + ":" + ownerID)
+}
+
+// StateAssociatedData is the binding for a pending authorization's sealed
+// PKCE verifier. It is a distinct prefix from AssociatedData so a verifier
+// ciphertext can never be opened as a token set, or the reverse.
+func StateAssociatedData(tenantID, state string) []byte {
+	return []byte("google-oauth-state:" + tenantID + ":" + state)
 }
 
 // Begin makes a one-time PKCE challenge and a CSRF state. The caller owns the
@@ -125,7 +180,7 @@ func (c *Client) Begin(now time.Time) (string, PendingAuthorization, error) {
 		"access_type":           {"offline"},
 		"prompt":                {"consent"},
 	}
-	return authorizationEndpoint + "?" + query.Encode(), PendingAuthorization{
+	return c.authorizationEndpoint + "?" + query.Encode(), PendingAuthorization{
 		State: state, CodeVerifier: verifier, ExpiresAt: now.UTC().Add(pendingLifetime),
 	}, nil
 }
@@ -162,6 +217,75 @@ func (c *Client) Refresh(ctx context.Context, refreshToken string) (TokenSet, er
 	return c.tokenRequest(ctx, form)
 }
 
+// Revoke withdraws a grant at Google.
+//
+// The refresh token is the right thing to send: revoking it invalidates the
+// whole grant, including every access token issued from it, so a disconnect
+// actually ends access rather than waiting out the current hour.
+//
+// A token Google has already forgotten comes back as 400. That is reported as
+// success, because it describes the state the caller wanted: the credential
+// does not work any more. Treating it as failure would leave a user unable to
+// disconnect a connection that was revoked from Google's own account page.
+func (c *Client) Revoke(ctx context.Context, token string) error {
+	if strings.TrimSpace(token) == "" {
+		return errors.New("googleoauth: token is required")
+	}
+	form := url.Values{"token": {token}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.revokeEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf("googleoauth: build revoke request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("googleoauth: revoke request: %w", err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+	switch {
+	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
+		return nil
+	case resp.StatusCode == http.StatusBadRequest:
+		return nil
+	default:
+		// The body is not included: revoke error bodies echo the token.
+		return fmt.Errorf("googleoauth: revoke endpoint returned HTTP %d", resp.StatusCode)
+	}
+}
+
+// AccountEmail reads back which Google account an access token belongs to.
+//
+// The address is not taken from the user, and not from an id_token this
+// service would then have to verify: it is read from the provider under the
+// grant just issued. Someone who authorized the wrong account can then see
+// that they did, instead of finding out when the wrong mailbox syncs.
+func (c *Client) AccountEmail(ctx context.Context, accessToken string) (string, error) {
+	if strings.TrimSpace(accessToken) == "" {
+		return "", errors.New("googleoauth: access token is required")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.profileEndpoint, nil)
+	if err != nil {
+		return "", fmt.Errorf("googleoauth: build profile request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("googleoauth: profile request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", fmt.Errorf("googleoauth: profile endpoint returned HTTP %d", resp.StatusCode)
+	}
+	var wire struct {
+		EmailAddress string `json:"emailAddress"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&wire); err != nil {
+		return "", fmt.Errorf("googleoauth: decode profile response: %w", err)
+	}
+	return wire.EmailAddress, nil
+}
+
 // Encrypt serializes a provider token set and seals it with AES-256-GCM. The
 // associated data must be a stable tenant+connection binding so ciphertexts
 // cannot be replayed across tenants or connections.
@@ -196,7 +320,7 @@ func (c *Client) Decrypt(ciphertext, associatedData []byte) (TokenSet, error) {
 }
 
 func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenSet, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return TokenSet{}, fmt.Errorf("googleoauth: build token request: %w", err)
 	}

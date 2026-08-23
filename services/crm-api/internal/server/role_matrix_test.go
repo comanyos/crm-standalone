@@ -163,6 +163,10 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_object:read": true, "crm:custom_object:write": true,
 			"crm:summary:read": true,
 			"crm:search:read":  true,
+			// Only an administrator sees which colleagues have linked a
+			// Google account; connecting one's own is separate authority.
+			"crm:integration:read": true, "crm:integration:write": true,
+			"crm:integration_admin:read": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -175,8 +179,10 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:note:read": true, "crm:note:write": true,
 			"crm:custom_field:read": false, "crm:custom_field:write": false,
 			"crm:custom_object:read": false, "crm:custom_object:write": false,
-			"crm:summary:read": true,
-			"crm:search:read":  true,
+			"crm:summary:read":     true,
+			"crm:search:read":      true,
+			"crm:integration:read": true, "crm:integration:write": true,
+			"crm:integration_admin:read": false,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -196,6 +202,10 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
 			"crm:search:read":  true,
+			// An individual contributor links their own mailbox; they do not
+			// get to see whose else is linked.
+			"crm:integration:read": true, "crm:integration:write": true,
+			"crm:integration_admin:read": false,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -210,6 +220,10 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
 			"crm:search:read":  true,
+			// A read-only role has no CRM records to sync a mailbox into, so
+			// it holds no integration authority at all.
+			"crm:integration:read": false, "crm:integration:write": false,
+			"crm:integration_admin:read": false,
 		},
 	}
 

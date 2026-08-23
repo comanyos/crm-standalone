@@ -79,6 +79,15 @@ type Config struct {
 	GoogleOAuthClientSecret string
 	GoogleOAuthRedirectURL  string
 	GoogleOAuthTokenKey     string
+
+	// WebAppBaseURL is where the OAuth callback sends the browser once it has
+	// finished. It is configuration rather than something read from the
+	// request because the callback's final redirect is the one part of the
+	// flow an attacker can influence; guessing an origin from a Referer or a
+	// Host header is how an open redirect gets shipped. Empty means the
+	// callback renders a self-contained result page instead, which is correct
+	// for a deployment that has not said where its web application lives.
+	WebAppBaseURL string
 }
 
 // Load reads configuration from environment with sensible defaults.
@@ -100,6 +109,7 @@ func Load() Config {
 		GoogleOAuthClientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET", ""),
 		GoogleOAuthRedirectURL:  env("GOOGLE_OAUTH_REDIRECT_URL", ""),
 		GoogleOAuthTokenKey:     env("GOOGLE_OAUTH_TOKEN_KEY", ""),
+		WebAppBaseURL:           strings.TrimRight(env("CRM_WEB_APP_BASE_URL", ""), "/"),
 	}
 }
 
@@ -162,6 +172,9 @@ func (c Config) Validate() error {
 		if !strings.HasPrefix(origin, "https://") {
 			problems = append(problems, fmt.Sprintf("CORS_ALLOWED_ORIGINS entry %q must be an https:// origin", origin))
 		}
+	}
+	if c.WebAppBaseURL != "" && !strings.HasPrefix(c.WebAppBaseURL, "https://") {
+		problems = append(problems, "CRM_WEB_APP_BASE_URL must be an https:// origin")
 	}
 
 	if len(problems) > 0 {

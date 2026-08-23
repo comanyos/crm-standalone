@@ -153,3 +153,31 @@ func TestValidate_ProductionRequiresHTTPSGoogleRedirect(t *testing.T) {
 		t.Fatal("expected an insecure Google OAuth redirect URL to be rejected in production")
 	}
 }
+
+// TestValidate_ProductionRequiresHTTPSWebAppBaseURL. The OAuth callback sends
+// the browser to this origin carrying the outcome of an authorization; over
+// plain HTTP that redirect is interceptable on the network.
+func TestValidate_ProductionRequiresHTTPSWebAppBaseURL(t *testing.T) {
+	c := validConfig()
+	c.Environment = EnvProduction
+	c.WebAppBaseURL = "http://crm.example.com"
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected an http:// CRM_WEB_APP_BASE_URL to be rejected in production")
+	}
+
+	c.WebAppBaseURL = "https://crm.example.com"
+	if err := c.Validate(); err != nil {
+		t.Fatalf("an https web app origin was rejected: %v", err)
+	}
+}
+
+// TestLoad_WebAppBaseURLTrailingSlashIsNormalized: the callback appends a
+// stored path beginning with "/", so a configured trailing slash would build
+// "//settings" — which a browser reads as protocol-relative and resolves
+// off-site.
+func TestLoad_WebAppBaseURLTrailingSlashIsNormalized(t *testing.T) {
+	t.Setenv("CRM_WEB_APP_BASE_URL", "https://crm.example.com/")
+	if got := Load().WebAppBaseURL; got != "https://crm.example.com" {
+		t.Errorf("WebAppBaseURL = %q, want the trailing slash removed", got)
+	}
+}

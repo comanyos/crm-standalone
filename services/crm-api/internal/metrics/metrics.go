@@ -31,6 +31,14 @@ var (
 		Name: "crm_jwks_validation_failures_total",
 		Help: "JWT/JWKS validation failures partitioned by safe reason.",
 	}, []string{"reason"})
+	// GoogleOAuthFlowsTotal counts Google connection lifecycle outcomes. The
+	// only label is the bounded set of reason codes in
+	// internal/integration/google — never a tenant, a user, a mailbox
+	// address, or a provider message.
+	GoogleOAuthFlowsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_google_oauth_flows_total",
+		Help: "Google connection lifecycle outcomes partitioned by safe outcome code.",
+	}, []string{"outcome"})
 	dbPoolAcquired = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_acquired_connections", Help: "Current acquired CRM database pool connections."})
 	dbPoolIdle     = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_idle_connections", Help: "Current idle CRM database pool connections."})
 	dbPoolTotal    = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_total_connections", Help: "Current total CRM database pool connections."})

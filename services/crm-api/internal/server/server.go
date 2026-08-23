@@ -15,6 +15,8 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/google"
+	"github.com/santoshguru/crm/internal/integration/googleoauth"
 	"github.com/santoshguru/crm/internal/metrics"
 	"github.com/santoshguru/crm/internal/platform"
 	"github.com/santoshguru/crm/internal/tracing"
@@ -28,6 +30,7 @@ type Server struct {
 	store     domain.Store
 	emitter   *platform.Emitter
 	authn     *auth.Authenticator
+	google    *google.Service
 	mux       *http.ServeMux
 	readiness func(context.Context) error
 }
@@ -46,12 +49,17 @@ func New(
 	if err := assertPolicyIsTotal(scopePolicy); err != nil {
 		return nil, err
 	}
+	googleSvc, err := newGoogleService(cfg, store)
+	if err != nil {
+		return nil, err
+	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
 		cfg:     cfg,
 		store:   store,
 		emitter: emitter,
 		authn:   authn,
+		google:  googleSvc,
 		mux:     http.NewServeMux(),
 	}
 	if pinger, ok := store.(interface{ Ping(context.Context) error }); ok {
@@ -150,8 +158,39 @@ func (s *Server) routes() {
 	s.mux.Handle(modPath, modHandler)
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
-		api.NewCRMService(s.cfg, s.store), interceptors)
+		api.NewCRMService(s.cfg, s.store, s.google), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
+
+	// The Google OAuth callback is a plain browser redirect, not a Connect
+	// RPC: Google sends the user's browser here with no Authorization header,
+	// so it cannot go through the authenticating interceptor. What stands in
+	// for authentication is the one-time state record written before the
+	// redirect — see internal/integration/google.
+	s.mux.Handle("GET "+googleCallbackPath, s.googleCallbackHandler())
+}
+
+// newGoogleService builds the Google integration, or returns nil when the
+// deployment supplied no credentials.
+//
+// A partial configuration is a startup error rather than a disabled feature.
+// config.Validate already rejects it, and this is the second gate: a client
+// ID without a token key would otherwise mean a CRM that offers a Connect
+// button and then cannot seal what it receives.
+func newGoogleService(cfg config.Config, store domain.Store) (*google.Service, error) {
+	if cfg.GoogleOAuthClientID == "" && cfg.GoogleOAuthClientSecret == "" &&
+		cfg.GoogleOAuthRedirectURL == "" && cfg.GoogleOAuthTokenKey == "" {
+		return google.New(store, nil, cfg.WebAppBaseURL), nil
+	}
+	client, err := googleoauth.New(googleoauth.Config{
+		ClientID:     cfg.GoogleOAuthClientID,
+		ClientSecret: cfg.GoogleOAuthClientSecret,
+		RedirectURL:  cfg.GoogleOAuthRedirectURL,
+		TokenKey:     cfg.GoogleOAuthTokenKey,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	return google.New(store, client, cfg.WebAppBaseURL), nil
 }
 
 // requireMetricsToken protects scrape data when CRM_METRICS_TOKEN is set. An

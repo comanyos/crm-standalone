@@ -5,9 +5,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
+	"github.com/santoshguru/crm/internal/domain"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -47,11 +49,33 @@ type apiFixture struct {
 	customFieldID   string
 	customObjectAPI string
 	customRecordID  string
+	// googleOwner is the principal whose Google connection this fixture
+	// seeded. It matches ctxAs's subject, because every Google RPC acts on
+	// the caller's own connection.
+	googleOwner string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
 	t.Helper()
 	f := apiFixture{ctx: ctxAs(tenantID, orgID)}
+
+	// A Google connection, seeded through the store rather than the RPCs:
+	// creating one requires a real browser round-trip to Google, and without
+	// a seeded connection every Google isolation probe would pass vacuously
+	// for want of anything to leak.
+	f.googleOwner = principalSubject(f.ctx)
+	if _, err := s.store.SaveGoogleConnection(f.ctx, domain.Scope{TenantID: tenantID, OrgID: orgID},
+		&domain.GoogleConnection{
+			OwnerID:            f.googleOwner,
+			GoogleAccountEmail: label + "@gmail.example",
+			Status:             domain.GoogleStatusConnected,
+			GrantedScopes:      []string{"https://www.googleapis.com/auth/gmail.readonly"},
+			TokenCiphertext:    sealTestTokens(t, tenantID, f.googleOwner),
+			ConnectedBy:        f.googleOwner,
+			ConnectedAt:        time.Now().UTC(),
+		}); err != nil {
+		t.Fatalf("[%s] seed google connection: %v", label, err)
+	}
 
 	account, err := s.CreateAccount(f.ctx, connect.NewRequest(&crmv1.CreateAccountRequest{
 		Account: &crmv1.Account{Name: label + " Holdings", OwnerId: "owner-" + label},
@@ -200,6 +224,72 @@ func wantNotFound(t *testing.T, rpc string, err error) {
 // crossTenantProbes is keyed by CRMService method name so the coverage test
 // below can compare it against the real method set.
 var crossTenantProbes = map[string]isolationProbe{
+	// The Google connection RPCs. Every fixture seeds a connection, so each
+	// of these runs against a tenant that really does have one to leak.
+	//
+	// Note that all four take no owner: the caller's own subject is the only
+	// connection they can name. These probes are therefore about the tenant
+	// boundary, and the fact that both fixtures share a subject ("test-user",
+	// from ctxAs) is deliberate — it is the sharpest version of the test,
+	// since only the tenant distinguishes the two connections.
+	"GetGoogleConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		resp, err := s.GetGoogleConnection(ctxB, connect.NewRequest(&crmv1.GetGoogleConnectionRequest{}))
+		if err != nil {
+			t.Fatalf("GetGoogleConnection as another tenant: %v", err)
+		}
+		if got := resp.Msg.GetConnection().GetGoogleAccountEmail(); got == "victim@gmail.example" {
+			t.Errorf("B read A's linked Google account address (%q)", got)
+		}
+	},
+	"ListGoogleConnections": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		resp, err := s.ListGoogleConnections(ctxB, connect.NewRequest(&crmv1.ListGoogleConnectionsRequest{}))
+		if err != nil {
+			t.Fatalf("ListGoogleConnections as another tenant: %v", err)
+		}
+		for _, connection := range resp.Msg.GetConnections() {
+			if connection.GetGoogleAccountEmail() == "victim@gmail.example" {
+				t.Error("the administrative connection list crossed an organization boundary")
+			}
+		}
+	},
+	"StartGoogleConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		resp, err := s.StartGoogleConnection(ctxB, connect.NewRequest(&crmv1.StartGoogleConnectionRequest{
+			ReturnPath: "/settings/integrations",
+		}))
+		if err != nil {
+			t.Fatalf("StartGoogleConnection as another tenant: %v", err)
+		}
+		url := resp.Msg.GetAuthorizationUrl()
+		if !strings.HasPrefix(url, "https://accounts.google.com/") {
+			t.Errorf("authorization URL = %q, want Google's consent endpoint", url)
+		}
+		// Beginning an authorization must not disturb anyone's existing
+		// connection, in this tenant or another.
+		stored, err := s.store.GetGoogleConnection(a.ctx,
+			domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}, a.googleOwner)
+		if err != nil {
+			t.Fatalf("A's connection after B started a flow: %v", err)
+		}
+		if stored.Status != domain.GoogleStatusConnected {
+			t.Errorf("B starting an authorization changed A's connection status to %q", stored.Status)
+		}
+	},
+	"DisconnectGoogleConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// B has its own seeded connection, so this succeeds — and must touch
+		// only B's. The assertion that matters is what happens to A's.
+		if _, err := s.DisconnectGoogleConnection(ctxB, connect.NewRequest(
+			&crmv1.DisconnectGoogleConnectionRequest{Purge: true})); err != nil {
+			t.Fatalf("DisconnectGoogleConnection as B: %v", err)
+		}
+		stored, err := s.store.GetGoogleConnection(a.ctx,
+			domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}, a.googleOwner)
+		if err != nil {
+			t.Fatalf("B disconnecting its own connection removed A's: %v", err)
+		}
+		if len(stored.TokenCiphertext) == 0 {
+			t.Error("B's disconnect erased A's stored credential")
+		}
+	},
 	"SearchRecords": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		resp, err := s.SearchRecords(ctxB, connect.NewRequest(&crmv1.SearchRecordsRequest{Query: "victim"}))
 		if err != nil {

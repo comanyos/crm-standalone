@@ -2,8 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +16,8 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/google"
+	"github.com/santoshguru/crm/internal/integration/googleoauth"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -26,7 +32,84 @@ func ctxAs(tenantID, orgID string) context.Context {
 }
 
 func newTestService() *CRMService {
-	return NewCRMService(config.Config{}, domain.NewMemStore())
+	s, _ := newTestServiceWithStore()
+	return s
+}
+
+// newTestServiceWithStore is newTestService for the tests that also need to
+// reach the store directly — the Google connection ones, which have to seed a
+// connection that no RPC can create without a real browser round-trip.
+//
+// The Google integration is wired with a stub provider rather than left nil,
+// because a nil integration makes every Google isolation probe pass
+// vacuously: an RPC that answers "not configured" leaks nothing no matter how
+// badly it is written.
+func newTestServiceWithStore() (*CRMService, domain.Store) {
+	store := domain.NewMemStore()
+	return NewCRMService(config.Config{}, store, google.New(store, testGoogleClient(), "")), store
+}
+
+// testGoogleTokenKey is the sealing key this package's Google tests share, so
+// a fixture can seal a credential the service can later open. It is 32 bytes
+// of nothing in particular; no real key is ever committed.
+const testGoogleTokenKey = "test-key-01234567890123456789012"
+
+// testGoogleClient builds a provider client that cannot reach the network.
+//
+// The transport is a stub rather than a real one because a unit test must not
+// depend on accounts.google.com being reachable, and — more to the point — a
+// disconnect test that really called Google's revoke endpoint would be
+// sending traffic to a third party from CI. Anything this stub is not
+// explicitly taught to answer fails loudly, so an accidental real call shows
+// up as a test failure rather than as silence.
+func testGoogleClient() *googleoauth.Client {
+	client, err := googleoauth.New(googleoauth.Config{
+		ClientID:     "test-client.apps.googleusercontent.com",
+		ClientSecret: "test-secret-not-a-real-one",
+		RedirectURL:  "http://localhost:19431/integrations/google/callback",
+		TokenKey:     base64.RawStdEncoding.EncodeToString([]byte(testGoogleTokenKey)),
+	}, &http.Client{Transport: stubGoogleTransport{}})
+	if err != nil {
+		panic("test google oauth client: " + err.Error())
+	}
+	return client
+}
+
+type stubGoogleTransport struct{}
+
+func (stubGoogleTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	body := "{}"
+	status := http.StatusOK
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/revoke"):
+		// Google answers a successful revoke with an empty 200.
+	case strings.HasSuffix(r.URL.Path, "/profile"):
+		body = `{"emailAddress":"stub@example.com"}`
+	default:
+		status = http.StatusNotFound
+		body = `{"error":"the test stub was asked for an endpoint it does not model"}`
+	}
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Request:    r,
+	}, nil
+}
+
+// sealTestTokens produces a credential the service's own client can open,
+// bound to the tenant and owner exactly as the real flow binds it.
+func sealTestTokens(t *testing.T, tenantID, ownerID string) []byte {
+	t.Helper()
+	sealed, err := testGoogleClient().Encrypt(googleoauth.TokenSet{
+		AccessToken:  "stub-access-token",
+		RefreshToken: "stub-refresh-token",
+		Expiry:       time.Now().UTC().Add(time.Hour),
+	}, googleoauth.AssociatedData(tenantID, ownerID))
+	if err != nil {
+		t.Fatalf("seal test tokens: %v", err)
+	}
+	return sealed
 }
 
 func connectCode(t *testing.T, err error) connect.Code {

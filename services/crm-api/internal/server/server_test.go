@@ -150,8 +150,13 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // write by any definition, just not one spelled Create/Update/Delete/Upsert.
 // "Complete" and "Reopen" joined it for Task's lifecycle transitions, which
 // are writes that deliberately are not Update (task.md §5.1).
+//
+// "Start" and "Disconnect" joined it for the Google connection. Both read as
+// navigation and are not: StartGoogleConnection writes a durable one-time
+// authorization record before it returns a URL, and DisconnectGoogleConnection
+// revokes a grant at Google and erases a stored credential.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

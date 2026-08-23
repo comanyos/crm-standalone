@@ -121,6 +121,23 @@ service CRMService {
   // core record types in the database; clients must not implement search by
   // downloading arbitrary list pages and filtering them locally.
   rpc SearchRecords(SearchRecordsRequest) returns (SearchRecordsResponse);
+
+  // The Google connection (docs/GOOGLE_INTEGRATION.md).
+  //
+  // Every RPC here acts on the *calling principal's own* connection. None of
+  // them takes an owner: Gmail and Calendar consent belongs to the person who
+  // granted it, so letting a request name whose mailbox to disconnect — or
+  // whose authorization to start — would be an authorization bug no scope
+  // could fix. ListGoogleConnections is the one administrative view, and it
+  // returns status only.
+  //
+  // No response here ever carries a token, a refresh token, a PKCE verifier,
+  // or the OAuth client secret. The credential stays sealed server-side; see
+  // internal/integration/google.
+  rpc StartGoogleConnection(StartGoogleConnectionRequest) returns (StartGoogleConnectionResponse);
+  rpc GetGoogleConnection(GetGoogleConnectionRequest) returns (GetGoogleConnectionResponse);
+  rpc ListGoogleConnections(ListGoogleConnectionsRequest) returns (ListGoogleConnectionsResponse);
+  rpc DisconnectGoogleConnection(DisconnectGoogleConnectionRequest) returns (DisconnectGoogleConnectionResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -220,6 +237,74 @@ message SearchRecord {
   string subtitle = 4;
 }
 message SearchRecordsResponse { repeated SearchRecord records = 1; }
+
+// ---------------------------------------------------------------------------
+// Google connection
+// ---------------------------------------------------------------------------
+
+// GoogleConnection is the browser-facing projection of a stored connection.
+// It is status, not credentials: there is deliberately no field here that a
+// token, refresh token or PKCE verifier could be assigned to.
+message GoogleConnection {
+  string id = 1;
+  // owner_id is the CRM principal whose Google account this is.
+  string owner_id = 2;
+  // google_account_email is read back from Google under the grant that was
+  // just issued, not typed by the user, so authorizing the wrong account is
+  // visible rather than silent.
+  string google_account_email = 3;
+  // status is connected | reauthorization_required | disconnected. An empty
+  // status means this user has no connection at all, which is the normal
+  // state and not an error.
+  string status = 4;
+  // granted_scopes is what Google returned, which may be narrower than what
+  // was requested when the user granted partial consent.
+  repeated string granted_scopes = 5;
+  google.protobuf.Timestamp access_token_expires_at = 6;
+  string connected_by = 7;
+  google.protobuf.Timestamp connected_at = 8;
+  google.protobuf.Timestamp last_refreshed_at = 9;
+  google.protobuf.Timestamp disconnected_at = 10;
+  // last_error is a bounded reason code, never a provider message.
+  string last_error = 11;
+}
+
+message StartGoogleConnectionRequest {
+  // return_path is where the callback sends the browser when it is done. It
+  // must be a same-origin absolute path ("/settings/integrations"); anything
+  // that a browser would resolve off-site is rejected rather than sanitized.
+  string return_path = 1;
+}
+message StartGoogleConnectionResponse {
+  // authorization_url is Google's consent screen, already carrying this
+  // flow's one-time state and PKCE challenge. The state itself is never
+  // returned separately — the client has no reason to read it, and the server
+  // will not accept one it did not issue.
+  string authorization_url = 1;
+}
+
+message GetGoogleConnectionRequest {}
+message GetGoogleConnectionResponse {
+  GoogleConnection connection = 1;
+  // configured reports whether this deployment has Google credentials at all.
+  // A CRM without them is running correctly and simply cannot offer the
+  // feature, which the UI must state rather than showing a broken button.
+  bool configured = 2;
+  // requested_scopes is the consent the user is about to be asked for, taken
+  // from the server so the UI cannot drift from what is actually requested.
+  repeated string requested_scopes = 3;
+}
+
+message ListGoogleConnectionsRequest {}
+message ListGoogleConnectionsResponse { repeated GoogleConnection connections = 1; }
+
+message DisconnectGoogleConnectionRequest {
+  // purge additionally deletes the connection record. Without it a
+  // disconnected tombstone remains, which is what lets the audit trail answer
+  // who ended the access and when.
+  bool purge = 1;
+}
+message DisconnectGoogleConnectionResponse { GoogleConnection connection = 1; }
 
 message Account {
   string id = 1;

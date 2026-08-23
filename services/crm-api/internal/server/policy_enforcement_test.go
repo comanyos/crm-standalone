@@ -258,6 +258,14 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateCustomObjectDefinition(ctx, withToken(&crmv1.CreateCustomObjectDefinitionRequest{Definition: &crmv1.CustomObjectDefinition{ApiName: "asset", Label: "Asset", PluralLabel: "Assets"}}, tok))
 			return err
 		},
+		"crm:integration:write": func(tok string) error {
+			// StartGoogleConnection rather than Disconnect: beginning an
+			// authorization is the call that would hand a token to a
+			// principal who should not have one, and the scope check must
+			// reject it before any state is written.
+			_, err := client.StartGoogleConnection(ctx, withToken(&crmv1.StartGoogleConnectionRequest{}, tok))
+			return err
+		},
 	}
 
 	// Every write scope this service demands needs a probe here.
@@ -285,6 +293,7 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 				"crm:activity:read", "crm:activity:write",
 				"crm:custom_field:read", "crm:custom_field:write",
 				"crm:custom_object:read", "crm:custom_object:write",
+				"crm:integration:read", "crm:integration:write",
 				"crm:summary:read",
 			} {
 				if scope != withheld {

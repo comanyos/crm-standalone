@@ -200,6 +200,18 @@ const (
 	// CRMServiceSearchRecordsProcedure is the fully-qualified name of the CRMService's SearchRecords
 	// RPC.
 	CRMServiceSearchRecordsProcedure = "/crm.v1.CRMService/SearchRecords"
+	// CRMServiceStartGoogleConnectionProcedure is the fully-qualified name of the CRMService's
+	// StartGoogleConnection RPC.
+	CRMServiceStartGoogleConnectionProcedure = "/crm.v1.CRMService/StartGoogleConnection"
+	// CRMServiceGetGoogleConnectionProcedure is the fully-qualified name of the CRMService's
+	// GetGoogleConnection RPC.
+	CRMServiceGetGoogleConnectionProcedure = "/crm.v1.CRMService/GetGoogleConnection"
+	// CRMServiceListGoogleConnectionsProcedure is the fully-qualified name of the CRMService's
+	// ListGoogleConnections RPC.
+	CRMServiceListGoogleConnectionsProcedure = "/crm.v1.CRMService/ListGoogleConnections"
+	// CRMServiceDisconnectGoogleConnectionProcedure is the fully-qualified name of the CRMService's
+	// DisconnectGoogleConnection RPC.
+	CRMServiceDisconnectGoogleConnectionProcedure = "/crm.v1.CRMService/DisconnectGoogleConnection"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -306,6 +318,22 @@ type CRMServiceClient interface {
 	// core record types in the database; clients must not implement search by
 	// downloading arbitrary list pages and filtering them locally.
 	SearchRecords(context.Context, *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error)
+	// The Google connection (docs/GOOGLE_INTEGRATION.md).
+	//
+	// Every RPC here acts on the *calling principal's own* connection. None of
+	// them takes an owner: Gmail and Calendar consent belongs to the person who
+	// granted it, so letting a request name whose mailbox to disconnect — or
+	// whose authorization to start — would be an authorization bug no scope
+	// could fix. ListGoogleConnections is the one administrative view, and it
+	// returns status only.
+	//
+	// No response here ever carries a token, a refresh token, a PKCE verifier,
+	// or the OAuth client secret. The credential stays sealed server-side; see
+	// internal/integration/google.
+	StartGoogleConnection(context.Context, *connect.Request[v1.StartGoogleConnectionRequest]) (*connect.Response[v1.StartGoogleConnectionResponse], error)
+	GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error)
+	ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error)
+	DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -703,6 +731,30 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("SearchRecords")),
 			connect.WithClientOptions(opts...),
 		),
+		startGoogleConnection: connect.NewClient[v1.StartGoogleConnectionRequest, v1.StartGoogleConnectionResponse](
+			httpClient,
+			baseURL+CRMServiceStartGoogleConnectionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("StartGoogleConnection")),
+			connect.WithClientOptions(opts...),
+		),
+		getGoogleConnection: connect.NewClient[v1.GetGoogleConnectionRequest, v1.GetGoogleConnectionResponse](
+			httpClient,
+			baseURL+CRMServiceGetGoogleConnectionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetGoogleConnection")),
+			connect.WithClientOptions(opts...),
+		),
+		listGoogleConnections: connect.NewClient[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse](
+			httpClient,
+			baseURL+CRMServiceListGoogleConnectionsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListGoogleConnections")),
+			connect.WithClientOptions(opts...),
+		),
+		disconnectGoogleConnection: connect.NewClient[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse](
+			httpClient,
+			baseURL+CRMServiceDisconnectGoogleConnectionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DisconnectGoogleConnection")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -772,6 +824,10 @@ type cRMServiceClient struct {
 	deleteCustomRecord            *connect.Client[v1.DeleteCustomRecordRequest, v1.DeleteCustomRecordResponse]
 	getSummary                    *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
 	searchRecords                 *connect.Client[v1.SearchRecordsRequest, v1.SearchRecordsResponse]
+	startGoogleConnection         *connect.Client[v1.StartGoogleConnectionRequest, v1.StartGoogleConnectionResponse]
+	getGoogleConnection           *connect.Client[v1.GetGoogleConnectionRequest, v1.GetGoogleConnectionResponse]
+	listGoogleConnections         *connect.Client[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse]
+	disconnectGoogleConnection    *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1094,6 +1150,26 @@ func (c *cRMServiceClient) SearchRecords(ctx context.Context, req *connect.Reque
 	return c.searchRecords.CallUnary(ctx, req)
 }
 
+// StartGoogleConnection calls crm.v1.CRMService.StartGoogleConnection.
+func (c *cRMServiceClient) StartGoogleConnection(ctx context.Context, req *connect.Request[v1.StartGoogleConnectionRequest]) (*connect.Response[v1.StartGoogleConnectionResponse], error) {
+	return c.startGoogleConnection.CallUnary(ctx, req)
+}
+
+// GetGoogleConnection calls crm.v1.CRMService.GetGoogleConnection.
+func (c *cRMServiceClient) GetGoogleConnection(ctx context.Context, req *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error) {
+	return c.getGoogleConnection.CallUnary(ctx, req)
+}
+
+// ListGoogleConnections calls crm.v1.CRMService.ListGoogleConnections.
+func (c *cRMServiceClient) ListGoogleConnections(ctx context.Context, req *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error) {
+	return c.listGoogleConnections.CallUnary(ctx, req)
+}
+
+// DisconnectGoogleConnection calls crm.v1.CRMService.DisconnectGoogleConnection.
+func (c *cRMServiceClient) DisconnectGoogleConnection(ctx context.Context, req *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error) {
+	return c.disconnectGoogleConnection.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1198,6 +1274,22 @@ type CRMServiceHandler interface {
 	// core record types in the database; clients must not implement search by
 	// downloading arbitrary list pages and filtering them locally.
 	SearchRecords(context.Context, *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error)
+	// The Google connection (docs/GOOGLE_INTEGRATION.md).
+	//
+	// Every RPC here acts on the *calling principal's own* connection. None of
+	// them takes an owner: Gmail and Calendar consent belongs to the person who
+	// granted it, so letting a request name whose mailbox to disconnect — or
+	// whose authorization to start — would be an authorization bug no scope
+	// could fix. ListGoogleConnections is the one administrative view, and it
+	// returns status only.
+	//
+	// No response here ever carries a token, a refresh token, a PKCE verifier,
+	// or the OAuth client secret. The credential stays sealed server-side; see
+	// internal/integration/google.
+	StartGoogleConnection(context.Context, *connect.Request[v1.StartGoogleConnectionRequest]) (*connect.Response[v1.StartGoogleConnectionResponse], error)
+	GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error)
+	ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error)
+	DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1591,6 +1683,30 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("SearchRecords")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceStartGoogleConnectionHandler := connect.NewUnaryHandler(
+		CRMServiceStartGoogleConnectionProcedure,
+		svc.StartGoogleConnection,
+		connect.WithSchema(cRMServiceMethods.ByName("StartGoogleConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetGoogleConnectionHandler := connect.NewUnaryHandler(
+		CRMServiceGetGoogleConnectionProcedure,
+		svc.GetGoogleConnection,
+		connect.WithSchema(cRMServiceMethods.ByName("GetGoogleConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListGoogleConnectionsHandler := connect.NewUnaryHandler(
+		CRMServiceListGoogleConnectionsProcedure,
+		svc.ListGoogleConnections,
+		connect.WithSchema(cRMServiceMethods.ByName("ListGoogleConnections")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDisconnectGoogleConnectionHandler := connect.NewUnaryHandler(
+		CRMServiceDisconnectGoogleConnectionProcedure,
+		svc.DisconnectGoogleConnection,
+		connect.WithSchema(cRMServiceMethods.ByName("DisconnectGoogleConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -1721,6 +1837,14 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceGetSummaryHandler.ServeHTTP(w, r)
 		case CRMServiceSearchRecordsProcedure:
 			cRMServiceSearchRecordsHandler.ServeHTTP(w, r)
+		case CRMServiceStartGoogleConnectionProcedure:
+			cRMServiceStartGoogleConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceGetGoogleConnectionProcedure:
+			cRMServiceGetGoogleConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceListGoogleConnectionsProcedure:
+			cRMServiceListGoogleConnectionsHandler.ServeHTTP(w, r)
+		case CRMServiceDisconnectGoogleConnectionProcedure:
+			cRMServiceDisconnectGoogleConnectionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1984,4 +2108,20 @@ func (UnimplementedCRMServiceHandler) GetSummary(context.Context, *connect.Reque
 
 func (UnimplementedCRMServiceHandler) SearchRecords(context.Context, *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SearchRecords is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) StartGoogleConnection(context.Context, *connect.Request[v1.StartGoogleConnectionRequest]) (*connect.Response[v1.StartGoogleConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.StartGoogleConnection is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetGoogleConnection is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListGoogleConnections is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DisconnectGoogleConnection is not implemented"))
 }

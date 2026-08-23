@@ -69,6 +69,22 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/GetSummary":                  "crm:summary:read",
 	"/crm.v1.CRMService/SearchRecords":               "crm:search:read",
 
+	// The Google connection. Starting and disconnecting are one write scope
+	// because both act only on the caller's own mailbox link — the RPCs take
+	// no owner at all, so the scope is about whether this user may connect a
+	// Google account, not whose they may touch.
+	//
+	// ListGoogleConnections reads a different entity from the other three:
+	// they act on the caller's own connection, it enumerates everyone's. That
+	// is a real difference in authority — collapsing the two would mean any
+	// user who can check their own status can also enumerate every
+	// colleague's linked mailbox address — so it gets its own read scope
+	// rather than sharing crm:integration:read.
+	"/crm.v1.CRMService/StartGoogleConnection":      "crm:integration:write",
+	"/crm.v1.CRMService/GetGoogleConnection":        "crm:integration:read",
+	"/crm.v1.CRMService/DisconnectGoogleConnection": "crm:integration:write",
+	"/crm.v1.CRMService/ListGoogleConnections":      "crm:integration_admin:read",
+
 	// Tasks and Notes carry their own scopes rather than reusing
 	// crm:activity:*. They are separate entities with separate reporting and
 	// separate permission needs — a role that may read the immutable activity

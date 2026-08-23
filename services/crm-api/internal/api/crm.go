@@ -7,17 +7,23 @@ import (
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/google"
 )
 
 // CRMService implements the module's domain API over a tenant-scoped Store.
 type CRMService struct {
 	cfg   config.Config
 	store domain.Store
+	// google is nil when the deployment supplied no Google credentials. The
+	// RPCs report that as a precondition failure rather than an error: a CRM
+	// without GOOGLE_OAUTH_* is running correctly and simply cannot offer the
+	// feature.
+	google *google.Service
 }
 
-// NewCRMService wires the domain service.
-func NewCRMService(cfg config.Config, store domain.Store) *CRMService {
-	return &CRMService{cfg: cfg, store: store}
+// NewCRMService wires the domain service. googleSvc may be nil.
+func NewCRMService(cfg config.Config, store domain.Store, googleSvc *google.Service) *CRMService {
+	return &CRMService{cfg: cfg, store: store, google: googleSvc}
 }
 
 // CreateAccount stores a new Account.
