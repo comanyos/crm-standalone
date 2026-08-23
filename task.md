@@ -152,11 +152,24 @@ originally scoped product.
   activating button nested one control inside another all over again.
   Keyboard activation and the row header are both pinned by tests.
 
+  Coverage now includes the settings and pipelines screens, which had no
+  tests at all. Those are the dialog-heavy ones, so each dialog is opened and
+  scanned — axe only sees what is rendered, and a closed dialog is not
+  rendered. It found a sixth empty `<th>`, on the custom objects table: the
+  earlier sweep's search missed it because that file writes `header:""` with
+  no space. Both settings pages and the pipelines page are also scanned as a
+  reader without write scope, since hiding controls changes the markup.
+
   Still open: the browser half. No Lighthouse run, no axe against the running
   app (contrast and target size are only checkable there), and no
   visual-regression snapshots — so a layout regression is still caught by
   review or not at all. The viewport numbers above came from a one-off
   Chromium run, not a checked-in test.
+
+  Noticed while covering these, not fixed: archiving asks for confirmation
+  two different ways on the same screen. Pipeline and custom field/object
+  archival still go through `window.confirm`, while stage archival uses the
+  app's own `ConfirmDialog`.
 
 - [ ] Meet WCAG 2.2 AA for keyboard navigation, focus management, contrast,
   labels, validation, and screen-reader feedback.

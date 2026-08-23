@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter, type RouteObject } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
 import { timestampFromDate, type Timestamp } from "@bufbuild/protobuf/wkt";
-import type { Account, Contact, Lead, Note, Opportunity, PipelineStage, Task } from "@crm/contracts";
+import type { Account, Contact, CustomFieldDefinition, CustomObjectDefinition, Lead, Note, Opportunity, Pipeline, PipelineStage, Task } from "@crm/contracts";
 
 /** Renders a route tree on a memory **data** router.
  *
@@ -188,4 +188,39 @@ export function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportuni
     customFields: sampleCustomFields,
     ...overrides,
   } as Opportunity;
+}
+
+/** The tenant's default Sales pipeline, as ListPipelines returns it. */
+export function makePipeline(overrides: Partial<Pipeline> = {}): Pipeline {
+  return {
+    $typeName: "crm.v1.Pipeline",
+    id: "system-sales",
+    name: "Sales",
+    isDefault: true,
+    ...overrides,
+  } as Pipeline;
+}
+
+export function makeCustomField(overrides: Partial<CustomFieldDefinition> = {}): CustomFieldDefinition {
+  return {
+    $typeName: "crm.v1.CustomFieldDefinition",
+    id: "cf-1",
+    objectType: "account",
+    fieldKey: "deal_source",
+    label: "Deal source",
+    dataType: "text",
+    required: false,
+    ...overrides,
+  } as CustomFieldDefinition;
+}
+
+export function makeCustomObject(overrides: Partial<CustomObjectDefinition> = {}): CustomObjectDefinition {
+  return {
+    $typeName: "crm.v1.CustomObjectDefinition",
+    id: "co-1",
+    apiName: "shipment",
+    label: "Shipment",
+    pluralLabel: "Shipments",
+    ...overrides,
+  } as CustomObjectDefinition;
 }
