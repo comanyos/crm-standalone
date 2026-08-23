@@ -1,7 +1,8 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PipelinesPage from "./PipelinesPage";
-import { makePipeline, makeSalesStages, renderRoutes } from "../../test/harness";
+import { Code, ConnectError } from "@connectrpc/connect";
+import { makePipeline, makeSalesStages, makeTimestamp, renderRoutes } from "../../test/harness";
 import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
@@ -57,20 +58,14 @@ describe("PipelinesPage accessibility", () => {
   // hides, and axe only sees what is rendered — so each one is opened.
   it("has no violations with the stage editor open", async () => {
     const { container } = await loaded();
-    const stageRow = screen.getByText("Prospecting").closest("li")!;
-    fireEvent.click(within(stageRow).getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit stage Prospecting" }));
     await screen.findByRole("dialog");
     await expectNoA11yViolations(container);
   });
 
-  // The stage row's Archive, not the pipeline header's — the latter still
-  // goes through window.confirm, which jsdom answers falsy so nothing opens.
-  // Worth noting on its own: the two archive paths in this screen ask for
-  // confirmation in two different ways.
   it("has no violations with the archive confirmation open", async () => {
     const { container } = await loaded();
-    const stageRow = screen.getByText("Prospecting").closest("li")!;
-    fireEvent.click(within(stageRow).getByRole("button", { name: "Archive" }));
+    fireEvent.click(screen.getByRole("button", { name: "Archive stage Prospecting" }));
     await screen.findByRole("dialog");
     await expectNoA11yViolations(container);
   });
@@ -78,7 +73,49 @@ describe("PipelinesPage accessibility", () => {
   it("has no violations for a reader who cannot write", async () => {
     auth.hasScope.mockImplementation((scope: string) => scope !== "crm:pipeline:write");
     const { container } = await loaded();
-    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Archive/ })).not.toBeInTheDocument();
     await expectNoA11yViolations(container);
   });
+
+  // Archiving a pipeline used to go through window.confirm, which no test can
+  // answer and which a browser may suppress into a silent false. These three
+  // pin the whole path now that it is the app's own dialog.
+  it("asks before archiving a pipeline, and does nothing until confirmed", async () => {
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "Archive pipeline Sales" }));
+
+    await screen.findByRole("dialog");
+    expect(crm.updatePipeline).not.toHaveBeenCalled();
+  });
+
+  it("archives the pipeline once confirmed", async () => {
+    crm.updatePipeline.mockResolvedValue({ pipeline: makePipeline({ archivedAt: makeTimestamp("2026-03-01T10:00:00Z") }) });
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "Archive pipeline Sales" }));
+    await screen.findByRole("dialog");
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive pipeline" }));
+
+    await waitFor(() => expect(crm.updatePipeline).toHaveBeenCalledTimes(1));
+    const sent = crm.updatePipeline.mock.calls[0][0].pipeline;
+    expect(sent.archivedAt).toBeDefined();
+    // A pipeline cannot be both archived and the default new deals land on.
+    expect(sent.isDefault).toBe(false);
+  });
+
+  // The server refuses this while open deals stand on the pipeline, naming
+  // them. That sentence is the point, so it must not be replaced by the
+  // generic conflict line.
+  it("shows the server's refusal verbatim", async () => {
+    crm.updatePipeline.mockRejectedValue(
+      new ConnectError('pipeline "Sales" still holds 2 open opportunities (Acme renewal, Contoso) — move them to another stage before archiving it', Code.Aborted),
+    );
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "Archive pipeline Sales" }));
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "Archive pipeline" }));
+
+    await screen.findByText(/still holds 2 open opportunities/);
+  });
+
 });

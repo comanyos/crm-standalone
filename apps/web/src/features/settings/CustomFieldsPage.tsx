@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/shell/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Table } from "../../components/ui/Table";
@@ -44,6 +45,11 @@ export default function CustomFieldsPage() {
   const queryClient = useQueryClient();
   const [objectType, setObjectType] = useState("account");
   const [dialogOpen, setDialogOpen] = useState(false);
+  // The definition awaiting an archive confirmation. A ConfirmDialog rather
+  // than window.confirm: a browser told to stop showing this page's dialogs
+  // makes confirm() return false without prompting, so the button silently
+  // stops working — and a native prompt is not reachable from a test either.
+  const [archiving, setArchiving] = useState<(typeof fields)[number] | null>(null);
   const [draft, setDraft] = useState<Draft>(blankDraft());
   const canWrite = hasScope("crm:custom_field:write");
   const canRead = hasScope("crm:custom_field:read");
@@ -60,8 +66,8 @@ export default function CustomFieldsPage() {
   });
   const archive = useMutation({
     mutationFn: (id: string) => crm.archiveCustomFieldDefinition({ id }),
-    onSuccess: () => { void refresh(); toast.show({ tone: "success", message: "Custom field archived. Existing values are retained." }); },
-    onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
+    onSuccess: () => { setArchiving(null); void refresh(); toast.show({ tone: "success", message: "Custom field archived. Existing values are retained." }); },
+    onError: (error) => { setArchiving(null); toast.show({ tone: "danger", message: mutationErrorMessage(error) }); },
   });
 
   if (!canRead) return <div><PageHeader title="Custom fields" /><EmptyState title="Administrator access required" description="Custom-field definitions are managed by CRM administrators." /></div>;
@@ -83,7 +89,7 @@ export default function CustomFieldsPage() {
       { key: "type", header: "Type", render: (field) => field.dataType },
       { key: "required", header: "Required", render: (field) => field.required ? "Yes" : "No" },
       { key: "status", header: "Status", render: (field) => field.archivedAt ? "Archived" : "Active" },
-      { key: "actions", header: "Row actions", headerHidden: true, render: (field) => canWrite && <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => startEdit(field)}>Edit</Button>{!field.archivedAt && <Button size="sm" variant="secondary" loading={archive.isPending} onClick={() => { if (window.confirm(`Archive ${field.label}? Existing values will remain readable.`)) archive.mutate(field.id); }}>Archive</Button>}</div> },
+      { key: "actions", header: "Row actions", headerHidden: true, render: (field) => canWrite && <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={() => startEdit(field)} aria-label={`Edit ${field.label}`}>Edit</Button>{!field.archivedAt && <Button size="sm" variant="secondary" loading={archive.isPending} onClick={() => setArchiving(field)} aria-label={`Archive ${field.label}`}>Archive</Button>}</div> },
     ]} />}
     <Dialog open={dialogOpen} onClose={closeDialog} title={draft.id ? "Edit custom field" : "New custom field"} footer={<><Button variant="secondary" onClick={closeDialog} disabled={save.isPending}>Cancel</Button><Button onClick={() => save.mutate()} loading={save.isPending} disabled={!draft.label.trim() || (!draft.id && !draft.fieldKey.trim()) || (needsOptions && !draft.options.trim())}>Save field</Button></>}>
       <div className="grid gap-3"><Input label="Label" value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} required />
@@ -97,5 +103,14 @@ export default function CustomFieldsPage() {
         <Input label="Editable by roles" value={draft.editableToRoles} onChange={(event) => setDraft({ ...draft, editableToRoles: event.target.value })} hint="Comma-separated role keys. Leave empty for all roles; CRM administrators always retain access." />
       </div>
     </Dialog>
+    <ConfirmDialog
+      open={!!archiving}
+      title={archiving ? `Archive ${archiving.label}?` : ""}
+      description="An archived field can no longer be written, and the values already recorded under it stay readable — they are carried forward on every later save rather than deleted."
+      confirmLabel="Archive field"
+      loading={archive.isPending}
+      onConfirm={() => { if (archiving) archive.mutate(archiving.id); }}
+      onCancel={() => setArchiving(null)}
+    />
   </div>;
 }

@@ -177,10 +177,21 @@ originally scoped product.
   review or not at all. The viewport numbers above came from a one-off
   Chromium run, not a checked-in test.
 
-  Noticed while covering these, not fixed: archiving asks for confirmation
-  two different ways on the same screen. Pipeline and custom field/object
-  archival still go through `window.confirm`, while stage archival uses the
-  app's own `ConfirmDialog`.
+  The confirmation inconsistency found while covering these is fixed: pipeline
+  and custom field/object archival went through `window.confirm` while
+  everything else used `ConfirmDialog`. Beyond looking different, a browser
+  told to stop showing a page's dialogs makes `confirm()` return false without
+  prompting, so those three buttons would silently stop working — on an
+  archival that is the difference between "declined" and "never asked" — and a
+  native prompt is not answerable from a test, so all three destructive paths
+  were untestable. They are the app's own dialog now, and each has tests for
+  ask, cancel, confirm and, on the pipeline, the server's refusal.
+
+  Fixed alongside: every one of those rows had a button called just "Edit" or
+  "Archive". On a screen listing six stages that is seven controls named
+  "Archive", indistinguishable to anyone navigating by control name. Each now
+  names what it acts on ("Archive stage Prospecting"), which no automated rule
+  flags — axe has nothing to say about duplicate accessible names.
 
 - [ ] Meet WCAG 2.2 AA for keyboard navigation, focus management, contrast,
   labels, validation, and screen-reader feedback.

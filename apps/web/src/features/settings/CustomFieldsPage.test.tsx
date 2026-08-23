@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CustomFieldsPage from "./CustomFieldsPage";
 import { makeCustomField, renderRoutes } from "../../test/harness";
@@ -52,7 +52,7 @@ describe("CustomFieldsPage accessibility", () => {
   // worse than most.
   it("has no violations with the field editor open", async () => {
     const { container } = await loaded();
-    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Deal source" }));
     await screen.findByRole("dialog");
     await expectNoA11yViolations(container);
   });
@@ -67,7 +67,30 @@ describe("CustomFieldsPage accessibility", () => {
   it("has no violations for a reader who cannot write", async () => {
     auth.hasScope.mockImplementation((scope: string) => scope !== "crm:custom_field:write");
     const { container } = await loaded();
-    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit/ })).not.toBeInTheDocument();
     await expectNoA11yViolations(container);
   });
+
+  // Archiving used to go through window.confirm — unanswerable from a test,
+  // and silently false in a browser told to stop prompting.
+  it("asks before archiving a field, and archives only once confirmed", async () => {
+    crm.archiveCustomFieldDefinition.mockResolvedValue({});
+    await loaded();
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive Deal source" }));
+    await screen.findByRole("dialog");
+    expect(crm.archiveCustomFieldDefinition).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive field" }));
+    await waitFor(() => expect(crm.archiveCustomFieldDefinition).toHaveBeenCalledWith({ id: "cf-1" }));
+  });
+
+  // Each row's controls say what they act on. Several buttons all named
+  // "Archive" are indistinguishable to anyone navigating by control.
+  it("names each row's controls for the field they act on", async () => {
+    await loaded();
+    expect(screen.getByRole("button", { name: "Archive Deal source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive Tier note" })).toBeInTheDocument();
+  });
+
 });

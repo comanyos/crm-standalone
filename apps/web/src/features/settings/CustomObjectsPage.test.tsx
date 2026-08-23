@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CustomObjectsPage from "./CustomObjectsPage";
 import { makeCustomObject, renderRoutes } from "../../test/harness";
@@ -54,7 +54,25 @@ describe("CustomObjectsPage accessibility", () => {
   it("has no violations for a reader who cannot write", async () => {
     auth.hasScope.mockImplementation((scope: string) => scope !== "crm:custom_object:write");
     const { container } = await loaded();
-    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Archive/ })).not.toBeInTheDocument();
     await expectNoA11yViolations(container);
   });
+
+  it("asks before archiving an object, and archives only once confirmed", async () => {
+    crm.archiveCustomObjectDefinition.mockResolvedValue({});
+    const { container } = await loaded();
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive Shipment" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(crm.archiveCustomObjectDefinition).not.toHaveBeenCalled();
+    // The confirmation is a rendered dialog now, so it is scannable too.
+    expect(dialog).toBeInTheDocument();
+    await expectNoA11yViolations(container);
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive object" }));
+    await waitFor(() =>
+      expect(crm.archiveCustomObjectDefinition).toHaveBeenCalledWith({ apiName: "shipment" }),
+    );
+  });
+
 });
