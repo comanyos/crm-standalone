@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: "/settings/pipelines", label: "Pipelines" },
   { to: "/settings/custom-fields", label: "Custom fields" },
   { to: "/settings/custom-objects", label: "Custom objects" },
+  { to: "/settings/integrations", label: "Connected accounts" },
 ];
 
 interface SidebarProps {
