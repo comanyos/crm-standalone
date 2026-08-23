@@ -277,23 +277,25 @@ func (s *PgStore) ListGmailMessagesForSubject(
 	return out, rows.Err()
 }
 
-// PurgeGmailDataForOwner erases one mailbox's cursor and index rows. The
-// Activities stay: they are CRM records the organization has worked from.
+// PurgeGmailDataForOwner drops one mailbox's cursor, and the index rows too
+// when asked. See the Store interface for why disconnecting does not ask.
 func (s *PgStore) PurgeGmailDataForOwner(
-	ctx context.Context, scope Scope, ownerID string,
+	ctx context.Context, scope Scope, ownerID string, includeIndexedMessages bool,
 ) (int, error) {
 	if !scope.Valid() {
 		return 0, ErrNoTenant
 	}
 	removed := 0
 	err := s.db.inTx(ctx, scope, pgx.TxOptions{}, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx,
-			`DELETE FROM gmail_messages WHERE tenant_id = $1 AND owner_id = $2`,
-			scope.TenantID, ownerID)
-		if err != nil {
-			return fmt.Errorf("purge gmail messages: %w", err)
+		if includeIndexedMessages {
+			tag, err := tx.Exec(ctx,
+				`DELETE FROM gmail_messages WHERE tenant_id = $1 AND owner_id = $2`,
+				scope.TenantID, ownerID)
+			if err != nil {
+				return fmt.Errorf("purge gmail messages: %w", err)
+			}
+			removed = int(tag.RowsAffected())
 		}
-		removed = int(tag.RowsAffected())
 		if _, err := tx.Exec(ctx,
 			`DELETE FROM gmail_sync_state WHERE tenant_id = $1 AND owner_id = $2`,
 			scope.TenantID, ownerID); err != nil {

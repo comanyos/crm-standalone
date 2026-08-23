@@ -138,6 +138,12 @@ service CRMService {
   rpc GetGoogleConnection(GetGoogleConnectionRequest) returns (GetGoogleConnectionResponse);
   rpc ListGoogleConnections(ListGoogleConnectionsRequest) returns (ListGoogleConnectionsResponse);
   rpc DisconnectGoogleConnection(DisconnectGoogleConnectionRequest) returns (DisconnectGoogleConnectionResponse);
+  // SyncGoogleMailbox runs one Gmail synchronisation pass for the calling
+  // user's own mailbox, now, rather than waiting for the background poller.
+  // It is bounded: one pass examines a fixed number of messages and stores a
+  // cursor, so a large mailbox needs several and the caller can simply ask
+  // again.
+  rpc SyncGoogleMailbox(SyncGoogleMailboxRequest) returns (SyncGoogleMailboxResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -283,6 +289,26 @@ message StartGoogleConnectionResponse {
   string authorization_url = 1;
 }
 
+// GmailSyncStatus is how far synchronisation has got for one mailbox. It
+// reports progress and health only: there is no field here that could hold a
+// message, a participant, or a subject line.
+message GmailSyncStatus {
+  // backfill_complete reports whether the first pass over the sync window has
+  // finished. Until it has, the CRM holds only part of the recent history.
+  bool backfill_complete = 1;
+  google.protobuf.Timestamp last_synced_at = 2;
+  // last_message_at is the time of the newest message indexed. It is a more
+  // honest "up to date as of" than last_synced_at, which only says a pass
+  // ran.
+  google.protobuf.Timestamp last_message_at = 3;
+  // messages_indexed counts messages that matched a CRM contact. Messages
+  // with no CRM counterparty are never recorded or counted.
+  int64 messages_indexed = 4;
+  int64 activities_created = 5;
+  // last_error is a bounded reason code, never a provider message.
+  string last_error = 6;
+}
+
 message GetGoogleConnectionRequest {}
 message GetGoogleConnectionResponse {
   GoogleConnection connection = 1;
@@ -293,6 +319,8 @@ message GetGoogleConnectionResponse {
   // requested_scopes is the consent the user is about to be asked for, taken
   // from the server so the UI cannot drift from what is actually requested.
   repeated string requested_scopes = 3;
+  // gmail_sync is absent until the mailbox has been synced at least once.
+  GmailSyncStatus gmail_sync = 4;
 }
 
 message ListGoogleConnectionsRequest {}
@@ -305,6 +333,17 @@ message DisconnectGoogleConnectionRequest {
   bool purge = 1;
 }
 message DisconnectGoogleConnectionResponse { GoogleConnection connection = 1; }
+
+message SyncGoogleMailboxRequest {}
+message SyncGoogleMailboxResponse {
+  GmailSyncStatus gmail_sync = 1;
+  // messages_examined counts envelopes fetched in this pass, most of which
+  // will not have matched anything. It is reported so a user can see that
+  // sync is working even when it records nothing.
+  int32 messages_examined = 2;
+  // entries_created counts timeline entries actually written by this pass.
+  int32 entries_created = 3;
+}
 
 message Account {
   string id = 1;

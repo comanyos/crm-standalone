@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
@@ -141,7 +142,7 @@ func TestStartRejectsAnOffSiteReturnPathAtTheBoundary(t *testing.T) {
 // TestUnconfiguredDeploymentSaysSoRatherThanFailing. A CRM without Google
 // credentials is running correctly; the UI needs to render that state.
 func TestUnconfiguredDeploymentSaysSoRatherThanFailing(t *testing.T) {
-	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil)
+	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil)
 	ctx := ctxAs("tenant-1", "org-1")
 
 	resp, err := s.GetGoogleConnection(ctx, connect.NewRequest(&crmv1.GetGoogleConnectionRequest{}))
@@ -193,6 +194,99 @@ func TestGetGoogleConnectionAdvertisesTheRequestedScopes(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("requested scopes do not include %q", want)
+		}
+	}
+}
+
+// TestSyncGoogleMailboxReportsProgressWithoutCorrespondence. The response
+// tells a user how sync is going; it must not become a second way to read
+// their mail.
+func TestSyncGoogleMailboxReportsProgressWithoutCorrespondence(t *testing.T) {
+	s, store := newTestServiceWithStore()
+	ctx := ctxAs("tenant-1", "org-1")
+	owner := principalSubject(ctx)
+	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	if _, err := store.SaveGoogleConnection(context.Background(), scope, &domain.GoogleConnection{
+		OwnerID: owner, GoogleAccountEmail: "rep@example.com",
+		Status:          domain.GoogleStatusConnected,
+		GrantedScopes:   []string{"https://www.googleapis.com/auth/gmail.readonly"},
+		TokenCiphertext: sealTestTokens(t, "tenant-1", owner),
+	}); err != nil {
+		t.Fatalf("seed connection: %v", err)
+	}
+
+	// The stub Gmail answers 404 to everything it was not taught, so this
+	// pass fails — which is the interesting case: the RPC must still report
+	// the recorded reason rather than a provider message.
+	_, err := s.SyncGoogleMailbox(ctx, connect.NewRequest(&crmv1.SyncGoogleMailboxRequest{}))
+	if err == nil {
+		t.Fatal("a pass against an unreachable Gmail reported success")
+	}
+	if strings.Contains(err.Error(), "gmail.googleapis.com") || strings.Contains(err.Error(), "404") {
+		t.Errorf("the provider's failure detail reached the caller: %v", err)
+	}
+
+	// And the recorded state is a bounded reason code.
+	state, err := store.GetGmailSyncState(context.Background(), scope, owner)
+	if err != nil {
+		t.Fatalf("read sync state: %v", err)
+	}
+	if state.LastError == "" || strings.Contains(state.LastError, "http") {
+		t.Errorf("recorded reason = %q, want a bounded code", state.LastError)
+	}
+}
+
+// TestSyncGoogleMailboxNeedsAConfiguredIntegration.
+func TestSyncGoogleMailboxNeedsAConfiguredIntegration(t *testing.T) {
+	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil)
+	_, err := s.SyncGoogleMailbox(ctxAs("tenant-1", "org-1"),
+		connect.NewRequest(&crmv1.SyncGoogleMailboxRequest{}))
+	if err == nil {
+		t.Fatal("sync ran with no integration configured")
+	}
+	if got := connectCode(t, err); got != connect.CodeFailedPrecondition {
+		t.Errorf("code = %v, want FailedPrecondition", got)
+	}
+}
+
+// TestGetGoogleConnectionCarriesSyncStatus so the UI can render connection
+// and progress together rather than in two round trips.
+func TestGetGoogleConnectionCarriesSyncStatus(t *testing.T) {
+	s, store := newTestServiceWithStore()
+	ctx := ctxAs("tenant-1", "org-1")
+	owner := principalSubject(ctx)
+	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	if _, err := store.SaveGoogleConnection(context.Background(), scope, &domain.GoogleConnection{
+		OwnerID: owner, Status: domain.GoogleStatusConnected,
+		TokenCiphertext: sealTestTokens(t, "tenant-1", owner),
+	}); err != nil {
+		t.Fatalf("seed connection: %v", err)
+	}
+	if _, err := store.SaveGmailSyncState(context.Background(), scope, &domain.GmailSyncState{
+		OwnerID: owner, BackfillComplete: true, MessagesIndexed: 12, ActivitiesCreated: 9,
+		LastSyncedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("seed sync state: %v", err)
+	}
+
+	resp, err := s.GetGoogleConnection(ctx, connect.NewRequest(&crmv1.GetGoogleConnectionRequest{}))
+	if err != nil {
+		t.Fatalf("GetGoogleConnection: %v", err)
+	}
+	sync := resp.Msg.GetGmailSync()
+	if sync == nil {
+		t.Fatal("the response carries no sync status")
+	}
+	if !sync.GetBackfillComplete() || sync.GetMessagesIndexed() != 12 || sync.GetActivitiesCreated() != 9 {
+		t.Errorf("sync status = %+v", sync)
+	}
+	// Nothing in the response resembles correspondence.
+	rendered := resp.Msg.String()
+	for _, forbidden := range []string{"Subject", "subject", "@acme"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Errorf("the connection response carries message content: %q", rendered)
 		}
 	}
 }

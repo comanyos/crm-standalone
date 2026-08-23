@@ -15,6 +15,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
 	"github.com/santoshguru/crm/internal/metrics"
@@ -31,6 +32,7 @@ type Server struct {
 	emitter   *platform.Emitter
 	authn     *auth.Authenticator
 	google    *google.Service
+	gmail     *gmail.Syncer
 	mux       *http.ServeMux
 	readiness func(context.Context) error
 }
@@ -53,6 +55,13 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	// The syncer is built only when Google is actually configured: without a
+	// credential there is no mailbox to read, and a syncer wired to a nil
+	// token source would fail on every pass instead of not running.
+	var gmailSyncer *gmail.Syncer
+	if googleSvc.Configured() {
+		gmailSyncer = gmail.NewSyncer(store, gmail.New(nil), googleSvc, slog.Default())
+	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
 		cfg:     cfg,
@@ -60,6 +69,7 @@ func New(
 		emitter: emitter,
 		authn:   authn,
 		google:  googleSvc,
+		gmail:   gmailSyncer,
 		mux:     http.NewServeMux(),
 	}
 	if pinger, ok := store.(interface{ Ping(context.Context) error }); ok {
@@ -70,6 +80,10 @@ func New(
 	s.routes()
 	return s, nil
 }
+
+// GmailSyncer exposes the sync engine to the background poller in
+// cmd/crm. It is nil when the deployment has no Google credentials.
+func (s *Server) GmailSyncer() *gmail.Syncer { return s.gmail }
 
 // Close gracefully drains the server's NATS connection.
 func (s *Server) Close() {
@@ -158,7 +172,7 @@ func (s *Server) routes() {
 	s.mux.Handle(modPath, modHandler)
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
-		api.NewCRMService(s.cfg, s.store, s.google), interceptors)
+		api.NewCRMService(s.cfg, s.store, s.google, s.gmail), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect

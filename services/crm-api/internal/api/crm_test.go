@@ -16,6 +16,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -46,7 +47,12 @@ func newTestService() *CRMService {
 // badly it is written.
 func newTestServiceWithStore() (*CRMService, domain.Store) {
 	store := domain.NewMemStore()
-	return NewCRMService(config.Config{}, store, google.New(store, testGoogleClient(), "")), store
+	googleSvc := google.New(store, testGoogleClient(), "")
+	// A syncer wired to a Gmail that answers nothing. The Gmail RPC tests
+	// substitute their own; this keeps the field non-nil so the RPC reports a
+	// real outcome instead of "not configured".
+	syncer := gmail.NewSyncer(store, gmail.New(&http.Client{Transport: stubGoogleTransport{}}), googleSvc, nil)
+	return NewCRMService(config.Config{}, store, googleSvc, syncer), store
 }
 
 // testGoogleTokenKey is the sealing key this package's Google tests share, so

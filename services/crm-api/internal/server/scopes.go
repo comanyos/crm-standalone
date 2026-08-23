@@ -84,6 +84,9 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/GetGoogleConnection":        "crm:integration:read",
 	"/crm.v1.CRMService/DisconnectGoogleConnection": "crm:integration:write",
 	"/crm.v1.CRMService/ListGoogleConnections":      "crm:integration_admin:read",
+	// Synchronising writes CRM Activities, so it is a write even though it
+	// reads a mailbox to decide what to write.
+	"/crm.v1.CRMService/SyncGoogleMailbox": "crm:integration:write",
 
 	// Tasks and Notes carry their own scopes rather than reusing
 	// crm:activity:*. They are separate entities with separate reporting and

@@ -178,12 +178,21 @@ type Store interface {
 	// appeared.
 	RecordGmailActivity(ctx context.Context, scope Scope, msg *GmailMessage, activity *Activity) (bool, error)
 	ListGmailMessagesForSubject(ctx context.Context, scope Scope, subjectType, subjectID string, limit int) ([]*GmailMessage, error)
-	// PurgeGmailDataForOwner erases one mailbox's sync state and every
-	// timeline index row it produced. The Activities themselves are left
-	// alone: they are CRM records the organization has since worked from, and
-	// silently deleting a customer's correspondence history because someone
-	// disconnected a mailbox would be a surprise, not a privacy win.
-	PurgeGmailDataForOwner(ctx context.Context, scope Scope, ownerID string) (int, error)
+	// PurgeGmailDataForOwner drops one mailbox's sync cursor, and optionally
+	// the timeline index rows as well.
+	//
+	// Disconnecting passes false, which is the surprising half and the
+	// important one. The index is what remembers which messages have already
+	// been posted to a timeline; deleting it would mean a user who
+	// disconnects and reconnects gets a second copy of every email in their
+	// CRM. Keeping it costs a few rows and makes reconnection safe.
+	//
+	// The Activities are never touched either way. They are CRM records the
+	// organization has since worked from, and deleting a customer's
+	// correspondence history because somebody unlinked a mailbox would be a
+	// surprise, not a privacy win. Erasing synced content on request is a
+	// separate operation this module does not have yet.
+	PurgeGmailDataForOwner(ctx context.Context, scope Scope, ownerID string, includeIndexedMessages bool) (int, error)
 
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)

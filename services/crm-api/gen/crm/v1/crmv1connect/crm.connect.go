@@ -212,6 +212,9 @@ const (
 	// CRMServiceDisconnectGoogleConnectionProcedure is the fully-qualified name of the CRMService's
 	// DisconnectGoogleConnection RPC.
 	CRMServiceDisconnectGoogleConnectionProcedure = "/crm.v1.CRMService/DisconnectGoogleConnection"
+	// CRMServiceSyncGoogleMailboxProcedure is the fully-qualified name of the CRMService's
+	// SyncGoogleMailbox RPC.
+	CRMServiceSyncGoogleMailboxProcedure = "/crm.v1.CRMService/SyncGoogleMailbox"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -334,6 +337,12 @@ type CRMServiceClient interface {
 	GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error)
 	ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error)
 	DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error)
+	// SyncGoogleMailbox runs one Gmail synchronisation pass for the calling
+	// user's own mailbox, now, rather than waiting for the background poller.
+	// It is bounded: one pass examines a fixed number of messages and stores a
+	// cursor, so a large mailbox needs several and the caller can simply ask
+	// again.
+	SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -755,6 +764,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("DisconnectGoogleConnection")),
 			connect.WithClientOptions(opts...),
 		),
+		syncGoogleMailbox: connect.NewClient[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse](
+			httpClient,
+			baseURL+CRMServiceSyncGoogleMailboxProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleMailbox")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -828,6 +843,7 @@ type cRMServiceClient struct {
 	getGoogleConnection           *connect.Client[v1.GetGoogleConnectionRequest, v1.GetGoogleConnectionResponse]
 	listGoogleConnections         *connect.Client[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse]
 	disconnectGoogleConnection    *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
+	syncGoogleMailbox             *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1170,6 +1186,11 @@ func (c *cRMServiceClient) DisconnectGoogleConnection(ctx context.Context, req *
 	return c.disconnectGoogleConnection.CallUnary(ctx, req)
 }
 
+// SyncGoogleMailbox calls crm.v1.CRMService.SyncGoogleMailbox.
+func (c *cRMServiceClient) SyncGoogleMailbox(ctx context.Context, req *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error) {
+	return c.syncGoogleMailbox.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1290,6 +1311,12 @@ type CRMServiceHandler interface {
 	GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error)
 	ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error)
 	DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error)
+	// SyncGoogleMailbox runs one Gmail synchronisation pass for the calling
+	// user's own mailbox, now, rather than waiting for the background poller.
+	// It is bounded: one pass examines a fixed number of messages and stores a
+	// cursor, so a large mailbox needs several and the caller can simply ask
+	// again.
+	SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1707,6 +1734,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("DisconnectGoogleConnection")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceSyncGoogleMailboxHandler := connect.NewUnaryHandler(
+		CRMServiceSyncGoogleMailboxProcedure,
+		svc.SyncGoogleMailbox,
+		connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleMailbox")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -1845,6 +1878,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListGoogleConnectionsHandler.ServeHTTP(w, r)
 		case CRMServiceDisconnectGoogleConnectionProcedure:
 			cRMServiceDisconnectGoogleConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceSyncGoogleMailboxProcedure:
+			cRMServiceSyncGoogleMailboxHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2124,4 +2159,8 @@ func (UnimplementedCRMServiceHandler) ListGoogleConnections(context.Context, *co
 
 func (UnimplementedCRMServiceHandler) DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DisconnectGoogleConnection is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleMailbox is not implemented"))
 }

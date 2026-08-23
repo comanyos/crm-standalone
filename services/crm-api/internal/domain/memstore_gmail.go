@@ -232,10 +232,10 @@ func (s *MemStore) ListGmailMessagesForSubject(
 	return out, nil
 }
 
-// PurgeGmailDataForOwner erases one mailbox's cursor and index rows. The
-// Activities stay: they are CRM records the organization has worked from.
+// PurgeGmailDataForOwner drops one mailbox's cursor, and the index rows too
+// when asked. See the Store interface for why disconnecting does not ask.
 func (s *MemStore) PurgeGmailDataForOwner(
-	_ context.Context, scope Scope, ownerID string,
+	_ context.Context, scope Scope, ownerID string, includeIndexedMessages bool,
 ) (int, error) {
 	if !scope.Valid() {
 		return 0, ErrNoTenant
@@ -245,6 +245,9 @@ func (s *MemStore) PurgeGmailDataForOwner(
 	defer s.gmail.mu.Unlock()
 
 	delete(s.gmail.state[scope.TenantID], ownerID)
+	if !includeIndexedMessages {
+		return 0, nil
+	}
 	removed := 0
 	for key := range s.gmail.messages[scope.TenantID] {
 		if key.owner == ownerID {

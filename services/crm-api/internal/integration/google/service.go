@@ -353,6 +353,14 @@ func (s *Service) Disconnect(
 		}
 	}
 
+	// Stop synchronisation before the credential goes away. The cursor is
+	// dropped; the deduplication index is deliberately kept, because without
+	// it a user who reconnects gets a second copy of every email already on
+	// their contacts' timelines (see Store.PurgeGmailDataForOwner).
+	if _, err := s.store.PurgeGmailDataForOwner(ctx, scope, ownerID, false); err != nil {
+		slog.Warn("could not stop gmail synchronisation for a disconnected mailbox", "error", err)
+	}
+
 	now := s.now()
 	if purge {
 		if err := s.store.DeleteGoogleConnection(ctx, scope, ownerID); err != nil {

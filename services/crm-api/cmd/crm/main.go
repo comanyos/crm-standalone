@@ -16,6 +16,7 @@ import (
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/dispatch"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/platform"
 	"github.com/santoshguru/crm/internal/server"
 	"github.com/santoshguru/crm/internal/tracing"
@@ -78,6 +79,13 @@ func main() {
 		}
 	}
 	dispatch.Start(dispatchCtx, store, pub, 0, slog.Default())
+
+	// Gmail synchronisation. It shares the dispatcher's lifetime and shutdown
+	// signal: both are background loops that must stop when the HTTP server
+	// does, and neither may keep the process alive. A pass interrupted by
+	// shutdown leaves its cursor where it was and its lease to expire, so the
+	// next process resumes rather than repeats.
+	gmail.Start(dispatchCtx, store, srv.GmailSyncer(), 0, slog.Default())
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,

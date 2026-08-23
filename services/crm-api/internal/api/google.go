@@ -101,6 +101,15 @@ func (s *CRMService) GetGoogleConnection(
 		return nil, googleErr(err)
 	}
 	resp.Connection = googleConnectionToProto(view)
+
+	// Sync status rides along with the connection: the UI shows them
+	// together, and a second round trip to learn "connected but not yet
+	// synced" would be a second chance to render a half-updated page.
+	state, err := s.store.GetGmailSyncState(ctx, scope, owner)
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		return nil, connectErr(err)
+	}
+	resp.GmailSync = gmailSyncToProto(state)
 	return connect.NewResponse(resp), nil
 }
 

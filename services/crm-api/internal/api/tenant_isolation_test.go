@@ -274,6 +274,25 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Errorf("B starting an authorization changed A's connection status to %q", stored.Status)
 		}
 	},
+	"SyncGoogleMailbox": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// B syncs its own mailbox. The stub Gmail answers nothing, so the
+		// assertion is not about what gets indexed — it is that a pass run as
+		// B cannot touch A's sync state or A's contacts' timelines.
+		_, _ = s.SyncGoogleMailbox(ctxB, connect.NewRequest(&crmv1.SyncGoogleMailboxRequest{}))
+
+		victimScope := domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}
+		if _, err := s.store.GetGmailSyncState(a.ctx, victimScope, a.googleOwner); err == nil {
+			t.Error("a sync pass run by tenant B created sync state in tenant A")
+		}
+		entries, err := s.store.ListGmailMessagesForSubject(a.ctx, victimScope,
+			domain.SubjectContact, a.contactID, 0)
+		if err != nil {
+			t.Fatalf("read A's synced messages: %v", err)
+		}
+		if len(entries) != 0 {
+			t.Errorf("a sync pass run by tenant B wrote %d entries onto tenant A's timeline", len(entries))
+		}
+	},
 	"DisconnectGoogleConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		// B has its own seeded connection, so this succeeds — and must touch
 		// only B's. The assertion that matters is what happens to A's.

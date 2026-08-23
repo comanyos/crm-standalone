@@ -383,15 +383,35 @@ func TestPurgeErasesTheIndexAndKeepsTheHistory(t *testing.T) {
 			t.Fatalf("seed state: %v", err)
 		}
 
-		removed, err := s.PurgeGmailDataForOwner(ctx, scope, "user-1")
+		// Disconnecting drops the cursor but keeps the index. That is what
+		// makes reconnecting safe: without the index, a re-sync would post a
+		// second copy of every email to every timeline.
+		removed, err := s.PurgeGmailDataForOwner(ctx, scope, "user-1", false)
+		if err != nil {
+			t.Fatalf("clear cursor: %v", err)
+		}
+		if removed != 0 {
+			t.Errorf("clearing the cursor removed %d index rows, want 0 — "+
+				"reconnecting would then duplicate every timeline entry", removed)
+		}
+		if _, err := s.GetGmailSyncState(ctx, scope, "user-1"); !errors.Is(err, ErrNotFound) {
+			t.Errorf("sync state survived: %v", err)
+		}
+		entries, err := s.ListGmailMessagesForSubject(ctx, scope, SubjectContact, contact.ID, 0)
+		if err != nil {
+			t.Fatalf("list entries: %v", err)
+		}
+		if len(entries) != 1 {
+			t.Errorf("the deduplication index holds %d rows after a disconnect, want 1", len(entries))
+		}
+
+		// Full erasure removes the index as well.
+		removed, err = s.PurgeGmailDataForOwner(ctx, scope, "user-1", true)
 		if err != nil {
 			t.Fatalf("purge: %v", err)
 		}
 		if removed != 1 {
 			t.Errorf("purged %d index rows, want 1", removed)
-		}
-		if _, err := s.GetGmailSyncState(ctx, scope, "user-1"); !errors.Is(err, ErrNotFound) {
-			t.Errorf("sync state survived the purge: %v", err)
 		}
 
 		activities, err := s.ListActivitiesForSubject(ctx, scope, SubjectContact, contact.ID)
@@ -428,7 +448,7 @@ func TestGmailStoreRejectsAnEmptyScope(t *testing.T) {
 		if _, err := s.ListGmailMessagesForSubject(ctx, none, SubjectContact, "c", 0); !errors.Is(err, ErrNoTenant) {
 			t.Errorf("ListGmailMessagesForSubject: %v, want ErrNoTenant", err)
 		}
-		if _, err := s.PurgeGmailDataForOwner(ctx, none, "u"); !errors.Is(err, ErrNoTenant) {
+		if _, err := s.PurgeGmailDataForOwner(ctx, none, "u", true); !errors.Is(err, ErrNoTenant) {
 			t.Errorf("PurgeGmailDataForOwner: %v, want ErrNoTenant", err)
 		}
 	})

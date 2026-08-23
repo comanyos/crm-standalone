@@ -7,6 +7,7 @@ import (
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 )
 
@@ -19,11 +20,16 @@ type CRMService struct {
 	// without GOOGLE_OAUTH_* is running correctly and simply cannot offer the
 	// feature.
 	google *google.Service
+	// gmail is nil for the same reason google is: without provider
+	// credentials there is no mailbox to synchronise.
+	gmail *gmail.Syncer
 }
 
-// NewCRMService wires the domain service. googleSvc may be nil.
-func NewCRMService(cfg config.Config, store domain.Store, googleSvc *google.Service) *CRMService {
-	return &CRMService{cfg: cfg, store: store, google: googleSvc}
+// NewCRMService wires the domain service. googleSvc and gmailSyncer may be nil.
+func NewCRMService(
+	cfg config.Config, store domain.Store, googleSvc *google.Service, gmailSyncer *gmail.Syncer,
+) *CRMService {
+	return &CRMService{cfg: cfg, store: store, google: googleSvc, gmail: gmailSyncer}
 }
 
 // CreateAccount stores a new Account.

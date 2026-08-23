@@ -154,9 +154,11 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // "Start" and "Disconnect" joined it for the Google connection. Both read as
 // navigation and are not: StartGoogleConnection writes a durable one-time
 // authorization record before it returns a URL, and DisconnectGoogleConnection
-// revokes a grant at Google and erases a stored credential.
+// revokes a grant at Google and erases a stored credential. "Sync" joined it
+// for the same reason: reading a mailbox is how it decides what to write, but
+// what it writes is CRM Activities.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}
