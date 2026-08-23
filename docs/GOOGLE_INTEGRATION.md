@@ -132,6 +132,120 @@ because it describes the state the user asked for.
 remains, which is what lets the audit trail answer who ended the access and
 when. The purge **event** outlives the row on purpose.
 
+## Gmail synchronisation
+
+### What is synced, and what is not
+
+**A message becomes a CRM record only if one of its participants is already a
+Contact in the same tenant.**
+
+This is the decision everything else follows from, so it is worth stating why
+rather than just what. A connected mailbox holds a person's entire
+correspondence — their doctor, their bank, their family — and every CRM
+Activity is readable by any colleague holding `crm:activity:read`. A sync that
+ingested a mailbox wholesale would publish a user's private mail to their
+employer. So an unmatched message leaves no row, no counter, and no record of
+its subject line; it is examined in memory and forgotten.
+
+For a message that *does* match, what is kept is an envelope:
+
+| Kept | Not kept |
+| --- | --- |
+| Provider message and thread id | Message body |
+| Subject line (bounded to 500 characters) | Snippet or preview |
+| Sender address, direction | Attachments |
+| Time Google recorded the message | Recipients other than the matched Contact |
+
+The body is not merely unstored — it is never fetched. Every read uses
+`format=metadata` with an explicit header allowlist, so Gmail returns headers
+and nothing else. A later change that adds a body column would have nothing to
+put in it without also widening that request, which is exactly the review such
+a change deserves. `gmail_messages` correspondingly has no body or snippet
+column: retention policy for message content is still an open product decision
+(`docs/ROADMAP.md` M5), and an absent column is the only version of "not
+decided yet" that cannot leak.
+
+### How a pass works
+
+```
+                  ┌──────────────── first pass ────────────────┐
+read history cursor ──▶ walk `newer_than:90d -in:chats` ──▶ mark complete
+                  └────────────────────────────────────────────┘
+                  ┌──────────── every pass after ──────────────┐
+                    users.history.list from the stored cursor
+                  └────────────────────────────────────────────┘
+
+for each message id:  fetch envelope (metadata only)
+                      match participants against Contacts
+                      no match ──▶ drop it, record nothing
+                      match    ──▶ one Activity per matched Contact
+```
+
+Details that are easy to get wrong, each pinned by a test:
+
+- **The backfill reads its history cursor before walking, not after.** A
+  cursor taken at the end skips every message that arrived during the walk —
+  those are neither in the pages already read nor after the cursor.
+- **An incremental pass saves the new cursor only after its last page.** Gmail
+  returns the mailbox's *current* history id on every page, so storing it
+  early skips whatever the remaining pages held.
+- **An expired cursor restarts a backfill.** Google keeps roughly a week of
+  history and answers 404 beyond that. Resuming from a position Gmail has
+  forgotten would silently lose everything in the gap, so `ErrHistoryExpired`
+  is distinct from an empty page.
+- **Direction comes from Gmail's `SENT` label**, not from comparing the `From`
+  address to the account's — aliases and delegated sending both break that.
+- **The mailbox owner's own address is excluded from matching.** People are
+  often Contacts in their own organization's CRM; without this every message
+  would match them.
+- **Synced email is `Activity.Kind = "email_synced"`**, distinct from a
+  hand-logged email. A timeline that cannot tell "someone recorded that they
+  emailed the customer" from "the system observed an email" cannot be audited,
+  and only one of the two is evidence.
+
+### Idempotency
+
+`gmail_messages` is keyed per timeline entry — `(tenant, owner, message,
+subject_type, subject_id)` — not per message. An email to three Contacts
+belongs on three timelines, and keying this way makes each of those entries
+individually idempotent: re-syncing cannot double-post, and a Contact created
+after the message arrived still gets its entry on a later pass.
+
+The index row and the Activity are written in one transaction, index row
+first with `ON CONFLICT DO NOTHING`. The primary key is therefore what decides
+whether an entry is new, so two replicas racing on one message serialize there
+rather than both concluding it is. Splitting the two writes would leave either
+an Activity that gets re-created next pass, or an index row for a timeline
+entry that silently never appears.
+
+### Scheduling
+
+A background poller runs every minute (jittered), claims up to 25 mailboxes
+per cycle, and syncs each under its own tenant scope. Each mailbox is leased
+for five minutes so two replicas do not walk the same one; the lease expires
+rather than needing release, so a replica that dies mid-pass cannot make a
+mailbox permanently unsyncable. One mailbox's failure never stops the cycle —
+a single revoked credential must not stop everyone else's mail from syncing.
+
+One pass examines at most 100 messages. A large mailbox therefore needs
+several, which the cursor makes free: the next pass resumes exactly where the
+last stopped. `SyncGoogleMailbox` runs one pass on demand for the caller's own
+mailbox, and is bounded the same way, so it cannot be turned into unbounded
+work by pressing a button repeatedly.
+
+### Disconnecting
+
+Disconnect drops the sync cursor and **keeps the deduplication index**. That
+is the non-obvious half: the index is what remembers which messages have
+already reached a timeline, so deleting it would mean a user who disconnects
+and reconnects gets a second copy of every email in their CRM.
+
+Neither disconnect nor purge deletes the Activities. They are CRM records the
+organization has since worked from, and deleting a customer's correspondence
+history because somebody unlinked a mailbox would be a surprise, not a privacy
+win. Erasing synced content on request is a separate operation this module
+does not have yet — see **What is not built yet**.
+
 ## Audit and metrics
 
 Lifecycle events go through the module's transactional outbox on subject
@@ -147,9 +261,14 @@ Lifecycle events go through the module's transactional outbox on subject
 Payloads carry the connection id, owner, account address, status, granted
 scopes and a reason code — never credential material or message content.
 
-`crm_google_oauth_flows_total{outcome}` counts lifecycle outcomes. The only
-label is the bounded reason-code set; no tenant, user, mailbox address or
+`crm_google_oauth_flows_total{outcome}` counts connection lifecycle outcomes
+and `crm_gmail_sync_passes_total{outcome}` counts sync passes. In both, the
+only label is a bounded reason-code set; no tenant, user, mailbox address or
 provider message is ever a metric label.
+
+`crm_gmail_timeline_entries_total` counts entries written by sync and has no
+labels at all — a per-tenant or per-mailbox breakdown of how much somebody
+emails is not something a metrics endpoint should carry.
 
 ## Configuration
 
@@ -189,13 +308,21 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
 
 ## What is not built yet
 
-The connection lifecycle is complete; what it feeds is not.
-
-- **Gmail sync** — sync cursors, message and thread deduplication, contact
-  matching, and CRM timeline entries.
 - **Calendar sync** — incremental sync, event linking, attendee matching,
-  timezone handling, and a conflict policy.
+  timezone handling, and a conflict policy. Nothing reads or writes calendar
+  events yet, despite the scope being requested.
 - **Sending** — `gmail.send` is requested but nothing sends yet.
+- **Account and opportunity matching** — sync attaches an email to matched
+  Contacts only. Rolling that up to the Contact's Account, or onto an open
+  Opportunity, needs a rule for which of several open deals an email belongs
+  to, and that is a product decision.
+- **Erasing synced content on request** — disconnecting stops sync but keeps
+  the Activities already created. A deliberate "delete the email this CRM
+  holds about me" operation does not exist, and a data-subject erasure request
+  cannot be served without one.
+- **Thread grouping in the UI** — `thread_id` is stored but nothing reads it;
+  a conversation shows as separate timeline entries.
+- **Sealing-key rotation** with re-encryption.
 - **Microsoft** — deliberately not configured. Do not add it without an
   explicit request.
 

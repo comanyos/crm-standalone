@@ -337,7 +337,7 @@ Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
 
-## M5 — Communications and automation (25%)
+## M5 — Communications and automation (40%)
 
 Dependencies: provider ownership, OAuth credentials, retention policy, and
 webhook security decisions from the product owner.
@@ -360,13 +360,23 @@ webhook security decisions from the product owner.
   The web app also provides a provider-neutral task calendar and safe all-day
   `.ics` downloads.
 
-  **Not done — what the connection feeds.** No message or event has been synced
-  yet: Gmail sync cursors, message/thread deduplication, contact matching and
-  timeline entries; Calendar incremental sync, event linking, attendee
-  matching, timezone handling and conflict policy; sending through
-  `gmail.send`; sealing-key rotation with re-encryption; and a retention
-  decision for synced communication content. Google verification submission
-  stays deferred until a truthful demo of the sync features can be recorded.
+  **Done — Gmail synchronisation.** Mail reaches contact timelines, on a
+  background poller and on demand. Sync cursors with an incremental history
+  walk and backfill resume, per-timeline-entry deduplication, contact matching
+  by participant address, and Activities written in the same transaction as
+  their index row. The privacy boundary is structural rather than a filter: a
+  message is recorded only when a participant is already a Contact in the
+  tenant, bodies are never fetched (`format=metadata`), and there is no body
+  or snippet column to put one in.
+
+  **Not done — what the connection still owes.** No calendar event is read or
+  written despite the scope being requested; `gmail.send` is requested but
+  unused; synced email attaches to matched Contacts only, not to their
+  Accounts or open Opportunities; `thread_id` is stored but nothing groups a
+  conversation in the UI; there is no operation to erase synced content on
+  request, which a data-subject erasure would need; and sealing-key rotation
+  still has no re-encryption path. Google verification submission stays
+  deferred until a truthful demo of the sync features can be recorded.
   Microsoft remains deliberately unconfigured.
 - [ ] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.

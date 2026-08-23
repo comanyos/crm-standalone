@@ -1369,8 +1369,20 @@ redirect URLs, privacy/retention policy, and deployment secret ownership.
   it before a second provider exists would be inventing an interface against
   one implementation; Microsoft stays deliberately unconfigured until asked
   for.
-- [ ] Implement email connection, sync cursor, deduplication, threading,
+- [~] Implement email connection, sync cursor, deduplication, threading,
   contact/account matching, consent visibility, and timeline rendering.
+
+  Done for Gmail: connection, cursor (incremental history with backfill
+  resume), deduplication keyed per timeline entry so one email can reach
+  several contacts and still not double-post, contact matching by participant
+  address, and consent visibility — the Connected accounts page states on the
+  page itself that email with no matching contact is never read into the CRM.
+
+  Open: **account/opportunity matching** (rolling an email up from the matched
+  Contact to their Account, or onto an open Opportunity, needs a rule for
+  which of several open deals it belongs to — a product decision, not a
+  coding one); **threading** (`thread_id` is stored but nothing groups a
+  conversation); and **timeline rendering** beyond the plain Activity entry.
 - [ ] Implement calendar connection, incremental sync, event linking,
   attendee matching, time-zone handling, conflict policy, and timeline
   rendering.
