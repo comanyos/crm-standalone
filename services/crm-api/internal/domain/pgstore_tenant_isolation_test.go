@@ -79,6 +79,7 @@ type tenantFixture struct {
 	googleOwnerID string
 	googleState   string
 	gmailActivity string
+	calendarEvent string
 }
 
 // seedTenant writes a complete record set for one tenant, exercising the
@@ -274,6 +275,40 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] record gmail activity: %v", label, err)
 	}
 
+	// Calendar synchronisation state and one mirrored event, so the
+	// catalog-driven tests below cover both tables rather than skipping them.
+	if _, err := s.SaveCalendarSyncState(ctx, f.scope, &CalendarSyncState{
+		OwnerID: f.googleOwnerID, SyncToken: fmt.Sprintf("tok-%d", stamp),
+		BackfillComplete: true, LastSyncedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("[%s] save calendar sync state: %v", label, err)
+	}
+
+	f.calendarEvent = fmt.Sprintf("evt-iso-%s-%d", label, stamp)
+	if _, err := s.RecordCalendarEvent(ctx, f.scope, &CalendarEvent{
+		OwnerID:          f.googleOwnerID,
+		ProviderEventID:  f.calendarEvent,
+		SubjectType:      SubjectContact,
+		SubjectID:        f.contactID,
+		CalendarID:       "primary",
+		ActivityID:       newID(),
+		Title:            label + " confidential negotiation",
+		Status:           CalendarStatusConfirmed,
+		StartsAt:         time.Now().UTC().Add(24 * time.Hour),
+		TimeZone:         "Europe/London",
+		OrganizerAddress: fmt.Sprintf("%s-%d@example.com", label, stamp),
+		AttendeeCount:    3,
+	}, func(CalendarChange) *Activity {
+		return &Activity{
+			ID: newID(), Kind: CalendarActivityKind,
+			SubjectType: SubjectContact, SubjectID: f.contactID,
+			Notes:   "Meeting scheduled: " + label + " confidential negotiation",
+			ActorID: f.googleOwnerID, OccurredAt: time.Now().UTC().Add(24 * time.Hour),
+		}
+	}); err != nil {
+		t.Fatalf("[%s] record calendar event: %v", label, err)
+	}
+
 	return f
 }
 
@@ -445,6 +480,16 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		}
 		if len(entries) != 0 {
 			t.Errorf("tenant beta read %d of tenant alpha's synced messages", len(entries))
+		}
+
+		_, err = s.GetCalendarSyncState(ctx, b.scope, a.googleOwnerID)
+		notFound(t, "GetCalendarSyncState", err)
+		meetings, err := s.ListCalendarEventsForSubject(ctx, b.scope, SubjectContact, a.contactID, 0)
+		if err != nil {
+			t.Errorf("ListCalendarEventsForSubject as another tenant: %v", err)
+		}
+		if len(meetings) != 0 {
+			t.Errorf("tenant beta read %d of tenant alpha's meetings", len(meetings))
 		}
 	})
 
@@ -670,7 +715,9 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		// rather than assumed uniform.
 		want := map[string]int64{
 			"account": 1, "contact": 1, "lead": 1, "opportunity": 1,
-			"activity": 2, "task": 1, "note": 1,
+			// Three activities: one logged directly, one from Gmail sync,
+			// one from Calendar sync.
+			"activity": 3, "task": 1, "note": 1,
 		}
 		var total int64
 		for entity, expected := range want {

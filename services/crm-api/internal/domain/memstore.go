@@ -213,6 +213,9 @@ type MemStore struct {
 	// gmail holds synchronisation cursors and the timeline index — likewise
 	// not memTables, see memstore_gmail.go.
 	gmail *gmailTables
+	// calendar holds the event mirror and its cursor — see
+	// memstore_calendar.go.
+	calendar *calendarTables
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -235,6 +238,7 @@ func NewMemStore() *MemStore {
 		customRecord:     newMemTable(cloneCustomRecord),
 		google:           newGoogleTables(),
 		gmail:            newGmailTables(),
+		calendar:         newCalendarTables(),
 	}
 }
 

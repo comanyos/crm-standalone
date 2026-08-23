@@ -194,6 +194,29 @@ type Store interface {
 	// separate operation this module does not have yet.
 	PurgeGmailDataForOwner(ctx context.Context, scope Scope, ownerID string, includeIndexedMessages bool) (int, error)
 
+	// Google Calendar synchronisation (migrations/0021_calendar_sync.sql).
+	GetCalendarSyncState(ctx context.Context, scope Scope, ownerID string) (*CalendarSyncState, error)
+	SaveCalendarSyncState(ctx context.Context, scope Scope, v *CalendarSyncState) (*CalendarSyncState, error)
+	ClaimCalendarSync(ctx context.Context, scope Scope, ownerID string, now time.Time, lease time.Duration) (*CalendarSyncState, error)
+	// DueCalendarMailboxes is the fourth and last cross-tenant read, held to
+	// the same rule as the others: identifiers only.
+	DueCalendarMailboxes(ctx context.Context, now time.Time, limit int) ([]GmailMailboxRef, error)
+	// RecordCalendarEvent mirrors one event and appends a timeline entry when
+	// the material state changed.
+	//
+	// It takes a factory rather than a prepared Activity because whether an
+	// Activity is needed at all — and what it should say — depends on a
+	// comparison with the stored row that only this call can make. Building
+	// one eagerly would mean either writing it when nothing changed, or
+	// discarding one on every unchanged event, which is most of them.
+	RecordCalendarEvent(ctx context.Context, scope Scope, event *CalendarEvent, activityFor func(CalendarChange) *Activity) (CalendarChange, error)
+	ListCalendarEventsForSubject(ctx context.Context, scope Scope, subjectType, subjectID string, limit int) ([]*CalendarEvent, error)
+	// PurgeCalendarDataForOwner mirrors PurgeGmailDataForOwner, including why
+	// disconnecting passes false: the mirror is what remembers which events
+	// have already been posted, so dropping it would repost every meeting on
+	// reconnection.
+	PurgeCalendarDataForOwner(ctx context.Context, scope Scope, ownerID string, includeIndexedEvents bool) (int, error)
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 	// SearchRecords is the bounded cross-object quick-search surface. Results
