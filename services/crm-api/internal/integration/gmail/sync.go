@@ -71,6 +71,13 @@ type TokenSource interface {
 	AccessToken(ctx context.Context, scope domain.Scope, ownerID string) (string, error)
 }
 
+// Retainer applies the retention window to one mailbox's synced content. It
+// is an interface, and optional, so this package does not depend on the
+// privacy service — sync needs "please age this out", not an erasure engine.
+type Retainer interface {
+	ApplyRetention(ctx context.Context, scope domain.Scope, ownerID string) (domain.ErasureResult, error)
+}
+
 // API is the part of the Gmail client sync uses. Tests substitute it.
 type API interface {
 	Profile(ctx context.Context, accessToken string) (Profile, error)
@@ -84,21 +91,26 @@ type Syncer struct {
 	store  domain.Store
 	api    API
 	tokens TokenSource
-	now    func() time.Time
-	log    *slog.Logger
+	// retention is optional; nil means no window is configured.
+	retention Retainer
+	now       func() time.Time
+	log       *slog.Logger
 }
 
-// NewSyncer wires the sync engine.
-func NewSyncer(store domain.Store, api API, tokens TokenSource, log *slog.Logger) *Syncer {
+// NewSyncer wires the sync engine. retention may be nil.
+func NewSyncer(
+	store domain.Store, api API, tokens TokenSource, retention Retainer, log *slog.Logger,
+) *Syncer {
 	if log == nil {
 		log = slog.Default()
 	}
 	return &Syncer{
-		store:  store,
-		api:    api,
-		tokens: tokens,
-		now:    func() time.Time { return time.Now().UTC() },
-		log:    log,
+		store:     store,
+		api:       api,
+		tokens:    tokens,
+		retention: retention,
+		now:       func() time.Time { return time.Now().UTC() },
+		log:       log,
 	}
 }
 
@@ -134,6 +146,17 @@ func (s *Syncer) SyncMailbox(
 	}
 
 	result, syncErr := s.run(ctx, scope, ownerID, state)
+
+	// Age out old content while this pass still holds the lease. Doing it
+	// here rather than in a separate sweep means no second scheduler and, more
+	// importantly, no window in which a pass re-indexes content another job
+	// is concurrently deleting. A retention failure does not fail the sync:
+	// the mail already reached the timeline, and the next pass tries again.
+	if s.retention != nil {
+		if _, err := s.retention.ApplyRetention(ctx, scope, ownerID); err != nil {
+			s.log.Error("could not apply the retention window to a mailbox", "error", err)
+		}
+	}
 
 	// Release the lease and record the outcome in one write, whatever
 	// happened. state is the claimed record, so this also persists whatever
@@ -192,10 +215,21 @@ func (s *Syncer) run(
 		return Result{}, fmt.Errorf("%w: %v", errTokenUnavailable, err)
 	}
 
-	if state.NeedsBackfill() {
-		return s.backfill(ctx, scope, connection, state, token)
+	// The suppression list is loaded once per pass rather than queried per
+	// participant: a pass examines hundreds of addresses and the list is
+	// small. It is loaded before any message is fetched, so a pass that
+	// cannot read it does no matching at all — failing closed here is the
+	// only safe direction, because the list exists to record people who
+	// asked not to be tracked.
+	suppressed, err := s.store.SuppressedSyncAddresses(ctx, scope)
+	if err != nil {
+		return Result{}, err
 	}
-	return s.incremental(ctx, scope, connection, state, token)
+
+	if state.NeedsBackfill() {
+		return s.backfill(ctx, scope, connection, state, token, suppressed)
+	}
+	return s.incremental(ctx, scope, connection, state, token, suppressed)
 }
 
 // backfill walks the mailbox's recent history for the first time.
@@ -206,7 +240,7 @@ func (s *Syncer) run(
 // nor after a cursor taken at the end.
 func (s *Syncer) backfill(
 	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
-	state *domain.GmailSyncState, token string,
+	state *domain.GmailSyncState, token string, suppressed map[string]bool,
 ) (Result, error) {
 	var result Result
 
@@ -224,7 +258,7 @@ func (s *Syncer) backfill(
 		if err != nil {
 			return result, err
 		}
-		if err := s.indexMessages(ctx, scope, connection, state, token, ids, &result); err != nil {
+		if err := s.indexMessages(ctx, scope, connection, state, token, ids, suppressed, &result); err != nil {
 			return result, err
 		}
 		pageToken = next
@@ -246,7 +280,7 @@ func (s *Syncer) backfill(
 // whatever the remaining pages held.
 func (s *Syncer) incremental(
 	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
-	state *domain.GmailSyncState, token string,
+	state *domain.GmailSyncState, token string, suppressed map[string]bool,
 ) (Result, error) {
 	var result Result
 	pageToken := ""
@@ -266,7 +300,7 @@ func (s *Syncer) incremental(
 			}
 			return result, err
 		}
-		if err := s.indexMessages(ctx, scope, connection, state, token, page.MessageIDs, &result); err != nil {
+		if err := s.indexMessages(ctx, scope, connection, state, token, page.MessageIDs, suppressed, &result); err != nil {
 			return result, err
 		}
 		if page.HistoryID != "" {
@@ -285,7 +319,8 @@ func (s *Syncer) incremental(
 // match a Contact in this tenant.
 func (s *Syncer) indexMessages(
 	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
-	state *domain.GmailSyncState, token string, ids []string, result *Result,
+	state *domain.GmailSyncState, token string, ids []string,
+	suppressed map[string]bool, result *Result,
 ) error {
 	for _, id := range ids {
 		if ctx.Err() != nil {
@@ -300,7 +335,7 @@ func (s *Syncer) indexMessages(
 		}
 		result.MessagesExamined++
 
-		matched, err := s.matchContacts(ctx, scope, connection, message)
+		matched, err := s.matchContacts(ctx, scope, connection, message, suppressed)
 		if err != nil {
 			return err
 		}
@@ -332,12 +367,23 @@ func (s *Syncer) indexMessages(
 
 // matchContacts resolves the message's participants to Contacts in this
 // tenant, in a stable order.
+// matchContacts resolves the message's participants to Contacts in this
+// tenant, skipping any address on the suppression list.
+//
+// The suppression check comes before the Contact lookup, not after. A
+// suppressed address that still resolved to a Contact would be matched and
+// recorded, and "we erased it and then indexed it again" is the failure this
+// whole mechanism exists to prevent.
 func (s *Syncer) matchContacts(
-	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection, message Message,
+	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
+	message Message, suppressed map[string]bool,
 ) ([]*domain.Contact, error) {
 	var matched []*domain.Contact
 	seen := make(map[string]bool, 4)
 	for _, address := range message.Participants(connection.GoogleAccountEmail) {
+		if suppressed[address] {
+			continue
+		}
 		contact, err := s.store.FindContactByEmail(ctx, scope, address)
 		if errors.Is(err, domain.ErrNotFound) {
 			continue

@@ -196,6 +196,27 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 	}
 	f.customRecordID = record.Msg.GetRecord().GetId()
 
+	// One synced message on the contact, so the erasure probe has something
+	// real to try to destroy.
+	syncedActivity := domain.NewID()
+	if _, err := s.store.RecordGmailActivity(f.ctx,
+		domain.Scope{TenantID: tenantID, OrgID: orgID},
+		&domain.GmailMessage{
+			OwnerID: f.googleOwner, ProviderMessageID: "msg-" + label,
+			SubjectType: domain.SubjectContact, SubjectID: f.contactID,
+			ActivityID: syncedActivity, MessageSubject: label + " confidential terms",
+			FromAddress: f.contactEmail, Direction: domain.GmailInbound,
+			OccurredAt: time.Now().UTC(),
+		},
+		&domain.Activity{
+			ID: syncedActivity, Kind: domain.GmailActivityKind,
+			SubjectType: domain.SubjectContact, SubjectID: f.contactID,
+			Notes:   "Email received: " + label + " confidential terms",
+			ActorID: f.googleOwner, OccurredAt: time.Now().UTC(),
+		}); err != nil {
+		t.Fatalf("[%s] seed synced message: %v", label, err)
+	}
+
 	return f
 }
 
@@ -289,8 +310,84 @@ var crossTenantProbes = map[string]isolationProbe{
 		if err != nil {
 			t.Fatalf("read A's synced messages: %v", err)
 		}
-		if len(entries) != 0 {
-			t.Errorf("a sync pass run by tenant B wrote %d entries onto tenant A's timeline", len(entries))
+		// A has exactly the one the fixture seeded; B's pass added nothing.
+		if len(entries) != 1 {
+			t.Errorf("a sync pass run by tenant B changed tenant A's timeline: %d entries, want 1",
+				len(entries))
+		}
+	},
+	// Erasure is the most destructive RPC this service has: one call deletes
+	// a customer's correspondence history. A cross-tenant one would let an
+	// attacker destroy another organization's records.
+	"EraseSyncedContentForContact": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.EraseSyncedContentForContact(ctxB, connect.NewRequest(
+			&crmv1.EraseSyncedContentForContactRequest{ContactId: a.contactID}))
+		wantNotFound(t, "EraseSyncedContentForContact", err)
+
+		// A's synced correspondence survived the attempt.
+		victimScope := domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}
+		entries, err := s.store.ListGmailMessagesForSubject(a.ctx, victimScope,
+			domain.SubjectContact, a.contactID, 0)
+		if err != nil {
+			t.Fatalf("read A's synced messages: %v", err)
+		}
+		if len(entries) != 1 || !entries[0].ErasedAt.IsZero() {
+			t.Errorf("a cross-tenant erasure redacted tenant A's records: %+v", entries)
+		}
+	},
+	"SuppressSyncAddress": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		if _, err := s.SuppressSyncAddress(ctxB, connect.NewRequest(
+			&crmv1.SuppressSyncAddressRequest{Address: "shared@example.com"})); err != nil {
+			t.Fatalf("suppress as B: %v", err)
+		}
+		// Suppressing in B must not stop A's sync from matching. A shared
+		// suppression list would let one organization silence another's.
+		victimScope := domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}
+		suppressed, err := s.store.SuppressedSyncAddresses(a.ctx, victimScope)
+		if err != nil {
+			t.Fatalf("read A's suppressions: %v", err)
+		}
+		if suppressed["shared@example.com"] {
+			t.Error("a suppression added by tenant B applies to tenant A")
+		}
+	},
+	"ListSyncSuppressions": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		victimScope := domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}
+		if err := s.store.SuppressSyncAddress(a.ctx, victimScope, &domain.SyncSuppression{
+			Address: "private-request@victim.example", Reason: "erasure request",
+		}); err != nil {
+			t.Fatalf("seed A's suppression: %v", err)
+		}
+		resp, err := s.ListSyncSuppressions(ctxB, connect.NewRequest(
+			&crmv1.ListSyncSuppressionsRequest{}))
+		if err != nil {
+			t.Fatalf("list as B: %v", err)
+		}
+		for _, row := range resp.Msg.GetSuppressions() {
+			if row.GetAddress() == "private-request@victim.example" {
+				t.Error("tenant B read the address of somebody who made an erasure request in tenant A")
+			}
+		}
+	},
+	"ReleaseSyncAddress": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		victimScope := domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}
+		if err := s.store.SuppressSyncAddress(a.ctx, victimScope, &domain.SyncSuppression{
+			Address: "do-not-track@victim.example",
+		}); err != nil {
+			t.Fatalf("seed A's suppression: %v", err)
+		}
+		// B must not be able to lift a suppression A recorded — that would
+		// restart collection against somebody who asked it to stop.
+		_, err := s.ReleaseSyncAddress(ctxB, connect.NewRequest(
+			&crmv1.ReleaseSyncAddressRequest{Address: "do-not-track@victim.example"}))
+		wantNotFound(t, "ReleaseSyncAddress", err)
+
+		suppressed, err := s.store.SuppressedSyncAddresses(a.ctx, victimScope)
+		if err != nil {
+			t.Fatalf("read A's suppressions: %v", err)
+		}
+		if !suppressed["do-not-track@victim.example"] {
+			t.Error("tenant B lifted a suppression belonging to tenant A")
 		}
 	},
 	"SyncGoogleCalendar": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
@@ -836,12 +933,14 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Fatalf("GetSummary: %v", err)
 		}
 		// B seeded exactly one of each entity in this test, plus the extra
-		// lead and pipeline its own probes create. What matters is that the
-		// counts never include A's rows.
-		for _, entity := range []string{"account", "contact", "opportunity", "activity"} {
-			if got := res.Msg.GetCounts()[entity]; got != 1 {
-				t.Errorf("GetSummary counts %d %s rows for organization B; want 1 — "+
-					"the dashboard count spans organizations", got, entity)
+		// lead and pipeline its own probes create. Activity is two: one
+		// logged directly and one the fixture's synced message produced.
+		// What matters is that the counts never include A's rows.
+		want := map[string]int64{"account": 1, "contact": 1, "opportunity": 1, "activity": 2}
+		for entity, expected := range want {
+			if got := res.Msg.GetCounts()[entity]; got != expected {
+				t.Errorf("GetSummary counts %d %s rows for organization B; want %d — "+
+					"the dashboard count spans organizations", got, entity, expected)
 			}
 		}
 	},

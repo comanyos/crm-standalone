@@ -216,6 +216,10 @@ type MemStore struct {
 	// calendar holds the event mirror and its cursor — see
 	// memstore_calendar.go.
 	calendar *calendarTables
+	// suppressions is tenant -> address -> record: the addresses sync must
+	// never match again (sync_erasure.go). Guarded by gmail.mu, which every
+	// path that reads it already holds.
+	suppressions map[string]map[string]*SyncSuppression
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -239,6 +243,7 @@ func NewMemStore() *MemStore {
 		google:           newGoogleTables(),
 		gmail:            newGmailTables(),
 		calendar:         newCalendarTables(),
+		suppressions:     make(map[string]map[string]*SyncSuppression),
 	}
 }
 

@@ -112,6 +112,8 @@ type CalendarEvent struct {
 	StateKey  string    `json:"state_key"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// ErasedAt marks a redacted tombstone — see GmailMessage.ErasedAt.
+	ErasedAt time.Time `json:"erased_at"`
 }
 
 // Validate enforces what the database also enforces.

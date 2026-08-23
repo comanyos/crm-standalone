@@ -11,6 +11,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/privacy"
 )
 
 // The Google RPCs at the handler boundary. The flow itself is covered in
@@ -142,7 +143,7 @@ func TestStartRejectsAnOffSiteReturnPathAtTheBoundary(t *testing.T) {
 // TestUnconfiguredDeploymentSaysSoRatherThanFailing. A CRM without Google
 // credentials is running correctly; the UI needs to render that state.
 func TestUnconfiguredDeploymentSaysSoRatherThanFailing(t *testing.T) {
-	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil, nil)
+	s := newUnconfiguredService()
 	ctx := ctxAs("tenant-1", "org-1")
 
 	resp, err := s.GetGoogleConnection(ctx, connect.NewRequest(&crmv1.GetGoogleConnectionRequest{}))
@@ -239,7 +240,7 @@ func TestSyncGoogleMailboxReportsProgressWithoutCorrespondence(t *testing.T) {
 
 // TestSyncGoogleMailboxNeedsAConfiguredIntegration.
 func TestSyncGoogleMailboxNeedsAConfiguredIntegration(t *testing.T) {
-	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil, nil)
+	s := newUnconfiguredService()
 	_, err := s.SyncGoogleMailbox(ctxAs("tenant-1", "org-1"),
 		connect.NewRequest(&crmv1.SyncGoogleMailboxRequest{}))
 	if err == nil {
@@ -334,7 +335,7 @@ func TestGetGoogleConnectionCarriesCalendarSyncStatus(t *testing.T) {
 
 // TestSyncGoogleCalendarNeedsAConfiguredIntegration.
 func TestSyncGoogleCalendarNeedsAConfiguredIntegration(t *testing.T) {
-	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil, nil)
+	s := newUnconfiguredService()
 	_, err := s.SyncGoogleCalendar(ctxAs("tenant-1", "org-1"),
 		connect.NewRequest(&crmv1.SyncGoogleCalendarRequest{}))
 	if err == nil {
@@ -343,4 +344,12 @@ func TestSyncGoogleCalendarNeedsAConfiguredIntegration(t *testing.T) {
 	if got := connectCode(t, err); got != connect.CodeFailedPrecondition {
 		t.Errorf("code = %v, want FailedPrecondition", got)
 	}
+}
+
+// newUnconfiguredService is a CRM with no Google credentials. The privacy
+// service is still present, because an erasure must be servable for content
+// collected before the integration was switched off.
+func newUnconfiguredService() *CRMService {
+	store := domain.NewMemStore()
+	return NewCRMService(config.Config{}, store, nil, nil, nil, privacy.New(store, 0, nil))
 }

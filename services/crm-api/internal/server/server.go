@@ -19,6 +19,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
+	"github.com/santoshguru/crm/internal/integration/privacy"
 	"github.com/santoshguru/crm/internal/metrics"
 	"github.com/santoshguru/crm/internal/platform"
 	"github.com/santoshguru/crm/internal/tracing"
@@ -33,6 +34,7 @@ type Server struct {
 	emitter   *platform.Emitter
 	authn     *auth.Authenticator
 	google    *google.Service
+	privacy   *privacy.Service
 	gmail     *gmail.Syncer
 	calendar  *calendar.Syncer
 	mux       *http.ServeMux
@@ -60,13 +62,18 @@ func New(
 	// The syncer is built only when Google is actually configured: without a
 	// credential there is no mailbox to read, and a syncer wired to a nil
 	// token source would fail on every pass instead of not running.
+	// The privacy service exists whether or not Google is configured: an
+	// erasure request has to be servable for content a deployment collected
+	// before the integration was turned off.
+	privacySvc := privacy.New(store, cfg.SyncRetentionDays, slog.Default())
+
 	var (
 		gmailSyncer    *gmail.Syncer
 		calendarSyncer *calendar.Syncer
 	)
 	if googleSvc.Configured() {
-		gmailSyncer = gmail.NewSyncer(store, gmail.New(nil), googleSvc, slog.Default())
-		calendarSyncer = calendar.NewSyncer(store, calendar.New(nil), googleSvc, slog.Default())
+		gmailSyncer = gmail.NewSyncer(store, gmail.New(nil), googleSvc, privacySvc, slog.Default())
+		calendarSyncer = calendar.NewSyncer(store, calendar.New(nil), googleSvc, privacySvc, slog.Default())
 	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
@@ -75,6 +82,7 @@ func New(
 		emitter:  emitter,
 		authn:    authn,
 		google:   googleSvc,
+		privacy:  privacySvc,
 		gmail:    gmailSyncer,
 		calendar: calendarSyncer,
 		mux:      http.NewServeMux(),
@@ -183,7 +191,7 @@ func (s *Server) routes() {
 	s.mux.Handle(modPath, modHandler)
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
-		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar), interceptors)
+		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar, s.privacy), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect

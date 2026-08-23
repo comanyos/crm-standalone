@@ -110,6 +110,9 @@ type GmailMessage struct {
 	Direction      string    `json:"direction"`
 	OccurredAt     time.Time `json:"occurred_at"`
 	CreatedAt      time.Time `json:"created_at"`
+	// ErasedAt marks a redacted tombstone: the provider id survives so
+	// deduplication still works, and every human-readable field is blank.
+	ErasedAt time.Time `json:"erased_at"`
 }
 
 // Validate enforces what the database also enforces.

@@ -89,6 +89,17 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/SyncGoogleMailbox":  "crm:integration:write",
 	"/crm.v1.CRMService/SyncGoogleCalendar": "crm:integration:write",
 
+	// Data-subject requests are administrative, not personal: they act on
+	// behalf of somebody who is usually not a CRM user, so they need an
+	// administrator rather than the ordinary integration scope. Reading the
+	// suppression list is separated from changing it because the list names
+	// people who asked not to be tracked — a fact worth knowing and a
+	// decision worth restricting.
+	"/crm.v1.CRMService/EraseSyncedContentForContact": "crm:integration_admin:write",
+	"/crm.v1.CRMService/SuppressSyncAddress":          "crm:integration_admin:write",
+	"/crm.v1.CRMService/ReleaseSyncAddress":           "crm:integration_admin:write",
+	"/crm.v1.CRMService/ListSyncSuppressions":         "crm:integration_admin:read",
+
 	// Tasks and Notes carry their own scopes rather than reusing
 	// crm:activity:*. They are separate entities with separate reporting and
 	// separate permission needs — a role that may read the immutable activity

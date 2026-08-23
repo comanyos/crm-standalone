@@ -132,7 +132,7 @@ func TestSyncSurvivesARealWriteAndRead(t *testing.T) {
 			"pg-m-noise": message("pg-m-noise", "stranger@nowhere.example", mailboxAddress, "Private", at),
 		},
 	}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 
 	result, err := syncer.SyncMailbox(ctx, scope, mailboxOwner)
 	if err != nil {
@@ -206,7 +206,7 @@ func TestReSyncOverPostgresCreatesNoDuplicates(t *testing.T) {
 		pages:    []stubPage{{ids: []string{"pg-dup"}}},
 		messages: map[string]Message{"pg-dup": message("pg-dup", contact.Email, mailboxAddress, "Hello", at)},
 	}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 
 	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("first sync: %v", err)
@@ -249,7 +249,7 @@ func TestDisconnectKeepsTheDeduplicationIndexOverPostgres(t *testing.T) {
 		pages:    []stubPage{{ids: []string{"pg-keep"}}},
 		messages: map[string]Message{"pg-keep": message("pg-keep", contact.Email, mailboxAddress, "Hello", at)},
 	}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("first sync: %v", err)
 	}

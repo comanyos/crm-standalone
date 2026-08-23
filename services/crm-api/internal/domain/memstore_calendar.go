@@ -174,6 +174,13 @@ func (s *MemStore) RecordCalendarEvent(
 		s.calendar.events[scope.TenantID] = make(map[calendarEntryKey]*CalendarEvent)
 	}
 	existing := s.calendar.events[scope.TenantID][key]
+	if existing != nil && !existing.ErasedAt.IsZero() {
+		// Erased. Leaving it alone is the whole point: an event that was
+		// erased and is later rescheduled must not post a fresh timeline
+		// entry carrying the title that was just removed. The suppression
+		// list stops future collection; this stops resurrection of this one.
+		return CalendarUnchanged, nil
+	}
 
 	previousKey := ""
 	if existing != nil {

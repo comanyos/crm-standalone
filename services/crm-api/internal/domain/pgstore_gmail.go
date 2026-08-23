@@ -254,7 +254,8 @@ func (s *PgStore) ListGmailMessagesForSubject(
 	}
 	rows, err := s.db.Query(ctx, scope,
 		`SELECT owner_id, provider_message_id, subject_type, subject_id, thread_id,
-		        activity_id, message_subject, from_address, direction, occurred_at, created_at
+		        activity_id, message_subject, from_address, direction, occurred_at,
+		        created_at, erased_at
 		   FROM gmail_messages
 		  WHERE tenant_id = $1 AND subject_type = $2 AND subject_id = $3
 		  ORDER BY occurred_at DESC, provider_message_id
@@ -266,12 +267,16 @@ func (s *PgStore) ListGmailMessagesForSubject(
 
 	out := make([]*GmailMessage, 0, 8)
 	for rows.Next() {
-		var v GmailMessage
+		var (
+			v      GmailMessage
+			erased *time.Time
+		)
 		if err := rows.Scan(&v.OwnerID, &v.ProviderMessageID, &v.SubjectType, &v.SubjectID,
 			&v.ThreadID, &v.ActivityID, &v.MessageSubject, &v.FromAddress, &v.Direction,
-			&v.OccurredAt, &v.CreatedAt); err != nil {
+			&v.OccurredAt, &v.CreatedAt, &erased); err != nil {
 			return nil, fmt.Errorf("scan gmail message: %w", err)
 		}
+		v.ErasedAt = timeOrZero(erased)
 		out = append(out, &v)
 	}
 	return out, rows.Err()

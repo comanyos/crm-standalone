@@ -48,7 +48,8 @@
     "crm:search:read",
     "crm:integration:read",
     "crm:integration:write",
-    "crm:integration_admin:read"
+    "crm:integration_admin:read",
+    "crm:integration_admin:write"
   ],
   "roles": [
     {

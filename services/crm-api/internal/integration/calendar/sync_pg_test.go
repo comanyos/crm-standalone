@@ -131,7 +131,7 @@ func TestCalendarSyncSurvivesARealWriteAndRead(t *testing.T) {
 		time.Now().UTC().Add(time.Hour))
 
 	api := &stubAPI{pages: []Page{{Events: []Event{allDay, noise}, NextSyncToken: "tok-pg"}}}
-	result, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner)
+	result, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner)
 	if err != nil {
 		t.Fatalf("sync over PostgreSQL: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestRescheduleOverPostgresPostsOnce(t *testing.T) {
 	api := &stubAPI{pages: []Page{{
 		Events: []Event{event("pg-move", "Review", contact.Email, start)}, NextSyncToken: "t1",
 	}}}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("schedule: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestCalendarDisconnectKeepsTheMirrorOverPostgres(t *testing.T) {
 	api := &stubAPI{pages: []Page{{
 		Events: []Event{event("pg-keep", "Review", contact.Email, start)}, NextSyncToken: "t1",
 	}}}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("first sync: %v", err)
 	}

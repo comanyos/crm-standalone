@@ -59,7 +59,7 @@ func TestOneFailingCalendarDoesNotStopTheCycle(t *testing.T) {
 		Events:        []Event{event("e-1", "Review", "ada@acme.example", at.Add(time.Hour))},
 		NextSyncToken: "tok",
 	}}}
-	poller := NewPoller(store, NewSyncer(store, api, staticToken{}, nil), 0, nil)
+	poller := NewPoller(store, NewSyncer(store, api, staticToken{}, nil, nil), 0, nil)
 
 	entries, err := poller.Once(ctx, at)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestEachCalendarSyncsUnderItsOwnTenant(t *testing.T) {
 		Events:        []Event{event("e-1", "Review", "ada@acme.example", at.Add(time.Hour))},
 		NextSyncToken: "tok",
 	}}}
-	poller := NewPoller(store, NewSyncer(store, api, staticToken{}, nil), 0, nil)
+	poller := NewPoller(store, NewSyncer(store, api, staticToken{}, nil, nil), 0, nil)
 	if _, err := poller.Once(ctx, at); err != nil {
 		t.Fatalf("cycle: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestALeasedCalendarIsSkippedNotFailed(t *testing.T) {
 		t.Fatalf("pre-claim: %v", err)
 	}
 	api := &stubAPI{}
-	poller := NewPoller(store, NewSyncer(store, api, staticToken{}, nil), 0, nil)
+	poller := NewPoller(store, NewSyncer(store, api, staticToken{}, nil, nil), 0, nil)
 	if _, err := poller.Once(ctx, at); err != nil {
 		t.Fatalf("a cycle that lost a lease race reported failure: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestALeasedCalendarIsSkippedNotFailed(t *testing.T) {
 // TestRunStopsWithItsContext.
 func TestRunStopsWithItsContext(t *testing.T) {
 	store := pollerFixture(t, "tenant-a")
-	poller := NewPoller(store, NewSyncer(store, &stubAPI{}, staticToken{}, nil), time.Minute, nil)
+	poller := NewPoller(store, NewSyncer(store, &stubAPI{}, staticToken{}, nil, nil), time.Minute, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -154,7 +154,7 @@ func TestStartDoesNothingWithoutAConfiguredSyncer(t *testing.T) {
 // TestCycleStopsOnACancelledContext.
 func TestCycleStopsOnACancelledContext(t *testing.T) {
 	store := pollerFixture(t, "tenant-a", "tenant-b")
-	poller := NewPoller(store, NewSyncer(store, &stubAPI{}, staticToken{}, nil), 0, nil)
+	poller := NewPoller(store, NewSyncer(store, &stubAPI{}, staticToken{}, nil, nil), 0, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

@@ -10,6 +10,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
+	"github.com/santoshguru/crm/internal/integration/privacy"
 )
 
 // CRMService implements the module's domain API over a tenant-scoped Store.
@@ -25,6 +26,9 @@ type CRMService struct {
 	// credentials there is no mailbox to synchronise.
 	gmail    *gmail.Syncer
 	calendar *calendar.Syncer
+	// privacy is never nil: erasure must work for content collected before
+	// the integration was switched off.
+	privacy *privacy.Service
 }
 
 // NewCRMService wires the domain service. The integration arguments may all
@@ -32,10 +36,11 @@ type CRMService struct {
 func NewCRMService(
 	cfg config.Config, store domain.Store, googleSvc *google.Service,
 	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
+	privacySvc *privacy.Service,
 ) *CRMService {
 	return &CRMService{
 		cfg: cfg, store: store, google: googleSvc,
-		gmail: gmailSyncer, calendar: calendarSyncer,
+		gmail: gmailSyncer, calendar: calendarSyncer, privacy: privacySvc,
 	}
 }
 

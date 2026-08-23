@@ -218,6 +218,18 @@ const (
 	// CRMServiceSyncGoogleCalendarProcedure is the fully-qualified name of the CRMService's
 	// SyncGoogleCalendar RPC.
 	CRMServiceSyncGoogleCalendarProcedure = "/crm.v1.CRMService/SyncGoogleCalendar"
+	// CRMServiceEraseSyncedContentForContactProcedure is the fully-qualified name of the CRMService's
+	// EraseSyncedContentForContact RPC.
+	CRMServiceEraseSyncedContentForContactProcedure = "/crm.v1.CRMService/EraseSyncedContentForContact"
+	// CRMServiceListSyncSuppressionsProcedure is the fully-qualified name of the CRMService's
+	// ListSyncSuppressions RPC.
+	CRMServiceListSyncSuppressionsProcedure = "/crm.v1.CRMService/ListSyncSuppressions"
+	// CRMServiceSuppressSyncAddressProcedure is the fully-qualified name of the CRMService's
+	// SuppressSyncAddress RPC.
+	CRMServiceSuppressSyncAddressProcedure = "/crm.v1.CRMService/SuppressSyncAddress"
+	// CRMServiceReleaseSyncAddressProcedure is the fully-qualified name of the CRMService's
+	// ReleaseSyncAddress RPC.
+	CRMServiceReleaseSyncAddressProcedure = "/crm.v1.CRMService/ReleaseSyncAddress"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -349,6 +361,17 @@ type CRMServiceClient interface {
 	// SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
 	// calendar, and is bounded the same way.
 	SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error)
+	// Data-subject requests against synchronised communication content
+	// (docs/GOOGLE_INTEGRATION.md).
+	//
+	// These are administrative rather than personal: unlike the sync RPCs they
+	// name a record or an address, because the person exercising a right is
+	// usually not the person holding the CRM login. They carry their own scope
+	// for that reason.
+	EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error)
+	ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error)
+	SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error)
+	ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -782,6 +805,30 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
 			connect.WithClientOptions(opts...),
 		),
+		eraseSyncedContentForContact: connect.NewClient[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentResponse](
+			httpClient,
+			baseURL+CRMServiceEraseSyncedContentForContactProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("EraseSyncedContentForContact")),
+			connect.WithClientOptions(opts...),
+		),
+		listSyncSuppressions: connect.NewClient[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse](
+			httpClient,
+			baseURL+CRMServiceListSyncSuppressionsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListSyncSuppressions")),
+			connect.WithClientOptions(opts...),
+		),
+		suppressSyncAddress: connect.NewClient[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse](
+			httpClient,
+			baseURL+CRMServiceSuppressSyncAddressProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SuppressSyncAddress")),
+			connect.WithClientOptions(opts...),
+		),
+		releaseSyncAddress: connect.NewClient[v1.ReleaseSyncAddressRequest, v1.ReleaseSyncAddressResponse](
+			httpClient,
+			baseURL+CRMServiceReleaseSyncAddressProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ReleaseSyncAddress")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -857,6 +904,10 @@ type cRMServiceClient struct {
 	disconnectGoogleConnection    *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
 	syncGoogleMailbox             *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
 	syncGoogleCalendar            *connect.Client[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse]
+	eraseSyncedContentForContact  *connect.Client[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentResponse]
+	listSyncSuppressions          *connect.Client[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse]
+	suppressSyncAddress           *connect.Client[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse]
+	releaseSyncAddress            *connect.Client[v1.ReleaseSyncAddressRequest, v1.ReleaseSyncAddressResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1209,6 +1260,26 @@ func (c *cRMServiceClient) SyncGoogleCalendar(ctx context.Context, req *connect.
 	return c.syncGoogleCalendar.CallUnary(ctx, req)
 }
 
+// EraseSyncedContentForContact calls crm.v1.CRMService.EraseSyncedContentForContact.
+func (c *cRMServiceClient) EraseSyncedContentForContact(ctx context.Context, req *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error) {
+	return c.eraseSyncedContentForContact.CallUnary(ctx, req)
+}
+
+// ListSyncSuppressions calls crm.v1.CRMService.ListSyncSuppressions.
+func (c *cRMServiceClient) ListSyncSuppressions(ctx context.Context, req *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error) {
+	return c.listSyncSuppressions.CallUnary(ctx, req)
+}
+
+// SuppressSyncAddress calls crm.v1.CRMService.SuppressSyncAddress.
+func (c *cRMServiceClient) SuppressSyncAddress(ctx context.Context, req *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error) {
+	return c.suppressSyncAddress.CallUnary(ctx, req)
+}
+
+// ReleaseSyncAddress calls crm.v1.CRMService.ReleaseSyncAddress.
+func (c *cRMServiceClient) ReleaseSyncAddress(ctx context.Context, req *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error) {
+	return c.releaseSyncAddress.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1338,6 +1409,17 @@ type CRMServiceHandler interface {
 	// SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
 	// calendar, and is bounded the same way.
 	SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error)
+	// Data-subject requests against synchronised communication content
+	// (docs/GOOGLE_INTEGRATION.md).
+	//
+	// These are administrative rather than personal: unlike the sync RPCs they
+	// name a record or an address, because the person exercising a right is
+	// usually not the person holding the CRM login. They carry their own scope
+	// for that reason.
+	EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error)
+	ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error)
+	SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error)
+	ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1767,6 +1849,30 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceEraseSyncedContentForContactHandler := connect.NewUnaryHandler(
+		CRMServiceEraseSyncedContentForContactProcedure,
+		svc.EraseSyncedContentForContact,
+		connect.WithSchema(cRMServiceMethods.ByName("EraseSyncedContentForContact")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListSyncSuppressionsHandler := connect.NewUnaryHandler(
+		CRMServiceListSyncSuppressionsProcedure,
+		svc.ListSyncSuppressions,
+		connect.WithSchema(cRMServiceMethods.ByName("ListSyncSuppressions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceSuppressSyncAddressHandler := connect.NewUnaryHandler(
+		CRMServiceSuppressSyncAddressProcedure,
+		svc.SuppressSyncAddress,
+		connect.WithSchema(cRMServiceMethods.ByName("SuppressSyncAddress")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceReleaseSyncAddressHandler := connect.NewUnaryHandler(
+		CRMServiceReleaseSyncAddressProcedure,
+		svc.ReleaseSyncAddress,
+		connect.WithSchema(cRMServiceMethods.ByName("ReleaseSyncAddress")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -1909,6 +2015,14 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceSyncGoogleMailboxHandler.ServeHTTP(w, r)
 		case CRMServiceSyncGoogleCalendarProcedure:
 			cRMServiceSyncGoogleCalendarHandler.ServeHTTP(w, r)
+		case CRMServiceEraseSyncedContentForContactProcedure:
+			cRMServiceEraseSyncedContentForContactHandler.ServeHTTP(w, r)
+		case CRMServiceListSyncSuppressionsProcedure:
+			cRMServiceListSyncSuppressionsHandler.ServeHTTP(w, r)
+		case CRMServiceSuppressSyncAddressProcedure:
+			cRMServiceSuppressSyncAddressHandler.ServeHTTP(w, r)
+		case CRMServiceReleaseSyncAddressProcedure:
+			cRMServiceReleaseSyncAddressHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2196,4 +2310,20 @@ func (UnimplementedCRMServiceHandler) SyncGoogleMailbox(context.Context, *connec
 
 func (UnimplementedCRMServiceHandler) SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleCalendar is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.EraseSyncedContentForContact is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListSyncSuppressions is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SuppressSyncAddress is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ReleaseSyncAddress is not implemented"))
 }

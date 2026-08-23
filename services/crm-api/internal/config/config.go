@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -88,6 +89,16 @@ type Config struct {
 	// callback renders a self-contained result page instead, which is correct
 	// for a deployment that has not said where its web application lives.
 	WebAppBaseURL string
+
+	// SyncRetentionDays bounds how long synced communication content is kept.
+	// Zero — the default — means keep it until somebody asks for it to go,
+	// which is the only honest default: a CRM that silently deleted a
+	// customer's correspondence history after ninety days because nobody set
+	// this would be losing the organization's records without being told to.
+	//
+	// When set, each sync pass erases its own mailbox's synced content older
+	// than the window, using the same redacting erasure a request does.
+	SyncRetentionDays int
 }
 
 // Load reads configuration from environment with sensible defaults.
@@ -110,6 +121,7 @@ func Load() Config {
 		GoogleOAuthRedirectURL:  env("GOOGLE_OAUTH_REDIRECT_URL", ""),
 		GoogleOAuthTokenKey:     env("GOOGLE_OAUTH_TOKEN_KEY", ""),
 		WebAppBaseURL:           strings.TrimRight(env("CRM_WEB_APP_BASE_URL", ""), "/"),
+		SyncRetentionDays:       envInt("SYNC_RETENTION_DAYS", 0),
 	}
 }
 
@@ -133,6 +145,9 @@ func (c Config) Validate() error {
 	}
 	if err := c.validateGoogleOAuth(); err != nil {
 		return err
+	}
+	if c.SyncRetentionDays < 0 {
+		return fmt.Errorf("config: SYNC_RETENTION_DAYS must not be negative, got %d", c.SyncRetentionDays)
 	}
 	if !c.Environment.IsProdLike() {
 		return nil
@@ -213,6 +228,22 @@ func (c Config) validateGoogleOAuth() error {
 		return fmt.Errorf("config: GOOGLE_OAUTH_REDIRECT_URL must be an https:// URL in %s", c.Environment)
 	}
 	return nil
+}
+
+// envInt reads a whole number, treating an unparseable value as the default
+// rather than as zero. A typo in SYNC_RETENTION_DAYS silently meaning "keep
+// forever" is survivable; silently meaning "delete everything older than
+// now" would not be.
+func envInt(key string, def int) int {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return def
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return def
+	}
+	return value
 }
 
 func env(key, def string) string {

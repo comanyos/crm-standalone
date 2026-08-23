@@ -160,20 +160,23 @@ func (s *PgStore) DueCalendarMailboxes(
 
 const calendarEventColumns = `owner_id, provider_event_id, subject_type, subject_id, calendar_id,
 	ical_uid, recurring_event_id, activity_id, title, status, starts_at, ends_at,
-	all_day, time_zone, organizer_address, attendee_count, state_key, created_at, updated_at`
+	all_day, time_zone, organizer_address, attendee_count, state_key, created_at, updated_at,
+	erased_at`
 
 func scanCalendarEvent(row pgx.Row) (*CalendarEvent, error) {
 	var (
 		v      CalendarEvent
 		endsAt *time.Time
+		erased *time.Time
 	)
 	if err := row.Scan(&v.OwnerID, &v.ProviderEventID, &v.SubjectType, &v.SubjectID, &v.CalendarID,
 		&v.ICalUID, &v.RecurringEventID, &v.ActivityID, &v.Title, &v.Status, &v.StartsAt, &endsAt,
 		&v.AllDay, &v.TimeZone, &v.OrganizerAddress, &v.AttendeeCount, &v.StateKey,
-		&v.CreatedAt, &v.UpdatedAt); err != nil {
+		&v.CreatedAt, &v.UpdatedAt, &erased); err != nil {
 		return nil, err
 	}
 	v.EndsAt = timeOrZero(endsAt)
+	v.ErasedAt = timeOrZero(erased)
 	return &v, nil
 }
 
@@ -231,21 +234,32 @@ func (s *PgStore) RecordCalendarEvent(
 			previousKey        string
 			previousActivityID string
 			previousCreatedAt  time.Time
+			previousErasedAt   *time.Time
 			exists             bool
 		)
 		err := tx.QueryRow(ctx,
-			`SELECT state_key, activity_id, created_at FROM calendar_events
+			`SELECT state_key, activity_id, created_at, erased_at FROM calendar_events
 			  WHERE tenant_id = $1 AND owner_id = $2 AND provider_event_id = $3
 			    AND subject_type = $4 AND subject_id = $5`,
 			scope.TenantID, event.OwnerID, event.ProviderEventID,
 			event.SubjectType, event.SubjectID).
-			Scan(&previousKey, &previousActivityID, &previousCreatedAt)
+			Scan(&previousKey, &previousActivityID, &previousCreatedAt, &previousErasedAt)
 		switch {
 		case err == nil:
 			exists = true
 		case errors.Is(err, pgx.ErrNoRows):
 		default:
 			return fmt.Errorf("read calendar event: %w", err)
+		}
+		if previousErasedAt != nil {
+			// Erased. Leaving it entirely alone is the point: an event that
+			// was erased and is later rescheduled must not post a fresh
+			// timeline entry carrying the title that was just removed, and
+			// the mirror must not be refreshed with it either. The
+			// suppression list stops future collection; this stops
+			// resurrection of this one.
+			change = CalendarUnchanged
+			return nil
 		}
 
 		change = ClassifyCalendarChange(previousKey, event)

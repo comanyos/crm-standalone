@@ -160,7 +160,7 @@ func TestOnlyMessagesInvolvingAContactAreRecorded(t *testing.T) {
 			"m-bank":   message("m-bank", "alerts@bank.example", mailboxAddress, "Overdraft notice", at),
 		},
 	}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 
 	result, err := syncer.SyncMailbox(ctx, scope, mailboxOwner)
 	if err != nil {
@@ -223,7 +223,7 @@ func TestTimelineEntryDescribesTheMessage(t *testing.T) {
 			"m-out": message("m-out", mailboxAddress, "bea@acme.example", "Re: Renewal terms", at.Add(time.Hour), "SENT"),
 		},
 	}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 
@@ -276,7 +276,7 @@ func TestReSyncingCreatesNoDuplicates(t *testing.T) {
 		pages:    []stubPage{{ids: []string{"m-1"}}},
 		messages: map[string]Message{"m-1": message("m-1", "bea@acme.example", mailboxAddress, "Hello", at)},
 	}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 
 	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("first sync: %v", err)
@@ -320,7 +320,7 @@ func TestBackfillTakesItsCursorBeforeWalking(t *testing.T) {
 		pages:    []stubPage{{ids: []string{"m-1"}}},
 		messages: map[string]Message{"m-1": message("m-1", "bea@acme.example", mailboxAddress, "Hi", time.Now())},
 	}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	if api.profileCall == 0 {
@@ -350,7 +350,7 @@ func TestIncrementalSyncPicksUpWhereItLeftOff(t *testing.T) {
 		pages:    []stubPage{{ids: []string{}}},
 		messages: map[string]Message{},
 	}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("initial sync: %v", err)
 	}
@@ -396,7 +396,7 @@ func TestAnExpiredCursorRestartsABackfill(t *testing.T) {
 	}
 
 	api := &stubAPI{historyErr: ErrHistoryExpired, profile: Profile{HistoryID: "9000"}}
-	_, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner)
+	_, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner)
 	if !errors.Is(err, ErrHistoryExpired) {
 		t.Fatalf("sync: %v, want ErrHistoryExpired", err)
 	}
@@ -435,7 +435,7 @@ func TestPartialConsentIsReportedNotRetriedForever(t *testing.T) {
 	}
 
 	api := &stubAPI{}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner); err == nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner); err == nil {
 		t.Fatal("sync ran without mailbox read consent")
 	}
 	if len(api.getCalls) != 0 || api.listCalls != 0 {
@@ -457,7 +457,7 @@ func TestADisconnectedMailboxIsNotSynced(t *testing.T) {
 	scope := testScope()
 
 	api := &stubAPI{}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, "nobody"); err == nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, "nobody"); err == nil {
 		t.Fatal("sync ran for a mailbox with no connection")
 	}
 	if api.listCalls != 0 {
@@ -474,7 +474,7 @@ func TestFailuresRecordABoundedReasonNotAProviderMessage(t *testing.T) {
 
 	const leak = "quota exceeded for project 552301975147 user rep@ourcompany.example"
 	tokens := staticToken{err: errors.New(leak)}
-	if _, err := NewSyncer(store, &stubAPI{}, tokens, nil).SyncMailbox(ctx, scope, mailboxOwner); err == nil {
+	if _, err := NewSyncer(store, &stubAPI{}, tokens, nil, nil).SyncMailbox(ctx, scope, mailboxOwner); err == nil {
 		t.Fatal("sync succeeded with no usable token")
 	}
 
@@ -500,7 +500,7 @@ func TestALeasedMailboxIsNotSyncedTwice(t *testing.T) {
 		t.Fatalf("pre-claim: %v", err)
 	}
 	api := &stubAPI{}
-	_, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner)
+	_, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner)
 	if !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("sync of a leased mailbox: %v, want ErrConflict", err)
 	}
@@ -533,7 +533,7 @@ func TestOnePassIsBounded(t *testing.T) {
 		api.pages = append(api.pages, stubPage{ids: ids, next: next})
 	}
 
-	result, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner)
+	result, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner)
 	if err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -593,7 +593,7 @@ func TestSubjectlessMailStillReadsSensibly(t *testing.T) {
 		pages:    []stubPage{{ids: []string{"m-1"}}},
 		messages: map[string]Message{"m-1": message("m-1", "bea@acme.example", mailboxAddress, "   ", time.Now())},
 	}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
@@ -617,7 +617,7 @@ func TestAnEnormousSubjectIsBounded(t *testing.T) {
 		pages:    []stubPage{{ids: []string{"m-1"}}},
 		messages: map[string]Message{"m-1": message("m-1", "bea@acme.example", mailboxAddress, huge, time.Now())},
 	}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	entries, err := store.ListGmailMessagesForSubject(ctx, scope, domain.SubjectContact, contact.ID, 0)
@@ -628,4 +628,96 @@ func TestAnEnormousSubjectIsBounded(t *testing.T) {
 		t.Errorf("stored subject is %d runes, want at most %d",
 			len([]rune(entries[0].MessageSubject)), maxSubjectLength)
 	}
+}
+
+// TestSuppressedAddressesAreNeverMatched is the sync half of "erasure that
+// does not stop collection is theatre". Without this, a person who asked to
+// be forgotten has their next email indexed within a minute.
+func TestSuppressedAddressesAreNeverMatched(t *testing.T) {
+	store, contact := syncFixture(t)
+	ctx := context.Background()
+	scope := testScope()
+	at := time.Now().UTC().Add(-time.Hour)
+
+	if err := store.SuppressSyncAddress(ctx, scope, &domain.SyncSuppression{
+		Address: contact.Email, Reason: "erasure request",
+	}); err != nil {
+		t.Fatalf("suppress: %v", err)
+	}
+
+	api := &stubAPI{
+		profile: Profile{HistoryID: "1"},
+		pages:   []stubPage{{ids: []string{"m-after-erasure"}}},
+		messages: map[string]Message{
+			"m-after-erasure": message("m-after-erasure", contact.Email, mailboxAddress, "New message", at),
+		},
+	}
+	result, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncMailbox(ctx, scope, mailboxOwner)
+	if err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if result.EntriesCreated != 0 || result.MessagesMatched != 0 {
+		t.Errorf("a suppressed address was matched: %d matched, %d created",
+			result.MessagesMatched, result.EntriesCreated)
+	}
+	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(activities) != 0 {
+		t.Errorf("mail from a suppressed address reached the timeline: %d entries", len(activities))
+	}
+}
+
+// TestRetentionRunsInsideTheSyncPass, so no second scheduler exists and no
+// window opens in which a pass re-indexes what another job is deleting.
+func TestRetentionRunsInsideTheSyncPass(t *testing.T) {
+	store, contact := syncFixture(t)
+	ctx := context.Background()
+	scope := testScope()
+
+	// One message old enough to age out, seeded directly.
+	old := time.Now().UTC().Add(-100 * 24 * time.Hour)
+	activityID := domain.NewID()
+	if _, err := store.RecordGmailActivity(ctx, scope, &domain.GmailMessage{
+		OwnerID: mailboxOwner, ProviderMessageID: "m-old",
+		SubjectType: domain.SubjectContact, SubjectID: contact.ID,
+		ActivityID: activityID, MessageSubject: "Ancient", FromAddress: contact.Email,
+		Direction: domain.GmailInbound, OccurredAt: old,
+	}, &domain.Activity{
+		ID: activityID, Kind: domain.GmailActivityKind,
+		SubjectType: domain.SubjectContact, SubjectID: contact.ID,
+		Notes: "Email received: Ancient", ActorID: mailboxOwner, OccurredAt: old,
+	}); err != nil {
+		t.Fatalf("seed old message: %v", err)
+	}
+
+	api := &stubAPI{profile: Profile{HistoryID: "1"}, pages: []stubPage{{}}, messages: map[string]Message{}}
+	syncer := NewSyncer(store, api, staticToken{}, retainer{store: store, window: 90 * 24 * time.Hour}, nil)
+	if _, err := syncer.SyncMailbox(ctx, scope, mailboxOwner); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(activities) != 0 {
+		t.Errorf("the retention window did not age out the old message: %d entries", len(activities))
+	}
+}
+
+// retainer is a minimal Retainer for the test above, so this package does not
+// depend on the privacy service to prove the hook is wired.
+type retainer struct {
+	store  domain.Store
+	window time.Duration
+}
+
+func (r retainer) ApplyRetention(
+	ctx context.Context, scope domain.Scope, ownerID string,
+) (domain.ErasureResult, error) {
+	return r.store.EraseSyncedContent(ctx, scope, domain.EraseSubject{
+		OwnerID: ownerID, Before: time.Now().UTC().Add(-r.window), Actor: "system",
+	})
 }

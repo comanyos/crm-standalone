@@ -258,6 +258,14 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateCustomObjectDefinition(ctx, withToken(&crmv1.CreateCustomObjectDefinitionRequest{Definition: &crmv1.CustomObjectDefinition{ApiName: "asset", Label: "Asset", PluralLabel: "Assets"}}, tok))
 			return err
 		},
+		"crm:integration_admin:write": func(tok string) error {
+			// Erasure rather than suppression: deleting a customer's
+			// correspondence history is the call that must not be reachable
+			// by a principal without administrative authority.
+			_, err := client.EraseSyncedContentForContact(ctx, withToken(
+				&crmv1.EraseSyncedContentForContactRequest{ContactId: "x"}, tok))
+			return err
+		},
 		"crm:integration:write": func(tok string) error {
 			// StartGoogleConnection rather than Disconnect: beginning an
 			// authorization is the call that would hand a token to a
@@ -294,6 +302,7 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 				"crm:custom_field:read", "crm:custom_field:write",
 				"crm:custom_object:read", "crm:custom_object:write",
 				"crm:integration:read", "crm:integration:write",
+				"crm:integration_admin:read", "crm:integration_admin:write",
 				"crm:summary:read",
 			} {
 				if scope != withheld {

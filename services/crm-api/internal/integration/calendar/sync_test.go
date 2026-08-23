@@ -125,7 +125,7 @@ func TestOnlyEventsInvolvingAContactAreRecorded(t *testing.T) {
 		event("e-interview", "Interview with a competitor", "hr@rival.example", start),
 	}, NextSyncToken: "tok-1"}}}
 
-	result, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner)
+	result, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner)
 	if err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestARescheduledMeetingReachesTheTimelineOnce(t *testing.T) {
 	api := &stubAPI{pages: []Page{{
 		Events: []Event{event("e-1", "Quarterly review", contact.Email, start)}, NextSyncToken: "tok-1",
 	}}}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("first sync: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestACancelledMeetingReachesTheTimeline(t *testing.T) {
 	api := &stubAPI{pages: []Page{{
 		Events: []Event{event("e-1", "Quarterly review", contact.Email, start)}, NextSyncToken: "t1",
 	}}}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("schedule: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestAllDayEventsAreNotShiftedAcrossMidnight(t *testing.T) {
 		AllDay:   true, TimeZone: "Asia/Kolkata",
 	}
 	api := &stubAPI{pages: []Page{{Events: []Event{allDay}, NextSyncToken: "t1"}}}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 
@@ -351,7 +351,7 @@ func TestTimedEventsRenderInTheirOwnZone(t *testing.T) {
 	timed := event("e-timed", "Discovery call", contact.Email,
 		time.Date(2026, 8, 3, 9, 0, 0, 0, london))
 	api := &stubAPI{pages: []Page{{Events: []Event{timed}, NextSyncToken: "t1"}}}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 
@@ -374,7 +374,7 @@ func TestAnEventWithNoZoneFallsBackToTheCalendarsOwn(t *testing.T) {
 	zoneless := event("e-nozone", "Check-in", contact.Email, time.Now().UTC().Add(time.Hour))
 	zoneless.TimeZone = ""
 	api := &stubAPI{zone: "America/New_York", pages: []Page{{Events: []Event{zoneless}, NextSyncToken: "t1"}}}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	if api.zoneCall == 0 {
@@ -435,7 +435,7 @@ func TestAnExpiredSyncTokenRestartsTheWindow(t *testing.T) {
 	}
 
 	api := &stubAPI{listErr: ErrSyncTokenExpired}
-	_, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner)
+	_, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner)
 	if !errors.Is(err, ErrSyncTokenExpired) {
 		t.Fatalf("sync: %v, want ErrSyncTokenExpired", err)
 	}
@@ -467,7 +467,7 @@ func TestABackfillUsesAWindowAndAnIncrementalPassUsesTheToken(t *testing.T) {
 		Events:        []Event{event("e-1", "Review", contact.Email, time.Now().UTC().Add(time.Hour))},
 		NextSyncToken: "tok-after-backfill",
 	}}}
-	syncer := NewSyncer(store, api, staticToken{}, nil)
+	syncer := NewSyncer(store, api, staticToken{}, nil, nil)
 	if _, err := syncer.SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("backfill: %v", err)
 	}
@@ -517,7 +517,7 @@ func TestASyncTokenIsStoredOnlyAfterTheLastPage(t *testing.T) {
 		{Events: []Event{event("e-1", "One", contact.Email, start)}, NextPageToken: "p2"},
 		{Events: []Event{event("e-2", "Two", contact.Email, start)}, NextSyncToken: "tok-final"},
 	}}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 
@@ -554,7 +554,7 @@ func TestPartialConsentIsReportedNotRetried(t *testing.T) {
 	}
 
 	api := &stubAPI{}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err == nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err == nil {
 		t.Fatal("sync ran without calendar consent")
 	}
 	if len(api.optsSeen) != 0 {
@@ -576,7 +576,7 @@ func TestFailuresRecordABoundedReason(t *testing.T) {
 	scope := testScope()
 
 	const leak = "quota exceeded for calendar rep@ourcompany.example"
-	_, err := NewSyncer(store, &stubAPI{}, staticToken{err: errors.New(leak)}, nil).
+	_, err := NewSyncer(store, &stubAPI{}, staticToken{err: errors.New(leak)}, nil, nil).
 		SyncCalendar(ctx, scope, owner)
 	if err == nil {
 		t.Fatal("sync succeeded with no usable token")
@@ -603,7 +603,7 @@ func TestALeasedCalendarIsNotSyncedTwice(t *testing.T) {
 		t.Fatalf("pre-claim: %v", err)
 	}
 	api := &stubAPI{}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); !errors.Is(err, domain.ErrConflict) {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("sync of a leased calendar: %v, want ErrConflict", err)
 	}
 	if len(api.optsSeen) != 0 {
@@ -619,7 +619,7 @@ func TestATitlelessEventStillReadsSensibly(t *testing.T) {
 
 	untitled := event("e-untitled", "   ", contact.Email, time.Now().UTC().Add(time.Hour))
 	api := &stubAPI{pages: []Page{{Events: []Event{untitled}, NextSyncToken: "t1"}}}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
@@ -643,7 +643,7 @@ func TestTheActivityIsStampedWithTheMeetingNotTheSync(t *testing.T) {
 	api := &stubAPI{pages: []Page{{
 		Events: []Event{event("e-1", "Future review", contact.Email, meetingAt)}, NextSyncToken: "t1",
 	}}}
-	if _, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner); err != nil {
+	if _, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
@@ -680,7 +680,7 @@ func TestOnePassIsBounded(t *testing.T) {
 	}
 	api := &stubAPI{pages: pages}
 
-	result, err := NewSyncer(store, api, staticToken{}, nil).SyncCalendar(ctx, scope, owner)
+	result, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner)
 	if err != nil {
 		t.Fatalf("sync: %v", err)
 	}
@@ -698,4 +698,39 @@ func TestOnePassIsBounded(t *testing.T) {
 		t.Error("a bounded pass saved no resume point")
 	}
 	_ = contact
+}
+
+// TestSuppressedAttendeesAreNeverMatched — the calendar half of the same
+// property. A person who asked to be forgotten must not reappear because they
+// were invited to a meeting.
+func TestSuppressedAttendeesAreNeverMatched(t *testing.T) {
+	store, contact := syncFixture(t)
+	ctx := context.Background()
+	scope := testScope()
+
+	if err := store.SuppressSyncAddress(ctx, scope, &domain.SyncSuppression{
+		Address: contact.Email, Reason: "erasure request",
+	}); err != nil {
+		t.Fatalf("suppress: %v", err)
+	}
+
+	api := &stubAPI{pages: []Page{{
+		Events:        []Event{event("e-after-erasure", "New meeting", contact.Email, time.Now().UTC().Add(time.Hour))},
+		NextSyncToken: "t1",
+	}}}
+	result, err := NewSyncer(store, api, staticToken{}, nil, nil).SyncCalendar(ctx, scope, owner)
+	if err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	if result.EntriesCreated != 0 || result.EventsMatched != 0 {
+		t.Errorf("a suppressed attendee was matched: %d matched, %d created",
+			result.EventsMatched, result.EntriesCreated)
+	}
+	activities, err := store.ListActivitiesForSubject(ctx, scope, domain.SubjectContact, contact.ID)
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(activities) != 0 {
+		t.Errorf("a meeting with a suppressed attendee reached the timeline: %d entries", len(activities))
+	}
 }

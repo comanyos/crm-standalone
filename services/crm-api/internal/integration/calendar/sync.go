@@ -57,6 +57,13 @@ type TokenSource interface {
 	AccessToken(ctx context.Context, scope domain.Scope, ownerID string) (string, error)
 }
 
+// Retainer applies the retention window to one mailbox's synced content. It
+// is an interface, and optional, so this package does not depend on the
+// privacy service — sync needs "please age this out", not an erasure engine.
+type Retainer interface {
+	ApplyRetention(ctx context.Context, scope domain.Scope, ownerID string) (domain.ErasureResult, error)
+}
+
 // API is the part of the Calendar client sync uses. Tests substitute it.
 type API interface {
 	List(ctx context.Context, accessToken string, opts ListOptions) (Page, error)
@@ -68,17 +75,21 @@ type Syncer struct {
 	store  domain.Store
 	api    API
 	tokens TokenSource
-	now    func() time.Time
-	log    *slog.Logger
+	// retention is optional; nil means no window is configured.
+	retention Retainer
+	now       func() time.Time
+	log       *slog.Logger
 }
 
-// NewSyncer wires the sync engine.
-func NewSyncer(store domain.Store, api API, tokens TokenSource, log *slog.Logger) *Syncer {
+// NewSyncer wires the sync engine. retention may be nil.
+func NewSyncer(
+	store domain.Store, api API, tokens TokenSource, retention Retainer, log *slog.Logger,
+) *Syncer {
 	if log == nil {
 		log = slog.Default()
 	}
 	return &Syncer{
-		store: store, api: api, tokens: tokens,
+		store: store, api: api, tokens: tokens, retention: retention,
 		now: func() time.Time { return time.Now().UTC() }, log: log,
 	}
 }
@@ -106,6 +117,14 @@ func (s *Syncer) SyncCalendar(
 	}
 
 	result, syncErr := s.run(ctx, scope, ownerID, state)
+
+	// Age out old content under the same lease — see the Gmail syncer for
+	// why this lives in the pass rather than in a sweep of its own.
+	if s.retention != nil {
+		if _, err := s.retention.ApplyRetention(ctx, scope, ownerID); err != nil {
+			s.log.Error("could not apply the retention window to a calendar", "error", err)
+		}
+	}
 
 	// Release the lease and record the outcome whatever happened, so a failed
 	// pass does not leave the calendar skipped until the lease expires.
@@ -167,6 +186,14 @@ func (s *Syncer) run(
 		defaultZone = "UTC"
 	}
 
+	// Loaded once per pass, before anything is fetched, and failing closed:
+	// the list records people who asked not to be tracked, so a pass that
+	// cannot read it must not match anybody.
+	suppressed, err := s.store.SuppressedSyncAddresses(ctx, scope)
+	if err != nil {
+		return Result{}, err
+	}
+
 	opts := ListOptions{CalendarID: "primary", PageSize: listPageSize}
 	if state.NeedsBackfill() {
 		now := s.now()
@@ -176,7 +203,7 @@ func (s *Syncer) run(
 	} else {
 		opts.SyncToken = state.SyncToken
 	}
-	return s.walk(ctx, scope, connection, state, token, defaultZone, opts)
+	return s.walk(ctx, scope, connection, state, token, defaultZone, opts, suppressed)
 }
 
 // walk pages through Google's answer, recording what matches.
@@ -187,6 +214,7 @@ func (s *Syncer) run(
 func (s *Syncer) walk(
 	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
 	state *domain.CalendarSyncState, token, defaultZone string, opts ListOptions,
+	suppressed map[string]bool,
 ) (Result, error) {
 	var result Result
 	backfilling := opts.SyncToken == ""
@@ -206,7 +234,8 @@ func (s *Syncer) walk(
 			return result, err
 		}
 
-		if err := s.recordEvents(ctx, scope, connection, state, defaultZone, page.Events, &result); err != nil {
+		if err := s.recordEvents(ctx, scope, connection, state, defaultZone,
+			page.Events, suppressed, &result); err != nil {
 			return result, err
 		}
 
@@ -232,7 +261,8 @@ func (s *Syncer) walk(
 // counterparty.
 func (s *Syncer) recordEvents(
 	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
-	state *domain.CalendarSyncState, defaultZone string, events []Event, result *Result,
+	state *domain.CalendarSyncState, defaultZone string, events []Event,
+	suppressed map[string]bool, result *Result,
 ) error {
 	for _, event := range events {
 		if ctx.Err() != nil {
@@ -243,7 +273,7 @@ func (s *Syncer) recordEvents(
 		}
 		result.EventsExamined++
 
-		matched, err := s.matchContacts(ctx, scope, connection, event)
+		matched, err := s.matchContacts(ctx, scope, connection, event, suppressed)
 		if err != nil {
 			return err
 		}
@@ -272,12 +302,20 @@ func (s *Syncer) recordEvents(
 	return nil
 }
 
+// matchContacts resolves attendees to Contacts, skipping suppressed
+// addresses. The check comes before the lookup for the same reason it does in
+// Gmail's matcher: a suppressed address that still resolved would be
+// recorded, which is the failure this mechanism exists to prevent.
 func (s *Syncer) matchContacts(
-	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection, event Event,
+	ctx context.Context, scope domain.Scope, connection *domain.GoogleConnection,
+	event Event, suppressed map[string]bool,
 ) ([]*domain.Contact, error) {
 	var matched []*domain.Contact
 	seen := make(map[string]bool, 4)
 	for _, address := range event.Participants(connection.GoogleAccountEmail) {
+		if suppressed[address] {
+			continue
+		}
 		contact, err := s.store.FindContactByEmail(ctx, scope, address)
 		if errors.Is(err, domain.ErrNotFound) {
 			continue

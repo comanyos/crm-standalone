@@ -217,6 +217,31 @@ type Store interface {
 	// reconnection.
 	PurgeCalendarDataForOwner(ctx context.Context, scope Scope, ownerID string, includeIndexedEvents bool) (int, error)
 
+	// Erasing synced communication content
+	// (migrations/0022_sync_erasure.sql, sync_erasure.go).
+	//
+	// EraseSyncedContent removes the timeline entries sync created, turns
+	// their index rows into redacted tombstones, and optionally suppresses
+	// the addresses involved — all in one transaction, because a partial
+	// erasure is worse than none: it reports success while leaving content
+	// behind, or removes content while leaving collection running.
+	//
+	// It never touches an Activity a person authored. A hand-logged call is
+	// this organization's own business record, and deleting it because a
+	// third party asked would destroy that record under cover of a privacy
+	// request.
+	EraseSyncedContent(ctx context.Context, scope Scope, in EraseSubject) (ErasureResult, error)
+	// SuppressSyncAddress adds one address to the never-match list.
+	SuppressSyncAddress(ctx context.Context, scope Scope, v *SyncSuppression) error
+	// ReleaseSyncAddress removes one, for the case where an address was
+	// suppressed in error.
+	ReleaseSyncAddress(ctx context.Context, scope Scope, address string) error
+	// SuppressedSyncAddresses returns the tenant's whole list. Sync loads it
+	// once per pass rather than querying per participant: a mailbox pass
+	// examines hundreds of addresses, and the list is small.
+	SuppressedSyncAddresses(ctx context.Context, scope Scope) (map[string]bool, error)
+	ListSyncSuppressions(ctx context.Context, scope Scope) ([]*SyncSuppression, error)
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 	// SearchRecords is the bounded cross-object quick-search surface. Results

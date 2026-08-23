@@ -147,6 +147,18 @@ service CRMService {
   // SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
   // calendar, and is bounded the same way.
   rpc SyncGoogleCalendar(SyncGoogleCalendarRequest) returns (SyncGoogleCalendarResponse);
+
+  // Data-subject requests against synchronised communication content
+  // (docs/GOOGLE_INTEGRATION.md).
+  //
+  // These are administrative rather than personal: unlike the sync RPCs they
+  // name a record or an address, because the person exercising a right is
+  // usually not the person holding the CRM login. They carry their own scope
+  // for that reason.
+  rpc EraseSyncedContentForContact(EraseSyncedContentForContactRequest) returns (EraseSyncedContentResponse);
+  rpc ListSyncSuppressions(ListSyncSuppressionsRequest) returns (ListSyncSuppressionsResponse);
+  rpc SuppressSyncAddress(SuppressSyncAddressRequest) returns (SuppressSyncAddressResponse);
+  rpc ReleaseSyncAddress(ReleaseSyncAddressRequest) returns (ReleaseSyncAddressResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -364,6 +376,43 @@ message SyncGoogleCalendarResponse {
   int32 events_examined = 2;
   int32 entries_created = 3;
 }
+
+// ErasureResult reports what an erasure did. Counts only: a result that
+// listed the subject lines it had just erased would be an odd thing to build.
+message ErasureResult {
+  int32 activities_deleted = 1;
+  int32 messages_redacted = 2;
+  int32 events_redacted = 3;
+  int32 addresses_suppressed = 4;
+}
+
+message EraseSyncedContentForContactRequest {
+  string contact_id = 1;
+  // reason is an operator note recorded on the suppression and in the audit
+  // event. It answers "why is this address here" months later.
+  string reason = 2;
+}
+message EraseSyncedContentResponse { ErasureResult result = 1; }
+
+// SyncSuppression is one address synchronisation must never match again.
+message SyncSuppression {
+  string address = 1;
+  string reason = 2;
+  string created_by = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message ListSyncSuppressionsRequest {}
+message ListSyncSuppressionsResponse { repeated SyncSuppression suppressions = 1; }
+
+message SuppressSyncAddressRequest {
+  string address = 1;
+  string reason = 2;
+}
+message SuppressSyncAddressResponse {}
+
+message ReleaseSyncAddressRequest { string address = 1; }
+message ReleaseSyncAddressResponse {}
 
 message SyncGoogleMailboxRequest {}
 message SyncGoogleMailboxResponse {

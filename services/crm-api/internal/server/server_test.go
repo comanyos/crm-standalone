@@ -151,6 +151,10 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // "Complete" and "Reopen" joined it for Task's lifecycle transitions, which
 // are writes that deliberately are not Update (task.md §5.1).
 //
+// "Erase", "Suppress" and "Release" joined it for data-subject requests:
+// erasing deletes timeline entries, and the other two add and remove rows on
+// the suppression list.
+//
 // "Start" and "Disconnect" joined it for the Google connection. Both read as
 // navigation and are not: StartGoogleConnection writes a durable one-time
 // authorization record before it returns a URL, and DisconnectGoogleConnection
@@ -158,7 +162,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // for the same reason: reading a mailbox is how it decides what to write, but
 // what it writes is CRM Activities.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

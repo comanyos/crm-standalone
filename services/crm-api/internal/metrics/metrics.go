@@ -62,6 +62,13 @@ var (
 		Name: "crm_calendar_timeline_entries_total",
 		Help: "CRM timeline entries created from synchronised calendar events.",
 	})
+	// SyncErasuresTotal counts erasures of synced communication content. The
+	// label distinguishes a request from the retention sweep and says whether
+	// anything was found — never who asked, or about whom.
+	SyncErasuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_sync_erasures_total",
+		Help: "Erasures of synchronised communication content, by trigger and outcome.",
+	}, []string{"outcome"})
 	dbPoolAcquired = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_acquired_connections", Help: "Current acquired CRM database pool connections."})
 	dbPoolIdle     = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_idle_connections", Help: "Current idle CRM database pool connections."})
 	dbPoolTotal    = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_total_connections", Help: "Current total CRM database pool connections."})

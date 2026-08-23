@@ -166,7 +166,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// Only an administrator sees which colleagues have linked a
 			// Google account; connecting one's own is separate authority.
 			"crm:integration:read": true, "crm:integration:write": true,
-			"crm:integration_admin:read": true,
+			"crm:integration_admin:read": true, "crm:integration_admin:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -182,7 +182,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:summary:read":     true,
 			"crm:search:read":      true,
 			"crm:integration:read": true, "crm:integration:write": true,
-			"crm:integration_admin:read": false,
+			"crm:integration_admin:read": false, "crm:integration_admin:write": false,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -205,7 +205,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// An individual contributor links their own mailbox; they do not
 			// get to see whose else is linked.
 			"crm:integration:read": true, "crm:integration:write": true,
-			"crm:integration_admin:read": false,
+			"crm:integration_admin:read": false, "crm:integration_admin:write": false,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -223,7 +223,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// A read-only role has no CRM records to sync a mailbox into, so
 			// it holds no integration authority at all.
 			"crm:integration:read": false, "crm:integration:write": false,
-			"crm:integration_admin:read": false,
+			"crm:integration_admin:read": false, "crm:integration_admin:write": false,
 		},
 	}
 

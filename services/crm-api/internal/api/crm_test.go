@@ -20,6 +20,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
+	"github.com/santoshguru/crm/internal/integration/privacy"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -53,9 +54,12 @@ func newTestServiceWithStore() (*CRMService, domain.Store) {
 	// substitute their own; this keeps the field non-nil so the RPC reports a
 	// real outcome instead of "not configured".
 	transport := &http.Client{Transport: stubGoogleTransport{}}
-	syncer := gmail.NewSyncer(store, gmail.New(transport), googleSvc, nil)
-	calendarSyncer := calendar.NewSyncer(store, calendar.New(transport), googleSvc, nil)
-	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer), store
+	// No retention window: these tests are about the RPC surface, and a
+	// sweep firing inside them would delete their own fixtures.
+	privacySvc := privacy.New(store, 0, nil)
+	syncer := gmail.NewSyncer(store, gmail.New(transport), googleSvc, privacySvc, nil)
+	calendarSyncer := calendar.NewSyncer(store, calendar.New(transport), googleSvc, privacySvc, nil)
+	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer, privacySvc), store
 }
 
 // testGoogleTokenKey is the sealing key this package's Google tests share, so

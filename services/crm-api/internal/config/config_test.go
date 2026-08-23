@@ -181,3 +181,36 @@ func TestLoad_WebAppBaseURLTrailingSlashIsNormalized(t *testing.T) {
 		t.Errorf("WebAppBaseURL = %q, want the trailing slash removed", got)
 	}
 }
+
+// TestSyncRetentionDefaultsToKeepingEverything. Silently deleting an
+// organization's correspondence history because nobody set this would be
+// losing records it was never told to lose.
+func TestSyncRetentionDefaultsToKeepingEverything(t *testing.T) {
+	if got := Load().SyncRetentionDays; got != 0 {
+		t.Errorf("SyncRetentionDays = %d with nothing configured, want 0 (keep everything)", got)
+	}
+}
+
+// TestSyncRetentionIgnoresAnUnreadableValue. A typo meaning "keep forever" is
+// survivable; a typo meaning "delete everything older than now" is not.
+func TestSyncRetentionIgnoresAnUnreadableValue(t *testing.T) {
+	t.Setenv("SYNC_RETENTION_DAYS", "ninety")
+	if got := Load().SyncRetentionDays; got != 0 {
+		t.Errorf("SyncRetentionDays = %d for an unparseable value, want the default 0", got)
+	}
+
+	t.Setenv("SYNC_RETENTION_DAYS", "90")
+	if got := Load().SyncRetentionDays; got != 90 {
+		t.Errorf("SyncRetentionDays = %d, want 90", got)
+	}
+}
+
+// TestNegativeRetentionIsRejected: a negative window would erase content
+// dated in the future, which is every meeting not yet held.
+func TestNegativeRetentionIsRejected(t *testing.T) {
+	c := validConfig()
+	c.SyncRetentionDays = -1
+	if err := c.Validate(); err == nil {
+		t.Fatal("a negative SYNC_RETENTION_DAYS was accepted")
+	}
+}
