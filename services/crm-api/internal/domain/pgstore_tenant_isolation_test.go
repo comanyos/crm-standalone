@@ -232,7 +232,6 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 	if _, err := s.CreateGoogleOAuthState(ctx, f.scope, &GoogleOAuthState{
 		State:              f.googleState,
 		ActorID:            f.googleOwnerID,
-		OwnerID:            f.googleOwnerID,
 		VerifierCiphertext: []byte("sealed-verifier-" + label),
 		ReturnPath:         "/settings/integrations",
 		ExpiresAt:          time.Now().UTC().Add(10 * time.Minute),

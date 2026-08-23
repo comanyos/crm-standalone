@@ -49,7 +49,6 @@ func pendingState(state, actor string, expires time.Time) *GoogleOAuthState {
 	return &GoogleOAuthState{
 		State:              state,
 		ActorID:            actor,
-		OwnerID:            actor,
 		VerifierCiphertext: []byte("sealed-verifier-" + state),
 		ReturnPath:         "/settings/integrations",
 		ExpiresAt:          expires,
@@ -146,6 +145,51 @@ func TestGoogleOAuthStateConcurrentConsumeYieldsOneWinner(t *testing.T) {
 
 		if winners != 1 {
 			t.Errorf("%d of %d concurrent consumes succeeded, want exactly 1", winners, racers)
+		}
+	})
+}
+
+// TestConsumeReturnsEverythingTheExchangeNeeds is a round-trip test rather
+// than a field-by-field one, because the failure it exists to catch is a
+// field that survives in memory and is silently dropped by SQL. A consume
+// that returns a record missing its actor produces a connection with no
+// owner, which fails validation *after* a successful authorization at
+// Google — the user consents, and the CRM tells them it went wrong.
+func TestConsumeReturnsEverythingTheExchangeNeeds(t *testing.T) {
+	eachGoogleStore(t, func(t *testing.T, name string, s Store) {
+		ctx := context.Background()
+		scope := googleScope("roundtrip-" + name)
+		now := time.Now().UTC()
+		state := googleStateValue("roundtrip-" + name)
+
+		want := pendingState(state, "actor-round-trip", now.Add(10*time.Minute))
+		want.ReturnPath = "/settings/integrations?tab=google"
+		if _, err := s.CreateGoogleOAuthState(ctx, scope, want); err != nil {
+			t.Fatalf("create state: %v", err)
+		}
+
+		got, err := s.ConsumeGoogleOAuthState(ctx, scope, state, now)
+		if err != nil {
+			t.Fatalf("consume: %v", err)
+		}
+		if got.State != want.State {
+			t.Errorf("State = %q, want %q", got.State, want.State)
+		}
+		if got.ActorID != want.ActorID {
+			t.Errorf("ActorID = %q, want %q — the connection would have no owner",
+				got.ActorID, want.ActorID)
+		}
+		if string(got.VerifierCiphertext) != string(want.VerifierCiphertext) {
+			t.Error("VerifierCiphertext did not survive the round trip; the exchange cannot proceed")
+		}
+		if got.ReturnPath != want.ReturnPath {
+			t.Errorf("ReturnPath = %q, want %q", got.ReturnPath, want.ReturnPath)
+		}
+		if got.TenantID != scope.TenantID {
+			t.Errorf("TenantID = %q, want %q", got.TenantID, scope.TenantID)
+		}
+		if got.ExpiresAt.IsZero() {
+			t.Error("ExpiresAt did not survive the round trip")
 		}
 	})
 }

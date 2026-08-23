@@ -100,7 +100,6 @@ func (s *Service) Start(
 	if _, err := s.store.CreateGoogleOAuthState(ctx, scope, &domain.GoogleOAuthState{
 		State:              pending.State,
 		ActorID:            actorID,
-		OwnerID:            actorID,
 		VerifierCiphertext: sealed,
 		ReturnPath:         returnPath,
 		CreatedAt:          now,
@@ -211,7 +210,10 @@ func (s *Service) Complete(ctx context.Context, state, code, providerError strin
 		slog.Warn("could not read the connected google account address", "error", err)
 	}
 
-	view, err := s.persist(ctx, scope, pending.OwnerID, pending.ActorID, email, tokens)
+	// The owner comes from the state record written at Start, never from the
+	// callback — which is what stops one user's redirect connecting a
+	// colleague's mailbox.
+	view, err := s.persist(ctx, scope, pending.ActorID, pending.ActorID, email, tokens)
 	if err != nil {
 		slog.Error("could not persist google connection", "error", err)
 		metrics.GoogleOAuthFlowsTotal.WithLabelValues(ReasonStorageFailed).Inc()

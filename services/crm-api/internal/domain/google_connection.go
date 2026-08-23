@@ -170,9 +170,14 @@ func (c *GoogleConnection) View() GoogleConnectionView {
 // redirect, why State is 256 bits of entropy, and why consuming it has to be
 // atomic: a state that can be redeemed twice is a replayable authorization.
 type GoogleOAuthState struct {
-	State    string `json:"state"`
+	State string `json:"state"`
+	// ActorID is the principal who started the flow, and therefore the owner
+	// of whatever connection it produces. There is deliberately no separate
+	// owner field: two fields that must always agree are how they come to
+	// disagree, and the earlier shape carried one that no column stored — so
+	// it survived in the in-memory store and vanished against PostgreSQL,
+	// turning a successful Google authorization into a save failure.
 	ActorID  string `json:"actor_id"`
-	OwnerID  string `json:"owner_id"`
 	TenantID string `json:"tenant_id"`
 	// VerifierCiphertext is the sealed PKCE verifier, bound to
 	// (tenant, state) as associated data.
