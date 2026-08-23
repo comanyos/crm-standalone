@@ -264,7 +264,7 @@ func (s *PgStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportu
 	if err != nil {
 		return nil, err
 	}
-	fromStage, err := activePipelineStage(ctx, r, scope, existing.PipelineID, existing.StageID)
+	fromStage, err := currentPipelineStage(ctx, r, scope, existing.PipelineID, existing.StageID)
 	if err != nil {
 		return nil, err
 	}

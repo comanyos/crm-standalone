@@ -1041,12 +1041,16 @@ Acceptance criteria:
   open deals can only be emptied by closing them. That is the remaining half
   of "deletion/archive rules".
 
-  One residual, deliberately not fixed: a closed deal whose terminal stage is
-  later archived can no longer be edited in place — a rename is refused,
-  because `activePipelineStage` runs before the same-stage no-op is
-  recognised. Nothing is lost and nothing is stranded that could have moved,
-  but the fix (letting a no-op write tolerate an archived current stage) was
-  out of scope for the guard.
+  The residual that came with the guard is now fixed too. Archiving a closing
+  stage is permitted precisely because closed deals do not block it — and
+  every deal standing on it then became unwritable: the close reason could
+  not be corrected and the deal could not be renamed, while it stayed
+  readable and kept its amount. `activePipelineStage` is the right check for
+  a *destination* and the wrong one for where a deal already is, so
+  `currentPipelineStage` now resolves the latter and archival stops arrivals
+  without freezing the history already there. The state machine is untouched:
+  an archived stage is still not a destination, and an archived terminal
+  stage still cannot be reopened. Both boundaries have tests.
 
 - [x] Migrate existing opportunity stage behavior to pipeline/stage IDs without
   data loss and retain immutable stage history. Migration `0013` binds prior

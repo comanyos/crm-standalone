@@ -977,7 +977,7 @@ func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opport
 	if err != nil {
 		return nil, err
 	}
-	fromStage, err := activePipelineStage(ctx, s, scope, existing.PipelineID, existing.StageID)
+	fromStage, err := currentPipelineStage(ctx, s, scope, existing.PipelineID, existing.StageID)
 	if err != nil {
 		return nil, err
 	}

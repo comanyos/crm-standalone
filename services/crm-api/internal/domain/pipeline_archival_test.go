@@ -204,3 +204,114 @@ func TestArchivalOfAnUnoccupiedPipelineStillWorks(t *testing.T) {
 		}
 	})
 }
+
+// Archiving a closing stage is allowed — closed deals do not block it — and
+// that used to freeze every deal standing on it: the close reason could not
+// be corrected and the deal could not even be renamed, while it stayed
+// readable and kept its amount. Archival stops arrivals; it does not freeze
+// the history already there.
+func TestAClosedDealStaysEditableAfterItsStageIsArchived(t *testing.T) {
+	eachArchivalStore(t, func(t *testing.T, s Store) {
+		ctx := context.Background()
+		scope := revenueScope("archived-stage-edit")
+		opportunity, pipeline := openDeal(ctx, t, s, scope, "Lost deal")
+
+		closing := *opportunity
+		closing.UpdatedAt = time.Time{}
+		closing.Stage = ""
+		closing.StageID = StageClosedLost
+		closing.CloseReason = "went with a competitr" // typo, corrected below
+		closed, err := s.UpdateOpportunity(ctx, scope, &closing)
+		if err != nil {
+			t.Fatalf("close the deal: %v", err)
+		}
+
+		stage := *stageNamed(ctx, t, s, scope, pipeline.ID, StageClosedLost)
+		stage.ArchivedAt = time.Now().UTC()
+		if _, err := s.UpdatePipelineStage(ctx, scope, &stage); err != nil {
+			t.Fatalf("archive the closing stage: %v, want it allowed", err)
+		}
+
+		fix := *closed
+		fix.UpdatedAt = time.Time{}
+		fix.Stage = ""
+		fix.Name = "Lost deal (Acme)"
+		fix.CloseReason = "went with a competitor"
+		fixed, err := s.UpdateOpportunity(ctx, scope, &fix)
+		if err != nil {
+			t.Fatalf("correct a closed deal on an archived stage: %v, want it allowed", err)
+		}
+		if fixed.CloseReason != "went with a competitor" || fixed.Name != "Lost deal (Acme)" {
+			t.Fatalf("the correction did not stick: %+v", fixed)
+		}
+		if fixed.StageID != StageClosedLost {
+			t.Fatalf("stage moved to %q; an edit in place must not relocate the deal", fixed.StageID)
+		}
+	})
+}
+
+// The lenient resolution applies to where a deal already is, not to where it
+// is going. An archived stage is still not a destination.
+func TestAnArchivedStageIsStillNotADestination(t *testing.T) {
+	eachArchivalStore(t, func(t *testing.T, s Store) {
+		ctx := context.Background()
+		scope := revenueScope("archived-not-destination")
+		opportunity, pipeline := openDeal(ctx, t, s, scope, "Live deal")
+
+		// Vacate and archive the stage after this one.
+		advance := *opportunity
+		advance.UpdatedAt = time.Time{}
+		advance.Stage = ""
+		advance.StageID = StageQualification
+		moved, err := s.UpdateOpportunity(ctx, scope, &advance)
+		if err != nil {
+			t.Fatalf("advance: %v", err)
+		}
+		retired := *stageNamed(ctx, t, s, scope, pipeline.ID, StageProposal)
+		retired.ArchivedAt = time.Now().UTC()
+		if _, err := s.UpdatePipelineStage(ctx, scope, &retired); err != nil {
+			t.Fatalf("archive an empty stage: %v", err)
+		}
+
+		attempt := *moved
+		attempt.UpdatedAt = time.Time{}
+		attempt.Stage = ""
+		attempt.StageID = StageProposal
+		if _, err := s.UpdateOpportunity(ctx, scope, &attempt); err == nil {
+			t.Fatal("moving a deal onto an archived stage was allowed")
+		}
+	})
+}
+
+// A closed deal is still closed. Loosening the resolution must not have
+// loosened the state machine with it.
+func TestAnArchivedTerminalStageStillCannotBeReopened(t *testing.T) {
+	eachArchivalStore(t, func(t *testing.T, s Store) {
+		ctx := context.Background()
+		scope := revenueScope("archived-no-reopen")
+		opportunity, pipeline := openDeal(ctx, t, s, scope, "Done deal")
+
+		closing := *opportunity
+		closing.UpdatedAt = time.Time{}
+		closing.Stage = ""
+		closing.StageID = StageClosedWon
+		closing.CloseReason = "signed"
+		closed, err := s.UpdateOpportunity(ctx, scope, &closing)
+		if err != nil {
+			t.Fatalf("close: %v", err)
+		}
+		stage := *stageNamed(ctx, t, s, scope, pipeline.ID, StageClosedWon)
+		stage.ArchivedAt = time.Now().UTC()
+		if _, err := s.UpdatePipelineStage(ctx, scope, &stage); err != nil {
+			t.Fatalf("archive the closing stage: %v", err)
+		}
+
+		reopen := *closed
+		reopen.UpdatedAt = time.Time{}
+		reopen.Stage = ""
+		reopen.StageID = StageQualification
+		if _, err := s.UpdateOpportunity(ctx, scope, &reopen); !errors.Is(err, ErrInvalidTransition) {
+			t.Fatalf("reopening from an archived terminal stage: %v, want ErrInvalidTransition", err)
+		}
+	})
+}

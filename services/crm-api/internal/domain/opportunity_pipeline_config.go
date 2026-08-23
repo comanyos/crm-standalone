@@ -41,6 +41,38 @@ func activePipelineStage(ctx context.Context, r pipelineReader, scope Scope, pip
 	return nil, fmt.Errorf("%w: pipeline stage %q does not exist or is archived", ErrInvalid, stageID)
 }
 
+// currentPipelineStage resolves the stage an Opportunity is already standing
+// on, whether or not it — or its whole pipeline — has since been archived.
+//
+// activePipelineStage is the right check for a *destination*: archiving a
+// stage should stop new deals arriving on it. It is the wrong check for where
+// a deal already is, and using it there froze records. Archiving a closing
+// stage is permitted precisely because closed deals do not block it
+// (pipeline_archival.go), and every one of those deals then became
+// permanently unwritable: the close reason could not be corrected, the deal
+// could not even be renamed, while it stayed readable and kept its amount.
+//
+// So archival stops arrivals and removes a destination; it does not freeze
+// the history already there. The transition rules still decide what a deal on
+// an archived stage may do — a terminal one still cannot be reopened, and an
+// open one may still move off, which is the remedy an archival refusal points
+// at.
+func currentPipelineStage(ctx context.Context, r pipelineReader, scope Scope, pipelineID, stageID string) (*PipelineStage, error) {
+	if _, err := r.GetPipeline(ctx, scope, pipelineID); err != nil {
+		return nil, err
+	}
+	stages, err := r.ListPipelineStages(ctx, scope, pipelineID)
+	if err != nil {
+		return nil, err
+	}
+	for _, stage := range stages {
+		if stage.ID == stageID {
+			return stage, nil
+		}
+	}
+	return nil, fmt.Errorf("%w: pipeline stage %q does not exist", ErrInvalid, stageID)
+}
+
 func initialPipelineStage(ctx context.Context, r pipelineReader, scope Scope, pipelineID string) (*PipelineStage, error) {
 	pipeline, err := r.GetPipeline(ctx, scope, pipelineID)
 	if err != nil {
@@ -114,7 +146,13 @@ func prepareOpportunityStage(
 			v.StageID = stage.ID
 		}
 	}
-	stage, err := activePipelineStage(ctx, r, scope, v.PipelineID, v.StageID)
+	// Staying put is not arriving anywhere, so it does not require the stage
+	// to still be active — see currentPipelineStage.
+	resolve := activePipelineStage
+	if existing != nil && v.StageID == existing.StageID {
+		resolve = currentPipelineStage
+	}
+	stage, err := resolve(ctx, r, scope, v.PipelineID, v.StageID)
 	if err != nil {
 		if v.PipelineID == systemSalesPipelineID {
 			return nil, fmt.Errorf("%w: %q is not a known Opportunity stage", ErrInvalidTransition, v.StageID)
