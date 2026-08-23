@@ -83,6 +83,9 @@ const (
 	// CRMServiceUpdateOpportunityProcedure is the fully-qualified name of the CRMService's
 	// UpdateOpportunity RPC.
 	CRMServiceUpdateOpportunityProcedure = "/crm.v1.CRMService/UpdateOpportunity"
+	// CRMServiceMoveOpportunityToPipelineProcedure is the fully-qualified name of the CRMService's
+	// MoveOpportunityToPipeline RPC.
+	CRMServiceMoveOpportunityToPipelineProcedure = "/crm.v1.CRMService/MoveOpportunityToPipeline"
 	// CRMServiceDeleteOpportunityProcedure is the fully-qualified name of the CRMService's
 	// DeleteOpportunity RPC.
 	CRMServiceDeleteOpportunityProcedure = "/crm.v1.CRMService/DeleteOpportunity"
@@ -224,6 +227,10 @@ type CRMServiceClient interface {
 	GetOpportunity(context.Context, *connect.Request[v1.GetOpportunityRequest]) (*connect.Response[v1.GetOpportunityResponse], error)
 	ListOpportunities(context.Context, *connect.Request[v1.ListOpportunitiesRequest]) (*connect.Response[v1.ListOpportunitiesResponse], error)
 	UpdateOpportunity(context.Context, *connect.Request[v1.UpdateOpportunityRequest]) (*connect.Response[v1.UpdateOpportunityResponse], error)
+	// MoveOpportunityToPipeline is deliberately narrower than UpdateOpportunity:
+	// cross-pipeline moves require an explicit destination pipeline and open
+	// stage, while preserving the deal's other fields and its audit history.
+	MoveOpportunityToPipeline(context.Context, *connect.Request[v1.MoveOpportunityToPipelineRequest]) (*connect.Response[v1.MoveOpportunityToPipelineResponse], error)
 	DeleteOpportunity(context.Context, *connect.Request[v1.DeleteOpportunityRequest]) (*connect.Response[v1.DeleteOpportunityResponse], error)
 	// Returns the append-only history for an opportunity. This is intentionally
 	// separate from the mutable opportunity response so history remains useful
@@ -422,6 +429,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			httpClient,
 			baseURL+CRMServiceUpdateOpportunityProcedure,
 			connect.WithSchema(cRMServiceMethods.ByName("UpdateOpportunity")),
+			connect.WithClientOptions(opts...),
+		),
+		moveOpportunityToPipeline: connect.NewClient[v1.MoveOpportunityToPipelineRequest, v1.MoveOpportunityToPipelineResponse](
+			httpClient,
+			baseURL+CRMServiceMoveOpportunityToPipelineProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("MoveOpportunityToPipeline")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteOpportunity: connect.NewClient[v1.DeleteOpportunityRequest, v1.DeleteOpportunityResponse](
@@ -701,6 +714,7 @@ type cRMServiceClient struct {
 	getOpportunity                *connect.Client[v1.GetOpportunityRequest, v1.GetOpportunityResponse]
 	listOpportunities             *connect.Client[v1.ListOpportunitiesRequest, v1.ListOpportunitiesResponse]
 	updateOpportunity             *connect.Client[v1.UpdateOpportunityRequest, v1.UpdateOpportunityResponse]
+	moveOpportunityToPipeline     *connect.Client[v1.MoveOpportunityToPipelineRequest, v1.MoveOpportunityToPipelineResponse]
 	deleteOpportunity             *connect.Client[v1.DeleteOpportunityRequest, v1.DeleteOpportunityResponse]
 	listOpportunityStageHistory   *connect.Client[v1.ListOpportunityStageHistoryRequest, v1.ListOpportunityStageHistoryResponse]
 	createPipeline                *connect.Client[v1.CreatePipelineRequest, v1.CreatePipelineResponse]
@@ -843,6 +857,11 @@ func (c *cRMServiceClient) ListOpportunities(ctx context.Context, req *connect.R
 // UpdateOpportunity calls crm.v1.CRMService.UpdateOpportunity.
 func (c *cRMServiceClient) UpdateOpportunity(ctx context.Context, req *connect.Request[v1.UpdateOpportunityRequest]) (*connect.Response[v1.UpdateOpportunityResponse], error) {
 	return c.updateOpportunity.CallUnary(ctx, req)
+}
+
+// MoveOpportunityToPipeline calls crm.v1.CRMService.MoveOpportunityToPipeline.
+func (c *cRMServiceClient) MoveOpportunityToPipeline(ctx context.Context, req *connect.Request[v1.MoveOpportunityToPipelineRequest]) (*connect.Response[v1.MoveOpportunityToPipelineResponse], error) {
+	return c.moveOpportunityToPipeline.CallUnary(ctx, req)
 }
 
 // DeleteOpportunity calls crm.v1.CRMService.DeleteOpportunity.
@@ -1083,6 +1102,10 @@ type CRMServiceHandler interface {
 	GetOpportunity(context.Context, *connect.Request[v1.GetOpportunityRequest]) (*connect.Response[v1.GetOpportunityResponse], error)
 	ListOpportunities(context.Context, *connect.Request[v1.ListOpportunitiesRequest]) (*connect.Response[v1.ListOpportunitiesResponse], error)
 	UpdateOpportunity(context.Context, *connect.Request[v1.UpdateOpportunityRequest]) (*connect.Response[v1.UpdateOpportunityResponse], error)
+	// MoveOpportunityToPipeline is deliberately narrower than UpdateOpportunity:
+	// cross-pipeline moves require an explicit destination pipeline and open
+	// stage, while preserving the deal's other fields and its audit history.
+	MoveOpportunityToPipeline(context.Context, *connect.Request[v1.MoveOpportunityToPipelineRequest]) (*connect.Response[v1.MoveOpportunityToPipelineResponse], error)
 	DeleteOpportunity(context.Context, *connect.Request[v1.DeleteOpportunityRequest]) (*connect.Response[v1.DeleteOpportunityResponse], error)
 	// Returns the append-only history for an opportunity. This is intentionally
 	// separate from the mutable opportunity response so history remains useful
@@ -1277,6 +1300,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		CRMServiceUpdateOpportunityProcedure,
 		svc.UpdateOpportunity,
 		connect.WithSchema(cRMServiceMethods.ByName("UpdateOpportunity")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceMoveOpportunityToPipelineHandler := connect.NewUnaryHandler(
+		CRMServiceMoveOpportunityToPipelineProcedure,
+		svc.MoveOpportunityToPipeline,
+		connect.WithSchema(cRMServiceMethods.ByName("MoveOpportunityToPipeline")),
 		connect.WithHandlerOptions(opts...),
 	)
 	cRMServiceDeleteOpportunityHandler := connect.NewUnaryHandler(
@@ -1573,6 +1602,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListOpportunitiesHandler.ServeHTTP(w, r)
 		case CRMServiceUpdateOpportunityProcedure:
 			cRMServiceUpdateOpportunityHandler.ServeHTTP(w, r)
+		case CRMServiceMoveOpportunityToPipelineProcedure:
+			cRMServiceMoveOpportunityToPipelineHandler.ServeHTTP(w, r)
 		case CRMServiceDeleteOpportunityProcedure:
 			cRMServiceDeleteOpportunityHandler.ServeHTTP(w, r)
 		case CRMServiceListOpportunityStageHistoryProcedure:
@@ -1744,6 +1775,10 @@ func (UnimplementedCRMServiceHandler) ListOpportunities(context.Context, *connec
 
 func (UnimplementedCRMServiceHandler) UpdateOpportunity(context.Context, *connect.Request[v1.UpdateOpportunityRequest]) (*connect.Response[v1.UpdateOpportunityResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateOpportunity is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) MoveOpportunityToPipeline(context.Context, *connect.Request[v1.MoveOpportunityToPipelineRequest]) (*connect.Response[v1.MoveOpportunityToPipelineResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.MoveOpportunityToPipeline is not implemented"))
 }
 
 func (UnimplementedCRMServiceHandler) DeleteOpportunity(context.Context, *connect.Request[v1.DeleteOpportunityRequest]) (*connect.Response[v1.DeleteOpportunityResponse], error) {

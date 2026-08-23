@@ -335,3 +335,71 @@ func (s *PgStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportu
 	}
 	return updated, nil
 }
+
+// MoveOpportunityToPipeline is the cross-pipeline counterpart to
+// UpdateOpportunity. The opportunity row stays locked from the version check
+// through the destination validation, update, and history insert, so a
+// competing stage move cannot make the audit trail branch from stale state.
+func (s *PgStore) MoveOpportunityToPipeline(ctx context.Context, scope Scope, in MoveOpportunityToPipelineInput) (*Opportunity, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	if in.OpportunityID == "" {
+		return nil, ErrNotFound
+	}
+	tx, err := s.db.begin(ctx, scope)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	existing := &Opportunity{}
+	err = scanOpportunity(tx.QueryRow(ctx,
+		`SELECT `+opportunityColumns+` FROM opportunities WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+		scope.TenantID, in.OpportunityID), existing)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get opportunity for pipeline move: %w", err)
+	}
+	if in.UpdatedAt.IsZero() {
+		return nil, fmt.Errorf("%w: updated_at is required", ErrInvalid)
+	}
+	if !in.UpdatedAt.Equal(existing.UpdatedAt) {
+		return nil, fmt.Errorf("%w: Opportunity %s was modified since it was last read", ErrConflict, in.OpportunityID)
+	}
+
+	r := txReader{s: s, tx: tx}
+	destination, err := validateOpportunityPipelineMove(ctx, r, scope, existing, in.PipelineID, in.StageID)
+	if err != nil {
+		return nil, err
+	}
+	now := pipelineMoveStamp(existing.UpdatedAt)
+	stage := stageDisplay(in.PipelineID, destination)
+	tag, err := tx.Exec(ctx,
+		`UPDATE opportunities SET stage = $3, pipeline_id = $4, stage_id = $5, updated_at = $6
+		 WHERE tenant_id = $1 AND id = $2`,
+		scope.TenantID, existing.ID, stage, in.PipelineID, destination.ID, now)
+	if err != nil {
+		return nil, fmt.Errorf("move opportunity to pipeline: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotFound
+	}
+	updated := cloneOpportunity(existing)
+	updated.PipelineID = in.PipelineID
+	updated.StageID = destination.ID
+	updated.Stage = stage
+	updated.UpdatedAt = now
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO opportunity_stage_history (tenant_id, id, opportunity_id, from_stage, to_stage, changed_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		scope.TenantID, newID(), existing.ID, existing.Stage, stage, now); err != nil {
+		return nil, fmt.Errorf("record opportunity stage history: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit pipeline move: %w", err)
+	}
+	return updated, nil
+}

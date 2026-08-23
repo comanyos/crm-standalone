@@ -1028,6 +1028,55 @@ func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opport
 	return updated, nil
 }
 
+// MoveOpportunityToPipeline relocates an open deal without treating the move
+// as a normal within-pipeline stage transition. MemStore has no row locks, so
+// its compound mutex gives this operation the same serialization guarantee as
+// PgStore's SELECT ... FOR UPDATE implementation.
+func (s *MemStore) MoveOpportunityToPipeline(ctx context.Context, scope Scope, in MoveOpportunityToPipelineInput) (*Opportunity, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	if in.OpportunityID == "" {
+		return nil, ErrNotFound
+	}
+	s.compound.Lock()
+	defer s.compound.Unlock()
+
+	existing, err := s.opportunity.get(scope, in.OpportunityID)
+	if err != nil {
+		return nil, err
+	}
+	if in.UpdatedAt.IsZero() {
+		return nil, fmt.Errorf("%w: updated_at is required", ErrInvalid)
+	}
+	if !in.UpdatedAt.Equal(existing.UpdatedAt) {
+		return nil, fmt.Errorf("%w: Opportunity %s was modified since it was last read", ErrConflict, in.OpportunityID)
+	}
+	destination, err := validateOpportunityPipelineMove(ctx, s, scope, existing, in.PipelineID, in.StageID)
+	if err != nil {
+		return nil, err
+	}
+
+	moved := cloneOpportunity(existing)
+	moved.PipelineID = in.PipelineID
+	moved.StageID = destination.ID
+	moved.Stage = stageDisplay(in.PipelineID, destination)
+	moved.UpdatedAt = pipelineMoveStamp(existing.UpdatedAt)
+	updated, err := s.opportunity.update(scope, moved)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.stageHistory.create(scope, &OpportunityStageChange{
+		OpportunityID: updated.ID,
+		FromStage:     existing.Stage,
+		ToStage:       updated.Stage,
+		ChangedAt:     nowStamp(),
+	}); err != nil {
+		return nil, fmt.Errorf("record opportunity stage history: %w", err)
+	}
+	return updated, nil
+}
+
 func (s *MemStore) defaultOpportunityPipeline(ctx context.Context, scope Scope) (*Pipeline, error) {
 	pipelines, err := s.ListPipelines(ctx, scope)
 	if err != nil {

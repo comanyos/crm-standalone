@@ -374,6 +374,53 @@ func TestOpportunityClosingWithoutClientDate(t *testing.T) {
 	}
 }
 
+func TestMoveOpportunityToPipeline(t *testing.T) {
+	s := newTestService()
+	ctx := ctxAs("tenant-a", "org-a")
+	account, err := s.CreateAccount(ctx, connect.NewRequest(&crmv1.CreateAccountRequest{
+		Account: &crmv1.Account{Name: "Acme", OwnerId: "owner-1"},
+	}))
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	created, err := s.CreateOpportunity(ctx, connect.NewRequest(&crmv1.CreateOpportunityRequest{
+		Opportunity: &crmv1.Opportunity{Name: "Deal", AccountId: account.Msg.GetAccount().GetId(), Amount: 750},
+	}))
+	if err != nil {
+		t.Fatalf("create opportunity: %v", err)
+	}
+	destination, err := s.CreatePipeline(ctx, connect.NewRequest(&crmv1.CreatePipelineRequest{
+		Pipeline: &crmv1.Pipeline{Name: "Partner sales"},
+	}))
+	if err != nil {
+		t.Fatalf("create destination pipeline: %v", err)
+	}
+	target, err := s.CreatePipelineStage(ctx, connect.NewRequest(&crmv1.CreatePipelineStageRequest{
+		Stage: &crmv1.PipelineStage{PipelineId: destination.Msg.GetPipeline().GetId(), Name: "Discovery", Position: 0, Probability: 10, TerminalType: "open"},
+	}))
+	if err != nil {
+		t.Fatalf("create destination stage: %v", err)
+	}
+
+	deal := created.Msg.GetOpportunity()
+	moved, err := s.MoveOpportunityToPipeline(ctx, connect.NewRequest(&crmv1.MoveOpportunityToPipelineRequest{
+		OpportunityId: deal.GetId(), PipelineId: destination.Msg.GetPipeline().GetId(), StageId: target.Msg.GetStage().GetId(), UpdatedAt: deal.GetUpdatedAt(),
+	}))
+	if err != nil {
+		t.Fatalf("move opportunity: %v", err)
+	}
+	if got := moved.Msg.GetOpportunity(); got.GetPipelineId() != destination.Msg.GetPipeline().GetId() || got.GetStageId() != target.Msg.GetStage().GetId() || got.GetStage() != "Discovery" || got.GetAmount() != 750 || got.GetUpdatedAt() == nil {
+		t.Fatalf("moved opportunity = %+v, want destination and preserved fields", got)
+	}
+	history, err := s.ListOpportunityStageHistory(ctx, connect.NewRequest(&crmv1.ListOpportunityStageHistoryRequest{OpportunityId: deal.GetId()}))
+	if err != nil {
+		t.Fatalf("list history: %v", err)
+	}
+	if len(history.Msg.GetChanges()) != 1 || history.Msg.GetChanges()[0].GetToStage() != "Discovery" {
+		t.Fatalf("history = %+v, want one move to Discovery", history.Msg.GetChanges())
+	}
+}
+
 func TestListOpportunityStageHistoryIsTenantScoped(t *testing.T) {
 	s := newTestService()
 	ctxA := ctxAs("tenant-a", "org-a")

@@ -151,7 +151,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // "Complete" and "Reopen" joined it for Task's lifecycle transitions, which
 // are writes that deliberately are not Update (task.md §5.1).
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

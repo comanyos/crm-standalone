@@ -1040,7 +1040,7 @@ Acceptance criteria:
 
 ### 4.2 Pipelines and opportunities
 
-- [~] Add tenant-configurable pipeline and stage models with stage ordering,
+- [x] Add tenant-configurable pipeline and stage models with stage ordering,
   probability, terminal type, required fields, and deletion/archive rules.
   Migration `0012_pipeline_definitions.sql` now provides the tenant-scoped,
   RLS-protected data model. Typed pipeline/stage create/list/update endpoints
@@ -1070,11 +1070,17 @@ Acceptance criteria:
   refusal verbatim — `refusalMessage`, not the generic "reload the page" line,
   which would send an administrator round a loop that never ends.
 
-  Still open here: **moving deals between pipelines**. There is no such
-  operation, and `prepareOpportunityStage` refuses one
-  ("an opportunity cannot move to another pipeline"), so a pipeline holding
-  open deals can only be emptied by closing them. That is the remaining half
-  of "deletion/archive rules".
+  **Moving an open deal between pipelines is now explicit and safe.**
+  `MoveOpportunityToPipeline` takes an opportunity id, target pipeline id,
+  target open-stage id, and the caller's required `updated_at` version — it
+  never guesses a stage from a matching name or position. Both stores reject
+  a closed source, archived or terminal destination, same-pipeline move, and
+  stale version. PostgreSQL locks the opportunity row for the whole decision,
+  update, and history append; MemStore takes its equivalent compound lock.
+  The move changes only pipeline/stage and `updated_at`, preserving the full
+  deal document (including custom fields), then records the stage history.
+  The opportunity edit screen exposes it as a separate action and disables
+  it while ordinary form edits are unsaved, so moving cannot discard them.
 
   The residual that came with the guard is now fixed too. Archiving a closing
   stage is permitted precisely because closed deals do not block it — and

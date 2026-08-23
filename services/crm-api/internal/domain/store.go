@@ -52,6 +52,7 @@ type Store interface {
 	GetOpportunity(ctx context.Context, scope Scope, id string) (*Opportunity, error)
 	ListOpportunities(ctx context.Context, scope Scope, page Page) ([]*Opportunity, string, error)
 	UpdateOpportunity(ctx context.Context, scope Scope, v *Opportunity) (*Opportunity, error)
+	MoveOpportunityToPipeline(ctx context.Context, scope Scope, in MoveOpportunityToPipelineInput) (*Opportunity, error)
 	DeleteOpportunity(ctx context.Context, scope Scope, id string) error
 	CreatePipeline(ctx context.Context, scope Scope, v *Pipeline) (*Pipeline, error)
 	GetPipeline(ctx context.Context, scope Scope, id string) (*Pipeline, error)
