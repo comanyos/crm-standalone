@@ -197,6 +197,9 @@ const (
 	CRMServiceDeleteCustomRecordProcedure = "/crm.v1.CRMService/DeleteCustomRecord"
 	// CRMServiceGetSummaryProcedure is the fully-qualified name of the CRMService's GetSummary RPC.
 	CRMServiceGetSummaryProcedure = "/crm.v1.CRMService/GetSummary"
+	// CRMServiceSearchRecordsProcedure is the fully-qualified name of the CRMService's SearchRecords
+	// RPC.
+	CRMServiceSearchRecordsProcedure = "/crm.v1.CRMService/SearchRecords"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -298,6 +301,11 @@ type CRMServiceClient interface {
 	UpdateCustomRecord(context.Context, *connect.Request[v1.UpdateCustomRecordRequest]) (*connect.Response[v1.UpdateCustomRecordResponse], error)
 	DeleteCustomRecord(context.Context, *connect.Request[v1.DeleteCustomRecordRequest]) (*connect.Response[v1.DeleteCustomRecordResponse], error)
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
+	// SearchRecords is the bounded, tenant-scoped quick-search surface used by
+	// the command palette. It searches the primary identifying fields of the
+	// core record types in the database; clients must not implement search by
+	// downloading arbitrary list pages and filtering them locally.
+	SearchRecords(context.Context, *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -689,6 +697,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("GetSummary")),
 			connect.WithClientOptions(opts...),
 		),
+		searchRecords: connect.NewClient[v1.SearchRecordsRequest, v1.SearchRecordsResponse](
+			httpClient,
+			baseURL+CRMServiceSearchRecordsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SearchRecords")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -757,6 +771,7 @@ type cRMServiceClient struct {
 	updateCustomRecord            *connect.Client[v1.UpdateCustomRecordRequest, v1.UpdateCustomRecordResponse]
 	deleteCustomRecord            *connect.Client[v1.DeleteCustomRecordRequest, v1.DeleteCustomRecordResponse]
 	getSummary                    *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
+	searchRecords                 *connect.Client[v1.SearchRecordsRequest, v1.SearchRecordsResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1074,6 +1089,11 @@ func (c *cRMServiceClient) GetSummary(ctx context.Context, req *connect.Request[
 	return c.getSummary.CallUnary(ctx, req)
 }
 
+// SearchRecords calls crm.v1.CRMService.SearchRecords.
+func (c *cRMServiceClient) SearchRecords(ctx context.Context, req *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error) {
+	return c.searchRecords.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1173,6 +1193,11 @@ type CRMServiceHandler interface {
 	UpdateCustomRecord(context.Context, *connect.Request[v1.UpdateCustomRecordRequest]) (*connect.Response[v1.UpdateCustomRecordResponse], error)
 	DeleteCustomRecord(context.Context, *connect.Request[v1.DeleteCustomRecordRequest]) (*connect.Response[v1.DeleteCustomRecordResponse], error)
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
+	// SearchRecords is the bounded, tenant-scoped quick-search surface used by
+	// the command palette. It searches the primary identifying fields of the
+	// core record types in the database; clients must not implement search by
+	// downloading arbitrary list pages and filtering them locally.
+	SearchRecords(context.Context, *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1560,6 +1585,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("GetSummary")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceSearchRecordsHandler := connect.NewUnaryHandler(
+		CRMServiceSearchRecordsProcedure,
+		svc.SearchRecords,
+		connect.WithSchema(cRMServiceMethods.ByName("SearchRecords")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -1688,6 +1719,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceDeleteCustomRecordHandler.ServeHTTP(w, r)
 		case CRMServiceGetSummaryProcedure:
 			cRMServiceGetSummaryHandler.ServeHTTP(w, r)
+		case CRMServiceSearchRecordsProcedure:
+			cRMServiceSearchRecordsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1947,4 +1980,8 @@ func (UnimplementedCRMServiceHandler) DeleteCustomRecord(context.Context, *conne
 
 func (UnimplementedCRMServiceHandler) GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetSummary is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SearchRecords(context.Context, *connect.Request[v1.SearchRecordsRequest]) (*connect.Response[v1.SearchRecordsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SearchRecords is not implemented"))
 }

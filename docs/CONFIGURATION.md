@@ -66,6 +66,9 @@ with the checked-in local defaults.
 | `CRM_METRICS_TOKEN` | *(empty — local/internal scrape only)* | Yes, at least 16 characters; use `Authorization: Bearer …` for `/metrics` |
 | `NATS_URL` | *(empty — events logged locally)* | Recommended |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` (compose default; comma-separated) | Every entry must be `https://` |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | *(unset — Google integration disabled)* | Required together when Google integration is enabled |
+| `GOOGLE_OAUTH_REDIRECT_URL` | *(unset)* | Required with Google integration; `https://` |
+| `GOOGLE_OAUTH_TOKEN_KEY` | *(unset)* | Required with Google integration; base64-encoded 32-byte encryption key |
 
 ### `services/authincore`
 

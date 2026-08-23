@@ -116,6 +116,11 @@ service CRMService {
   rpc DeleteCustomRecord(DeleteCustomRecordRequest) returns (DeleteCustomRecordResponse);
 
   rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
+  // SearchRecords is the bounded, tenant-scoped quick-search surface used by
+  // the command palette. It searches the primary identifying fields of the
+  // core record types in the database; clients must not implement search by
+  // downloading arbitrary list pages and filtering them locally.
+  rpc SearchRecords(SearchRecordsRequest) returns (SearchRecordsResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -198,6 +203,23 @@ message UpdateCustomRecordRequest { CustomRecord record = 1; }
 message UpdateCustomRecordResponse { CustomRecord record = 1; }
 message DeleteCustomRecordRequest { string object_type = 1; string id = 2; }
 message DeleteCustomRecordResponse {}
+
+message SearchRecordsRequest {
+  // query must contain at least two non-space characters. It is interpreted as
+  // literal text, never as a database expression or search-language fragment.
+  string query = 1;
+  // page_size is bounded by the server (maximum 50). Quick search intentionally
+  // returns one ranked, capped result set; entity lists remain the pageable
+  // surface for exhaustive browsing.
+  int32 page_size = 2;
+}
+message SearchRecord {
+  string object_type = 1;
+  string id = 2;
+  string title = 3;
+  string subtitle = 4;
+}
+message SearchRecordsResponse { repeated SearchRecord records = 1; }
 
 message Account {
   string id = 1;

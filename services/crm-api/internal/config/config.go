@@ -71,23 +71,35 @@ type Config struct {
 	// calls (apps/web). Empty means no CORS headers are sent at all — safe by
 	// default; same-origin/non-browser clients are unaffected either way.
 	CORSOrigins []string
+
+	// GoogleOAuth is optional until the Google communication integration is
+	// enabled. When any setting is supplied, Load/Validate require the complete
+	// set so a partially configured client can never start an OAuth flow.
+	GoogleOAuthClientID     string
+	GoogleOAuthClientSecret string
+	GoogleOAuthRedirectURL  string
+	GoogleOAuthTokenKey     string
 }
 
 // Load reads configuration from environment with sensible defaults.
 func Load() Config {
 	return Config{
-		Addr:           env("CRM_ADDR", ":9431"),
-		Mode:           Mode(env("MODE", string(ModePlug))),
-		Edition:        env("CRM_EDITION", "OSS"),
-		Environment:    Environment(env("APP_ENV", string(EnvDevelopment))),
-		AuthIssuer:     env("AUTH_ISSUER", ""),
-		AuthAudience:   env("AUTH_AUDIENCE", ""),
-		AuthJWKSURL:    env("AUTH_JWKS_URL", ""),
-		NATSURL:        env("NATS_URL", ""),
-		DatabaseURL:    env("DATABASE_URL", ""),
-		MetricsToken:   env("CRM_METRICS_TOKEN", ""),
-		OutboxDrainURL: env("OUTBOX_DRAIN_DATABASE_URL", ""),
-		CORSOrigins:    splitCSV(env("CORS_ALLOWED_ORIGINS", "")),
+		Addr:                    env("CRM_ADDR", ":9431"),
+		Mode:                    Mode(env("MODE", string(ModePlug))),
+		Edition:                 env("CRM_EDITION", "OSS"),
+		Environment:             Environment(env("APP_ENV", string(EnvDevelopment))),
+		AuthIssuer:              env("AUTH_ISSUER", ""),
+		AuthAudience:            env("AUTH_AUDIENCE", ""),
+		AuthJWKSURL:             env("AUTH_JWKS_URL", ""),
+		NATSURL:                 env("NATS_URL", ""),
+		DatabaseURL:             env("DATABASE_URL", ""),
+		MetricsToken:            env("CRM_METRICS_TOKEN", ""),
+		OutboxDrainURL:          env("OUTBOX_DRAIN_DATABASE_URL", ""),
+		CORSOrigins:             splitCSV(env("CORS_ALLOWED_ORIGINS", "")),
+		GoogleOAuthClientID:     env("GOOGLE_OAUTH_CLIENT_ID", ""),
+		GoogleOAuthClientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+		GoogleOAuthRedirectURL:  env("GOOGLE_OAUTH_REDIRECT_URL", ""),
+		GoogleOAuthTokenKey:     env("GOOGLE_OAUTH_TOKEN_KEY", ""),
 	}
 }
 
@@ -108,6 +120,9 @@ func (c Config) Validate() error {
 	}
 	if !c.Environment.valid() {
 		return fmt.Errorf("config: APP_ENV must be development|test|staging|production, got %q", c.Environment)
+	}
+	if err := c.validateGoogleOAuth(); err != nil {
+		return err
 	}
 	if !c.Environment.IsProdLike() {
 		return nil
@@ -151,6 +166,38 @@ func (c Config) Validate() error {
 
 	if len(problems) > 0 {
 		return fmt.Errorf("config: unsafe for %s environment:\n  - %s", c.Environment, strings.Join(problems, "\n  - "))
+	}
+	return nil
+}
+
+func (c Config) validateGoogleOAuth() error {
+	values := map[string]string{
+		"GOOGLE_OAUTH_CLIENT_ID":     c.GoogleOAuthClientID,
+		"GOOGLE_OAUTH_CLIENT_SECRET": c.GoogleOAuthClientSecret,
+		"GOOGLE_OAUTH_REDIRECT_URL":  c.GoogleOAuthRedirectURL,
+		"GOOGLE_OAUTH_TOKEN_KEY":     c.GoogleOAuthTokenKey,
+	}
+	configured := 0
+	for _, value := range values {
+		if value != "" {
+			configured++
+		}
+	}
+	if configured == 0 {
+		return nil
+	}
+
+	var missing []string
+	for key, value := range values {
+		if value == "" {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("config: Google OAuth is partially configured; missing %s", strings.Join(missing, ", "))
+	}
+	if c.Environment.IsProdLike() && !strings.HasPrefix(c.GoogleOAuthRedirectURL, "https://") {
+		return fmt.Errorf("config: GOOGLE_OAUTH_REDIRECT_URL must be an https:// URL in %s", c.Environment)
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: "/leads", label: "Leads" },
   { to: "/opportunities", label: "Opportunities" },
   { to: "/tasks", label: "Tasks" },
+  { to: "/calendar", label: "Calendar" },
   { to: "/settings/pipelines", label: "Pipelines" },
   { to: "/settings/custom-fields", label: "Custom fields" },
   { to: "/settings/custom-objects", label: "Custom objects" },
@@ -59,11 +60,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* The scrim only exists while the drawer does. aria-hidden because the
           drawer's own Close button is the accessible way out. */}
       {open && (
-        <div
-          aria-hidden="true"
-          onClick={onClose}
-          className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden"
-        />
+        <div aria-hidden="true" onClick={onClose} className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" />
       )}
       <nav
         ref={panel}

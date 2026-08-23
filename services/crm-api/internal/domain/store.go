@@ -131,6 +131,11 @@ type Store interface {
 
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
+	// SearchRecords is the bounded cross-object quick-search surface. Results
+	// are always restricted to scope.TenantID; it intentionally searches only
+	// core identifying fields, leaving exhaustive per-entity filtering to the
+	// entity list APIs.
+	SearchRecords(ctx context.Context, scope Scope, query string, limit int) ([]SearchRecord, error)
 
 	// enqueueOutboxEvent writes one durable event for later delivery. It is
 	// unexported: EnqueueEvent (event_outbox.go) is the public seam Track B

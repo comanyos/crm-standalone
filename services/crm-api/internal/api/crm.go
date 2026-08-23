@@ -800,6 +800,33 @@ func (s *CRMService) GetSummary(
 	}), nil
 }
 
+// SearchRecords returns a small ranked set of tenant-local navigation
+// results. The result intentionally contains no custom-field data: fields may
+// have role-specific visibility, while a detail request already applies that
+// policy before displaying a record.
+func (s *CRMService) SearchRecords(
+	ctx context.Context, req *connect.Request[crmv1.SearchRecordsRequest],
+) (*connect.Response[crmv1.SearchRecordsResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.store.SearchRecords(ctx, scope, req.Msg.GetQuery(), int(req.Msg.GetPageSize()))
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	out := make([]*crmv1.SearchRecord, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, &crmv1.SearchRecord{
+			ObjectType: row.ObjectType,
+			Id:         row.ID,
+			Title:      row.Title,
+			Subtitle:   row.Subtitle,
+		})
+	}
+	return connect.NewResponse(&crmv1.SearchRecordsResponse{Records: out}), nil
+}
+
 // --- Tasks (task.md §5.1) ---
 
 // CreateTask stores a new Task. created_by defaults to the calling principal

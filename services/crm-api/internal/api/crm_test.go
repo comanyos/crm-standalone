@@ -176,6 +176,36 @@ func TestListAccounts_FilterSortAndInvalidSortRejected(t *testing.T) {
 	}
 }
 
+func TestSearchRecords_IsTenantScopedAndRejectsShortQueries(t *testing.T) {
+	s := newTestService()
+	ctxA := ctxAs("tenant-a", "org-a")
+	ctxB := ctxAs("tenant-b", "org-b")
+	if _, err := s.CreateAccount(ctxA, connect.NewRequest(&crmv1.CreateAccountRequest{
+		Account: &crmv1.Account{Name: "Acme Holdings", OwnerId: "owner-1"},
+	})); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	result, err := s.SearchRecords(ctxA, connect.NewRequest(&crmv1.SearchRecordsRequest{Query: "acme", PageSize: 20}))
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(result.Msg.GetRecords()) != 1 || result.Msg.GetRecords()[0].GetTitle() != "Acme Holdings" {
+		t.Fatalf("search records = %+v, want Acme Holdings", result.Msg.GetRecords())
+	}
+	foreign, err := s.SearchRecords(ctxB, connect.NewRequest(&crmv1.SearchRecordsRequest{Query: "acme", PageSize: 20}))
+	if err != nil {
+		t.Fatalf("search other tenant: %v", err)
+	}
+	if len(foreign.Msg.GetRecords()) != 0 {
+		t.Fatalf("other tenant received %d search records", len(foreign.Msg.GetRecords()))
+	}
+	_, err = s.SearchRecords(ctxA, connect.NewRequest(&crmv1.SearchRecordsRequest{Query: "a"}))
+	if got := connectCode(t, err); got != connect.CodeInvalidArgument {
+		t.Fatalf("short query code = %v, want InvalidArgument", got)
+	}
+}
+
 func TestListAccounts_PaginationTokenRoundTrips(t *testing.T) {
 	s := newTestService()
 	ctx := ctxAs("tenant-a", "org-a")

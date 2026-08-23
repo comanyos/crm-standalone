@@ -67,6 +67,7 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/DeleteActivity":              "crm:activity:write",
 	"/crm.v1.CRMService/ListActivitiesForSubject":    "crm:activity:read",
 	"/crm.v1.CRMService/GetSummary":                  "crm:summary:read",
+	"/crm.v1.CRMService/SearchRecords":               "crm:search:read",
 
 	// Tasks and Notes carry their own scopes rather than reusing
 	// crm:activity:*. They are separate entities with separate reporting and

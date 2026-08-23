@@ -315,29 +315,46 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (0%)
+## M4 — Data productivity (20%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
-- [ ] Search, filtering, cursor pagination, saved views, tags, and bulk
-  operations with server-side authorization.
-- [ ] Custom fields, deduplication/merge policy, CSV import validation, and
-  export jobs with audit trails.
+- [~] Search, filtering, cursor pagination, saved views, tags, and bulk
+  operations with server-side authorization. `SearchRecords` is now the
+  tenant-scoped, bounded quick-search RPC used by the command palette. It
+  searches account, contact, lead, opportunity, and task identifiers in the
+  database with trigram indexes, has a dedicated `crm:search:read` scope, and
+  has API isolation coverage. Entity filters/pagination exist where already
+  implemented, but saved views, tags, and bulk operations remain pending.
+- [~] Custom fields, deduplication/merge policy, CSV import validation, and
+  export jobs with audit trails. Tenant administrators can already define
+  typed custom fields and custom objects without runtime DDL; deduplication
+  flags exist for accounts, contacts, and leads. Merge workflows, imports,
+  exports, and their audit trails remain pending.
 - [ ] Dashboard cards and basic reporting backed by query endpoints.
 
 Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
 
-## M5 — Communications and automation (0%)
+## M5 — Communications and automation (10%)
 
 Dependencies: provider ownership, OAuth credentials, retention policy, and
 webhook security decisions from the product owner.
 
-- [ ] Email and calendar connection framework, encrypted credential storage,
-  sync cursors, and communication timeline.
+- [~] Email and calendar connection framework, encrypted credential storage,
+  sync cursors, and communication timeline. The web app now provides a
+  provider-neutral task calendar and safe all-day `.ics` downloads; the CRM
+  also has a Google OAuth helper with minimized scopes, PKCE, refresh handling,
+  and AES-GCM encryption. It is not yet a provider connection or two-way sync:
+  tenant-scoped connection persistence, callback/UI routes, sync jobs,
+  revocation, audit history, and retention decisions remain required.
 - [ ] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.
+  The v1 safety and data-boundary contract is recorded in
+  [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md); implementation begins with
+  durable rule versions, execution idempotency, and in-app actions before any
+  provider-facing delivery.
 
 Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely

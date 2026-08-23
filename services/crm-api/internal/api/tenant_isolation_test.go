@@ -200,6 +200,15 @@ func wantNotFound(t *testing.T, rpc string, err error) {
 // crossTenantProbes is keyed by CRMService method name so the coverage test
 // below can compare it against the real method set.
 var crossTenantProbes = map[string]isolationProbe{
+	"SearchRecords": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		resp, err := s.SearchRecords(ctxB, connect.NewRequest(&crmv1.SearchRecordsRequest{Query: "victim"}))
+		if err != nil {
+			t.Fatalf("search as another tenant: %v", err)
+		}
+		if len(resp.Msg.GetRecords()) != 0 {
+			t.Fatalf("cross-tenant search returned %d records", len(resp.Msg.GetRecords()))
+		}
+	},
 	"GetAccount": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.GetAccount(ctxB, connect.NewRequest(&crmv1.GetAccountRequest{Id: a.accountID}))
 		wantNotFound(t, "GetAccount", err)

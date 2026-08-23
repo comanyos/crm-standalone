@@ -133,3 +133,23 @@ func TestValidate_ProductionRequiresMetricsToken(t *testing.T) {
 		t.Fatal("expected production to reject a missing or weak CRM_METRICS_TOKEN")
 	}
 }
+
+func TestValidate_GoogleOAuthRequiresCompleteConfiguration(t *testing.T) {
+	c := validConfig()
+	c.GoogleOAuthClientID = "client-id.apps.googleusercontent.com"
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected partial Google OAuth configuration to be rejected")
+	}
+}
+
+func TestValidate_ProductionRequiresHTTPSGoogleRedirect(t *testing.T) {
+	c := validConfig()
+	c.Environment = EnvProduction
+	c.GoogleOAuthClientID = "client-id.apps.googleusercontent.com"
+	c.GoogleOAuthClientSecret = "secret"
+	c.GoogleOAuthRedirectURL = "http://localhost:19431/integrations/google/callback"
+	c.GoogleOAuthTokenKey = "base64-encoded-32-byte-token-encryption-key"
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected an insecure Google OAuth redirect URL to be rejected in production")
+	}
+}

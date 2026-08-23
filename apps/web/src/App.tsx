@@ -23,6 +23,7 @@ import OpportunityBoardPage from "./features/opportunities/OpportunityBoardPage"
 import PipelinesPage from "./features/pipelines/PipelinesPage";
 import TasksListPage from "./features/tasks/TasksListPage";
 import TaskFormPage from "./features/tasks/TaskFormPage";
+import CalendarPage from "./features/calendar/CalendarPage";
 import CustomFieldsPage from "./features/settings/CustomFieldsPage";
 import CustomObjectsPage from "./features/settings/CustomObjectsPage";
 
@@ -65,6 +66,7 @@ export const router = createBrowserRouter(
         <Route path="/contacts/:id/edit" element={<ContactFormPage mode="edit" />} />
 
         <Route path="/tasks" element={<TasksListPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/tasks/new" element={<TaskFormPage mode="create" />} />
         <Route path="/tasks/:id/edit" element={<TaskFormPage mode="edit" />} />
 

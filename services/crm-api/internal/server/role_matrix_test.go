@@ -162,6 +162,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_field:read": true, "crm:custom_field:write": true,
 			"crm:custom_object:read": true, "crm:custom_object:write": true,
 			"crm:summary:read": true,
+			"crm:search:read":  true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -175,6 +176,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_field:read": false, "crm:custom_field:write": false,
 			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
+			"crm:search:read":  true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -193,6 +195,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_field:read": false, "crm:custom_field:write": false,
 			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
+			"crm:search:read":  true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -206,6 +209,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:custom_field:read": false, "crm:custom_field:write": false,
 			"crm:custom_object:read": false, "crm:custom_object:write": false,
 			"crm:summary:read": true,
+			"crm:search:read":  true,
 		},
 	}
 

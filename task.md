@@ -1253,6 +1253,15 @@ Acceptance criteria:
   from the same rule the server filters by — an undated or completed task is
   never overdue — so the badge and the Overdue view cannot disagree.
 
+  `/calendar` is the first provider-neutral calendar surface. It renders
+  due-dated open tasks in a month view and sends people to the existing task
+  form to create or reschedule them, rather than introducing a second,
+  overlapping reminder record. Every scheduled task can download a safely
+  escaped all-day `.ics` event, which Google Calendar and Outlook both import.
+  Direct Google/Microsoft connections and two-way sync stay in Phase 8: they
+  need per-user encrypted tokens, OAuth applications, and an explicit
+  conflict/deletion policy.
+
 ### 5.2 Attachments
 
 - [ ] Obtain product-owner decision on object storage provider, geography,
@@ -1272,10 +1281,17 @@ Acceptance criteria:
 
 ## Phase 6 — Search, filters, saved views, bulk operations, and data quality
 
+- [~] Implement global and entity search with ranking, highlights, permissions,
+  debounce/cancellation, pagination, and no cross-tenant leakage. The first
+  production-shaped slice is `SearchRecords`: a typed, tenant-scoped,
+  `crm:search:read` RPC used by the command palette instead of downloading
+  entity list pages into the browser. It searches only core identifier fields,
+  caps results at 50, validates a minimum two-character literal query, uses
+  PostgreSQL trigram indexes, and is covered by API and cross-tenant tests.
+  Highlighting, entity-search pages, search cursors, custom-field search and
+  saved results remain pending.
 - [ ] Define search technology and privacy model (Postgres FTS initially or a
   dedicated index later). Search indexes must be tenant-filtered.
-- [ ] Implement global and entity search with ranking, highlights, permissions,
-  debounce/cancellation, pagination, and no cross-tenant leakage.
 - [ ] Implement reusable structured filters, sort controls, column selection,
   saved views, sharing rules, and defaults per entity.
 - [ ] Implement bulk select/action APIs with authorization per affected record,
@@ -1334,9 +1350,12 @@ Acceptance criteria:
 Blocked until the product owner supplies provider choices, OAuth applications,
 redirect URLs, privacy/retention policy, and deployment secret ownership.
 
-- [ ] Define provider abstraction, connection status model, scope minimization,
+- [~] Define provider abstraction, connection status model, scope minimization,
   OAuth state/PKCE, encrypted credential storage, refresh/rotation, revocation,
-  reauthorization, and audit events.
+  reauthorization, and audit events. Google OAuth configuration and the
+  provider helper now implement scope minimization, PKCE, exchanges/refresh,
+  and AES-GCM token encryption; tenant-scoped connection persistence, callback
+  routes, revocation, and audit events remain open.
 - [ ] Implement email connection, sync cursor, deduplication, threading,
   contact/account matching, consent visibility, and timeline rendering.
 - [ ] Implement calendar connection, incremental sync, event linking,
