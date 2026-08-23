@@ -6,6 +6,14 @@ export interface Column<T> {
   render: (row: T) => ReactNode;
   /** Right-aligns numeric/amount columns. */
   align?: "left" | "right";
+  /** Renders the header for screen readers only, for a column whose purpose
+   * is obvious to a sighted reader — a row-actions column, a status badge.
+   *
+   * The header text is still required. A screen reader announcing a cell
+   * names its column, so an empty <th> leaves those cells with no context at
+   * all; axe reports it as `empty-table-header`. Hiding the label visually is
+   * a design choice, omitting it is a defect. */
+  headerHidden?: boolean;
 }
 
 interface TableProps<T> {
@@ -32,7 +40,7 @@ export function Table<T>({ caption, columns, rows, getRowKey, onRowActivate }: T
                   col.align === "right" ? "text-right" : "text-left"
                 }`}
               >
-                {col.header}
+                {col.headerHidden ? <span className="sr-only">{col.header}</span> : col.header}
               </th>
             ))}
           </tr>

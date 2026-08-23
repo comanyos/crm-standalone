@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./AppShell";
 import { renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { auth } = vi.hoisted(() => ({
   auth: {
@@ -101,6 +102,19 @@ describe("AppShell navigation drawer", () => {
 
     await screen.findByText("Accounts body");
     await waitFor(() => expect(nav()).toHaveClass("hidden"));
+  });
+
+  // The drawer is the one piece of this shell with two states, so both get
+  // checked: an overlay is a common place to leave an unlabelled control or a
+  // second landmark behind.
+  it("has no accessibility violations in either state", async () => {
+    const { container } = renderRoutes(routes, ["/"]);
+    await screen.findByText("Dashboard body");
+    await expectNoA11yViolations(container);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    await waitFor(() => expect(nav()).not.toHaveClass("hidden"));
+    await expectNoA11yViolations(container);
   });
 
   // One <nav>, shown or hidden — not a second copy for small screens. Two

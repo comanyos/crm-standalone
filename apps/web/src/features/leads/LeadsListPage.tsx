@@ -52,7 +52,7 @@ export default function LeadsListPage() {
     { key: "owner", header: "Owner", render: (lead) => lead.ownerId },
     {
       key: "duplicate",
-      header: "",
+      header: "Duplicate status", headerHidden: true,
       render: (lead) => (lead.duplicateOfContactId ? <Badge tone="warning">Possible duplicate</Badge> : null),
     },
   ];

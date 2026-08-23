@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import AccountFormPage from "./AccountFormPage";
 import { makeAccount, makeTimestamp, renderRoutes, sampleCustomFields } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
@@ -207,4 +208,14 @@ describe("AccountFormPage — unsaved changes", () => {
     expect(await screen.findByText("Account detail")).toBeInTheDocument();
     expect(screen.queryByText("Discard unsaved changes?")).not.toBeInTheDocument();
   });
+
+  // Static a11y over a form: every control needs a programmatic label, and errors need to be associated with the field they describe.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/accounts/acc-1/edit"]);
+    // Wait for the loaded form, not the skeleton — which also renders an
+    // <h1>, so gating on that scanned a placeholder with no controls in it.
+    await waitFor(() => expect(screen.getByLabelText(/^Name/)).toHaveValue("Acme Corp"));
+    await expectNoA11yViolations(container);
+  });
+
 });

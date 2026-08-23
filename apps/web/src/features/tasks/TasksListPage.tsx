@@ -83,7 +83,7 @@ export default function TasksListPage() {
   const columns: Column<Task>[] = [
     {
       key: "done",
-      header: "",
+      header: "Row actions", headerHidden: true,
       render: (task) =>
         canWrite ? (
           <input

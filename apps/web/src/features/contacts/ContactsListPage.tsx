@@ -89,7 +89,7 @@ export default function ContactsListPage() {
     },
     {
       key: "duplicate",
-      header: "",
+      header: "Duplicate status", headerHidden: true,
       render: (c) => (c.duplicateOfContactId ? <Badge tone="warning">Possible duplicate</Badge> : null),
     },
   ];

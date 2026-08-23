@@ -125,11 +125,26 @@ originally scoped product.
   shared Table already scrolled horizontally; PipelinesPage was already
   responsive.
 
-  Still open: the browser-based tier that would keep this honest — no
-  Lighthouse/axe baseline and no visual-regression snapshots, so a future
-  layout regression is caught by review or not at all. The unit tier asserts
-  the drawer's behaviour but cannot see a stylesheet, and the numbers above
-  came from a one-off Chromium run, not a checked-in test.
+  Static accessibility is now asserted, not assumed. `src/test/a11y.ts` runs
+  axe-core over a rendered container and fails with the violations named; the
+  shell (both drawer states), a list page, a form page and the board use it.
+  The layout-dependent rules are switched off rather than left to report
+  "incomplete" forever — jsdom has no stylesheet and no layout, so contrast
+  and target-size cannot be judged here. What is left is the markup half:
+  roles, names, label association, landmarks, table headers.
+
+  It found one real defect on its first run. Five list pages rendered an
+  empty `<th>` for their badge and action columns, and a screen reader
+  announcing a cell names its column — so those cells were announced with no
+  context at all. `Table`'s `Column` now takes `headerHidden`, which renders
+  the header for screen readers only: the text is required, hiding it is the
+  design choice. Each column is named for what it actually holds.
+
+  Still open: the browser half. No Lighthouse run, no axe against the running
+  app (contrast and target size are only checkable there), and no
+  visual-regression snapshots — so a layout regression is still caught by
+  review or not at all. The viewport numbers above came from a one-off
+  Chromium run, not a checked-in test.
 
 - [ ] Meet WCAG 2.2 AA for keyboard navigation, focus management, contrast,
   labels, validation, and screen-reader feedback.

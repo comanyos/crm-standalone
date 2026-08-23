@@ -81,7 +81,7 @@ export default function AccountsListPage() {
     },
     {
       key: "duplicate",
-      header: "",
+      header: "Duplicate status", headerHidden: true,
       render: (a) => (a.duplicateOfAccountId ? <Badge tone="warning">Possible duplicate</Badge> : null),
     },
   ];

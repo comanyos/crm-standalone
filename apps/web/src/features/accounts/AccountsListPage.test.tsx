@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import AccountsListPage from "./AccountsListPage";
 import { makeAccount, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { listAccounts: vi.fn() },
@@ -115,4 +116,14 @@ describe("AccountsListPage", () => {
     expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New account" })).not.toBeInTheDocument();
   });
+
+  // Static a11y over the data table and its pagination — the primitives every list screen reuses.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/accounts"]);
+    // Wait for real rows: the loading skeleton renders a heading too, so
+    // gating on <h1> would scan a placeholder and prove nothing.
+    await screen.findByRole("table");
+    await expectNoA11yViolations(container);
+  });
+
 });

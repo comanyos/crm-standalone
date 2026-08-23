@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectError, Code } from "@connectrpc/connect";
 import OpportunityBoardPage from "./OpportunityBoardPage";
 import { makeOpportunity, makeSalesStages, makeTimestamp, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { listPipelines: vi.fn(), listPipelineStages: vi.fn(), listOpportunities: vi.fn(), updateOpportunity: vi.fn() },
@@ -182,4 +183,13 @@ describe("OpportunityBoardPage", () => {
     expect(screen.queryByRole("button", { name: /^Move/ })).not.toBeInTheDocument();
     expect(screen.getByText("Acme renewal").closest("[draggable=true]")).toBeNull();
   });
+
+  // Static a11y over the board's columns are landmarks and its cards carry their own controls.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/opportunities/board"]);
+    // Wait for a real card, not the skeleton.
+    await screen.findByText("Acme renewal");
+    await expectNoA11yViolations(container);
+  });
+
 });
