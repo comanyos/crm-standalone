@@ -69,6 +69,7 @@ with the checked-in local defaults.
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | *(unset — Google integration disabled)* | Required together when Google integration is enabled |
 | `GOOGLE_OAUTH_REDIRECT_URL` | *(unset)* | Required with Google integration; `https://` |
 | `GOOGLE_OAUTH_TOKEN_KEY` | *(unset)* | Required with Google integration; base64-encoded 32-byte encryption key |
+| `CRM_WEB_APP_BASE_URL` | *(unset — the OAuth callback renders its own result page)* | `https://` when set; the origin the Google callback returns the browser to |
 
 ### `services/authincore`
 
@@ -90,6 +91,15 @@ Both services' `CORS_ALLOWED_ORIGINS` are driven by the same `CRM_WEB_ORIGIN`
 compose variable (default `http://localhost:3000`) — override it, and
 `apps/web`'s dev server port and `CRM_WEB_REDIRECT_URI` (see root
 `README.md`), together if the web app needs a different local port.
+
+The Google integration adds two more variables that must agree with settings
+made outside this repository. `GOOGLE_OAUTH_REDIRECT_URL` must match the OAuth
+client's registered redirect URI *and* the route crm-api serves
+(`/integrations/google/callback`) exactly — Google compares the whole string,
+including scheme, host and port. `CRM_WEB_APP_BASE_URL` is where the callback
+sends the browser afterwards; leaving it unset is safe (the callback renders a
+self-contained result page) but means users finish the flow outside the app.
+See `docs/GOOGLE_INTEGRATION.md`.
 
 ### `apps/web`
 

@@ -337,18 +337,37 @@ Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
 
-## M5 — Communications and automation (10%)
+## M5 — Communications and automation (25%)
 
 Dependencies: provider ownership, OAuth credentials, retention policy, and
 webhook security decisions from the product owner.
 
 - [~] Email and calendar connection framework, encrypted credential storage,
-  sync cursors, and communication timeline. The web app now provides a
-  provider-neutral task calendar and safe all-day `.ics` downloads; the CRM
-  also has a Google OAuth helper with minimized scopes, PKCE, refresh handling,
-  and AES-GCM encryption. It is not yet a provider connection or two-way sync:
-  tenant-scoped connection persistence, callback/UI routes, sync jobs,
-  revocation, audit history, and retention decisions remain required.
+  sync cursors, and communication timeline.
+
+  **Done — the connection lifecycle.** A user can link, inspect, reconnect,
+  disconnect and purge their own Google account end to end. Tenant-scoped
+  durable storage (`migrations/0019`), one-time OAuth state with atomic
+  consumption, an authenticated start RPC, an unauthenticated callback route
+  that derives its tenant from the state record, server-side code exchange with
+  PKCE, AES-256-GCM token sealing bound to `(tenant, owner)`, refresh with the
+  reauthorization path, revocation-before-erasure on disconnect, outbox audit
+  events, a bounded-label metric, and the Connected accounts page. Covered by
+  store-parity tests across both stores, an end-to-end flow suite against a
+  stub provider, and callback tests for the open-redirect and reflection
+  surface. See [GOOGLE_INTEGRATION.md](GOOGLE_INTEGRATION.md).
+
+  The web app also provides a provider-neutral task calendar and safe all-day
+  `.ics` downloads.
+
+  **Not done — what the connection feeds.** No message or event has been synced
+  yet: Gmail sync cursors, message/thread deduplication, contact matching and
+  timeline entries; Calendar incremental sync, event linking, attendee
+  matching, timezone handling and conflict policy; sending through
+  `gmail.send`; sealing-key rotation with re-encryption; and a retention
+  decision for synced communication content. Google verification submission
+  stays deferred until a truthful demo of the sync features can be recorded.
+  Microsoft remains deliberately unconfigured.
 - [ ] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.
   The v1 safety and data-boundary contract is recorded in
@@ -377,8 +396,10 @@ backup ownership supplied by the product owner.
   local/internal observability foundation, not a production monitoring
   deployment.
 - [ ] Add alert configuration, dashboards/SLOs/on-call, audit log export,
-  integration-specific metrics and trace propagation, retention controls, rate
-  limits, security headers/CORS review, and dependency scanning.
+  trace propagation for integrations, retention controls, rate limits, security
+  headers/CORS review, and dependency scanning. The Google connection's own
+  outcome counter (`crm_google_oauth_flows_total`) is in place; the rest of the
+  integration-specific metrics arrive with the sync jobs that need them.
 - [~] Encrypted Compose logical backup/restore scripts, explicit destructive
   restore confirmation, and an expand/contract + rollback policy are in
   `docs/BACKUP_RESTORE.md`. They are local/operator tooling, not managed PITR

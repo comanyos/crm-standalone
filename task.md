@@ -1350,12 +1350,25 @@ Acceptance criteria:
 Blocked until the product owner supplies provider choices, OAuth applications,
 redirect URLs, privacy/retention policy, and deployment secret ownership.
 
-- [~] Define provider abstraction, connection status model, scope minimization,
-  OAuth state/PKCE, encrypted credential storage, refresh/rotation, revocation,
-  reauthorization, and audit events. Google OAuth configuration and the
-  provider helper now implement scope minimization, PKCE, exchanges/refresh,
-  and AES-GCM token encryption; tenant-scoped connection persistence, callback
-  routes, revocation, and audit events remain open.
+- [x] Define connection status model, scope minimization, OAuth state/PKCE,
+  encrypted credential storage, refresh/rotation, revocation, reauthorization,
+  and audit events — for Google.
+
+  A connection is keyed on `(tenant_id, owner_id)` because Gmail and Calendar
+  consent belongs to a person, not an organization, and no RPC takes an owner
+  at all. The one-time OAuth state is what authenticates the callback, which
+  cannot carry a bearer token; consumption is a single atomic `UPDATE`, so a
+  replayed redirect connects nothing. Tokens and PKCE verifiers are sealed with
+  AES-256-GCM bound to `(tenant, owner)` and `(tenant, state)` respectively, so
+  a row copied across either boundary fails to open. Disconnect revokes at
+  Google before erasing locally. Lifecycle events go through the transactional
+  outbox, purge included.
+
+  Still open here: sealing-key rotation with re-encryption, and a **provider
+  abstraction** — the current design is Google-shaped by choice. Generalizing
+  it before a second provider exists would be inventing an interface against
+  one implementation; Microsoft stays deliberately unconfigured until asked
+  for.
 - [ ] Implement email connection, sync cursor, deduplication, threading,
   contact/account matching, consent visibility, and timeline rendering.
 - [ ] Implement calendar connection, incremental sync, event linking,
@@ -1363,7 +1376,10 @@ redirect URLs, privacy/retention policy, and deployment secret ownership.
   rendering.
 - [ ] Add provider webhooks with signature validation, replay protection,
   idempotency, dead-letter/retry handling, and tenant routing.
-- [ ] Add clear user/admin controls for disconnect, purge, and sync health.
+- [~] Add clear user/admin controls for disconnect, purge, and sync health.
+  Connect, reconnect, disconnect and purge are live on the Connected accounts
+  page, along with an administrative connection list behind its own scope.
+  Sync health has nothing to report until the sync jobs exist.
 
 Acceptance criteria:
 
