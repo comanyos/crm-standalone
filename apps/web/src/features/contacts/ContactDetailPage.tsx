@@ -116,7 +116,7 @@ export default function ContactDetailPage() {
 
       <section className="max-w-xl rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Details</h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <Field label="Email" value={contact.email} />
           <Field label="Phone" value={contact.phone} />
           <Field label="Title" value={contact.title} />

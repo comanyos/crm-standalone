@@ -105,6 +105,32 @@ originally scoped product.
 - [ ] Create a small design system: tokens, typography, colors, spacing,
   buttons, form controls, tables, dialogs, toasts, badges, skeletons, and
   status/empty/error/forbidden patterns.
+- [~] Responsive tablet and mobile layouts. The app shell was a permanently
+  visible 14rem sidebar with no responsive behaviour, so on a 375px phone the
+  page got 151px and a two-column form field measured **44px** — the figures
+  are from Chromium against the built stylesheet, not an estimate. Below `lg`
+  the sidebar is now an off-canvas drawer opened from a Topbar button, and
+  main takes the full width (375px on a phone, 768 on a tablet); from `lg` up
+  it is the permanent column it always was.
+
+  One `<nav>` serves both, shown or hidden, rather than a duplicate for small
+  screens — two would put every destination in the accessibility tree twice.
+  Closed, it is `display: none` rather than translated off-screen, so it
+  leaves the tab order instead of becoming an invisible focus trap; opening it
+  moves focus into the panel, and Escape, the Close button, the scrim and any
+  navigation all dismiss it.
+
+  Detail-page definition lists and paired form fields now stack below `sm`,
+  and PageHeader stacks its title and actions. The opportunity board and the
+  shared Table already scrolled horizontally; PipelinesPage was already
+  responsive.
+
+  Still open: the browser-based tier that would keep this honest — no
+  Lighthouse/axe baseline and no visual-regression snapshots, so a future
+  layout regression is caught by review or not at all. The unit tier asserts
+  the drawer's behaviour but cannot see a stylesheet, and the numbers above
+  came from a one-off Chromium run, not a checked-in test.
+
 - [ ] Meet WCAG 2.2 AA for keyboard navigation, focus management, contrast,
   labels, validation, and screen-reader feedback.
 - [ ] Make desktop workflows efficient and mobile/tablet layouts usable.

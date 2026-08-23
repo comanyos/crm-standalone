@@ -208,7 +208,7 @@ export default function ContactFormPage({ mode }: { mode: "create" | "edit" }) {
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="First name" {...register("firstName")} error={errors.firstName?.message} />
           <Input label="Last name" {...register("lastName")} error={errors.lastName?.message} />
         </div>

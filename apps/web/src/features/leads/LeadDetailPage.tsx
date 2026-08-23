@@ -93,7 +93,7 @@ export default function LeadDetailPage() {
       {lead.duplicateOfContactId && <div className="mb-4 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">This email matches <Link to={`/contacts/${lead.duplicateOfContactId}`} className="font-medium underline">{duplicateQuery.data?.contact?.email ?? "an existing contact"}</Link>. Review both before conversion.</div>}
       <section className="max-w-2xl rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Details</h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <Field label="Status" value={<Badge tone={statusTone(lead.status)}>{lead.status}</Badge>} />
           <Field label="Score" value={lead.score.toString()} />
           <Field label="Contact email" value={lead.contactEmail} />

@@ -115,7 +115,7 @@ export default function OpportunityFormPage({ mode }: { mode: "create" | "edit" 
       <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="flex max-w-xl flex-col gap-4" noValidate>
         <Input label="Opportunity name" {...register("name")} error={errors.name?.message} required />
         <Controller control={control} name="accountId" render={({ field }) => <AccountPicker label="Account" value={field.value} valueLabel={accountLabel} onChange={(accountId, accountName) => { field.onChange(accountId); setAccountLabel(accountName); }} error={errors.accountId?.message} disabled={terminal} />} />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input label="Amount" type="number" min={0} step="any" {...register("amount")} error={errors.amount?.message} disabled={terminal} />
           <Input label="Probability (%)" type="number" min={0} max={100} step="any" {...register("probability")} error={errors.probability?.message} disabled={terminal} />
         </div>

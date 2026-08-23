@@ -119,7 +119,7 @@ export default function AccountDetailPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <section className="rounded-lg border border-slate-200 bg-white p-4 md:col-span-2">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Details</h2>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <Field label="Tier" value={account.tier ? <Badge>{account.tier}</Badge> : undefined} />
             <Field label="Industry" value={account.industry} />
             <Field label="Owner" value={account.ownerId} />
