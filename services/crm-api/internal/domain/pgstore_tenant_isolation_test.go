@@ -76,6 +76,8 @@ type tenantFixture struct {
 	taskID        string
 	noteID        string
 	eventID       string
+	googleOwnerID string
+	googleState   string
 }
 
 // seedTenant writes a complete record set for one tenant, exercising the
@@ -208,6 +210,35 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] enqueue outbox event: %v", label, err)
 	}
 	f.eventID = event.ID
+
+	// The Google integration's two tables. Without rows here the
+	// catalog-driven behavioural test below would skip both — and they hold
+	// the most sensitive rows in the schema: a sealed mailbox credential and
+	// a pending authorization.
+	f.googleOwnerID = "owner-" + label
+	if _, err := s.SaveGoogleConnection(ctx, f.scope, &GoogleConnection{
+		OwnerID:            f.googleOwnerID,
+		GoogleAccountEmail: fmt.Sprintf("%s-%d@gmail.example", label, stamp),
+		Status:             GoogleStatusConnected,
+		GrantedScopes:      []string{"https://www.googleapis.com/auth/gmail.readonly"},
+		TokenCiphertext:    []byte("sealed-" + label),
+		ConnectedBy:        f.googleOwnerID,
+		ConnectedAt:        time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("[%s] save google connection: %v", label, err)
+	}
+
+	f.googleState = fmt.Sprintf("state-iso-%s-%d", label, stamp)
+	if _, err := s.CreateGoogleOAuthState(ctx, f.scope, &GoogleOAuthState{
+		State:              f.googleState,
+		ActorID:            f.googleOwnerID,
+		OwnerID:            f.googleOwnerID,
+		VerifierCiphertext: []byte("sealed-verifier-" + label),
+		ReturnPath:         "/settings/integrations",
+		ExpiresAt:          time.Now().UTC().Add(10 * time.Minute),
+	}); err != nil {
+		t.Fatalf("[%s] create google oauth state: %v", label, err)
+	}
 
 	return f
 }
@@ -363,6 +394,12 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		notFound(t, "GetTask", err)
 		_, err = s.GetNote(ctx, b.scope, a.noteID)
 		notFound(t, "GetNote", err)
+		// A Google connection is the highest-value row in the schema: it
+		// names a real mailbox and carries a sealed credential for it.
+		_, err = s.GetGoogleConnection(ctx, b.scope, a.googleOwnerID)
+		notFound(t, "GetGoogleConnection", err)
+		_, err = s.ConsumeGoogleOAuthState(ctx, b.scope, a.googleState, time.Now().UTC())
+		notFound(t, "ConsumeGoogleOAuthState", err)
 	})
 
 	t.Run("writes", func(t *testing.T) {
@@ -392,6 +429,9 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		_, err = s.UpdateNote(ctx, b.scope, &Note{ID: a.noteID, Body: "Seized"})
 		notFound(t, "UpdateNote", err)
 		notFound(t, "DeleteNote", s.DeleteNote(ctx, b.scope, a.noteID))
+
+		notFound(t, "DeleteGoogleConnection",
+			s.DeleteGoogleConnection(ctx, b.scope, a.googleOwnerID))
 	})
 
 	// The alpha records must still be intact: a denied write must not have

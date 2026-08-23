@@ -206,6 +206,10 @@ type MemStore struct {
 	customField      *memTable[*CustomFieldDefinition]
 	customObject     *memTable[*CustomObjectDefinition]
 	customRecord     *memTable[*CustomRecord]
+
+	// google holds the integration's two records. They are not memTables:
+	// see memstore_google.go for why.
+	google *googleTables
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -226,6 +230,7 @@ func NewMemStore() *MemStore {
 		customField:      newMemTable(cloneCustomFieldDefinition),
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
+		google:           newGoogleTables(),
 	}
 }
 

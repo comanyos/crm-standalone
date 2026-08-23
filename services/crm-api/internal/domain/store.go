@@ -129,6 +129,32 @@ type Store interface {
 	UpdateCustomRecord(ctx context.Context, scope Scope, v *CustomRecord) (*CustomRecord, error)
 	DeleteCustomRecord(ctx context.Context, scope Scope, objectType, id string) error
 
+	// The Google communication integration's durable state
+	// (docs/GOOGLE_INTEGRATION.md, migrations/0019_google_connections.sql).
+	// The store persists sealed bytes: every credential and PKCE verifier is
+	// encrypted by internal/integration/googleoauth before it gets here, so
+	// no implementation of this interface can open one.
+	CreateGoogleOAuthState(ctx context.Context, scope Scope, v *GoogleOAuthState) (*GoogleOAuthState, error)
+	// ConsumeGoogleOAuthState redeems a pending authorization exactly once
+	// and atomically. A second call for the same state — which is what a
+	// replayed OAuth redirect is — returns ErrNotFound, as does an expired
+	// one: the caller is unauthenticated, so it must not learn which.
+	ConsumeGoogleOAuthState(ctx context.Context, scope Scope, state string, now time.Time) (*GoogleOAuthState, error)
+	PurgeExpiredGoogleOAuthStates(ctx context.Context, scope Scope, now time.Time) (int, error)
+	// ResolveGoogleOAuthStateTenant is the second method here allowed to
+	// cross tenants, and it is held to the same rule as DueOutboxTenants: it
+	// answers only "which tenant does this opaque, unguessable state belong
+	// to". Every read and write that follows takes a real Scope built from
+	// the answer.
+	ResolveGoogleOAuthStateTenant(ctx context.Context, state string) (string, error)
+	// SaveGoogleConnection upserts the connection for v.OwnerID. There is at
+	// most one per owner per tenant: a second row would mean a second live
+	// refresh token for the same mailbox that no disconnect would revoke.
+	SaveGoogleConnection(ctx context.Context, scope Scope, v *GoogleConnection) (*GoogleConnection, error)
+	GetGoogleConnection(ctx context.Context, scope Scope, ownerID string) (*GoogleConnection, error)
+	ListGoogleConnections(ctx context.Context, scope Scope) ([]*GoogleConnection, error)
+	DeleteGoogleConnection(ctx context.Context, scope Scope, ownerID string) error
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 	// SearchRecords is the bounded cross-object quick-search surface. Results
