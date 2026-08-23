@@ -220,6 +220,9 @@ type MemStore struct {
 	// never match again (sync_erasure.go). Guarded by gmail.mu, which every
 	// path that reads it already holds.
 	suppressions map[string]map[string]*SyncSuppression
+	// workflow holds automation's rules, versions, executions, notifications
+	// and cursor — see memstore_workflow.go.
+	workflow *workflowTables
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -244,6 +247,7 @@ func NewMemStore() *MemStore {
 		gmail:            newGmailTables(),
 		calendar:         newCalendarTables(),
 		suppressions:     make(map[string]map[string]*SyncSuppression),
+		workflow:         newWorkflowTables(),
 	}
 }
 

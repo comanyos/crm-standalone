@@ -242,6 +242,61 @@ type Store interface {
 	SuppressedSyncAddresses(ctx context.Context, scope Scope) (map[string]bool, error)
 	ListSyncSuppressions(ctx context.Context, scope Scope) ([]*SyncSuppression, error)
 
+	// Workflow automation (migrations/0023_workflow_automation.sql,
+	// workflow.go).
+	CreateWorkflowRule(ctx context.Context, scope Scope, v *WorkflowRule) (*WorkflowRule, error)
+	GetWorkflowRule(ctx context.Context, scope Scope, id string) (*WorkflowRule, error)
+	ListWorkflowRules(ctx context.Context, scope Scope, includeArchived bool) ([]*WorkflowRule, error)
+	UpdateWorkflowRule(ctx context.Context, scope Scope, v *WorkflowRule) (*WorkflowRule, error)
+	// CreateWorkflowRuleVersion writes an immutable snapshot and assigns the
+	// next version number for its rule. There is no update: editing an active
+	// rule publishes a new version, so an execution can always say what the
+	// rule said when it ran.
+	CreateWorkflowRuleVersion(ctx context.Context, scope Scope, v *WorkflowRuleVersion) (*WorkflowRuleVersion, error)
+	GetWorkflowRuleVersion(ctx context.Context, scope Scope, id string) (*WorkflowRuleVersion, error)
+	ListWorkflowRuleVersions(ctx context.Context, scope Scope, ruleID string) ([]*WorkflowRuleVersion, error)
+	// ActiveWorkflowVersionsFor returns the published versions of every active
+	// rule whose trigger matches an event type. It is the engine's hot path
+	// and deliberately one query.
+	ActiveWorkflowVersionsFor(ctx context.Context, scope Scope, eventType string) ([]*WorkflowRuleVersion, error)
+
+	// ClaimWorkflowExecution inserts an execution and reports whether this
+	// caller created it.
+	//
+	// This is the load-bearing operation of the whole feature. Outbox
+	// delivery is at-least-once, so the same event reaches the engine more
+	// than once as a matter of course; the unique index on
+	// (tenant, rule_version, source_event) is what turns the second delivery
+	// into a no-op instead of a second follow-up task on a customer's record.
+	// It returns false rather than an error for an event already claimed,
+	// because that is the expected case and not a fault.
+	ClaimWorkflowExecution(ctx context.Context, scope Scope, v *WorkflowExecution) (*WorkflowExecution, bool, error)
+	UpdateWorkflowExecution(ctx context.Context, scope Scope, v *WorkflowExecution) (*WorkflowExecution, error)
+	ListWorkflowExecutions(ctx context.Context, scope Scope, ruleID string, limit int) ([]*WorkflowExecution, error)
+	// DueWorkflowExecutions claims retryable executions whose backoff has
+	// elapsed.
+	DueWorkflowExecutions(ctx context.Context, scope Scope, now time.Time, limit int) ([]*WorkflowExecution, error)
+
+	// The engine's position in one tenant's outbox, and the events after it.
+	GetWorkflowCursor(ctx context.Context, scope Scope) (*WorkflowCursor, error)
+	SaveWorkflowCursor(ctx context.Context, scope Scope, v *WorkflowCursor) error
+	ClaimWorkflowCursor(ctx context.Context, scope Scope, now time.Time, lease time.Duration) (*WorkflowCursor, error)
+	// OutboxEventsAfter returns the tenant's events following a cursor
+	// position, oldest first. The engine reads the same durable log the bus
+	// dispatcher does, from its own position.
+	OutboxEventsAfter(ctx context.Context, scope Scope, after WorkflowCursor, limit int) ([]*OutboxEvent, error)
+	// DueWorkflowTenants is the last cross-tenant read, held to the same rule
+	// as the others: identifiers only.
+	DueWorkflowTenants(ctx context.Context, now time.Time, limit int) ([]string, error)
+
+	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
+	// ListNotifications returns one principal's own notifications. There is
+	// no "list everybody's": a notification is addressed to a person, and the
+	// recipient is a parameter rather than a filter so no call site can omit
+	// it and read the tenant's.
+	ListNotifications(ctx context.Context, scope Scope, recipientID string, unreadOnly bool, limit int) ([]*Notification, error)
+	MarkNotificationRead(ctx context.Context, scope Scope, recipientID, id string) (*Notification, error)
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 	// SearchRecords is the bounded cross-object quick-search surface. Results
