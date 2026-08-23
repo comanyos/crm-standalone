@@ -337,7 +337,7 @@ Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
 
-## M5 — Communications and automation (40%)
+## M5 — Communications and automation (55%)
 
 Dependencies: provider ownership, OAuth credentials, retention policy, and
 webhook security decisions from the product owner.
@@ -369,15 +369,26 @@ webhook security decisions from the product owner.
   tenant, bodies are never fetched (`format=metadata`), and there is no body
   or snippet column to put one in.
 
-  **Not done — what the connection still owes.** No calendar event is read or
-  written despite the scope being requested; `gmail.send` is requested but
-  unused; synced email attaches to matched Contacts only, not to their
-  Accounts or open Opportunities; `thread_id` is stored but nothing groups a
-  conversation in the UI; there is no operation to erase synced content on
-  request, which a data-subject erasure would need; and sealing-key rotation
-  still has no re-encryption path. Google verification submission stays
-  deferred until a truthful demo of the sync features can be recorded.
-  Microsoft remains deliberately unconfigured.
+  **Done — Calendar synchronisation.** Meetings involving known contacts reach
+  their timelines, and the timeline is updated when one is moved or cancelled.
+  Incremental sync on Google's own syncToken with a bounded first window,
+  attendee and organizer matching that excludes every address Google marks as
+  the account's own, timezone handling that keeps an all-day event on the day
+  it actually falls, and a conflict policy: Google is authoritative, the
+  mirror follows it in place, and only status and start changes reach the
+  append-only timeline.
+
+  **Not done — what the connection still owes.** Sync is one-way in both
+  streams: the CRM never creates, moves or cancels an event, and `gmail.send`
+  is requested but unused. Only the `primary` calendar is read. Recurring
+  series sync as individual instances, so moving a series posts one entry per
+  instance. Synced email and meetings attach to matched Contacts only, not to
+  their Accounts or open Opportunities. `thread_id` and `recurring_event_id`
+  are stored but nothing groups a conversation or a series in the UI. There is
+  no operation to erase synced content on request, which a data-subject
+  erasure would need, and sealing-key rotation still has no re-encryption
+  path. Google verification submission stays deferred until a truthful demo
+  can be recorded. Microsoft remains deliberately unconfigured.
 - [ ] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.
   The v1 safety and data-boundary contract is recorded in

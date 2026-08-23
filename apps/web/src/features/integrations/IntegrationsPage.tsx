@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
-import type { GmailSyncStatus, GoogleConnection } from "@crm/contracts";
+import type { CalendarSyncStatus, GmailSyncStatus, GoogleConnection } from "@crm/contracts";
 import { PageHeader } from "../../components/shell/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
@@ -78,6 +78,16 @@ const SYNC_REASON: Record<string, string> = {
   storage_failed: "The last pass could not be saved. If this persists, contact your administrator.",
 };
 
+const CALENDAR_SYNC_REASON: Record<string, string> = {
+  not_connected:
+    "Calendar access is not available for this account. Reconnect and make sure you grant permission to your calendar.",
+  token_unavailable: "Google would not renew the CRM's access. Reconnect your account.",
+  sync_token_expired:
+    "The CRM was out of sync long enough that Google reset the cursor. A fresh pass over your recent and upcoming meetings is running.",
+  provider_error: "Google could not be reached on the last attempt. The CRM will try again shortly.",
+  storage_failed: "The last pass could not be saved. If this persists, contact your administrator.",
+};
+
 /** Connected accounts. Today that means Google; Microsoft is deliberately not
  * here yet rather than present and disabled, because a greyed-out button is a
  * promise this CRM has not made.
@@ -105,6 +115,7 @@ export default function IntegrationsPage() {
 
   const connection = query.data?.connection;
   const sync: GmailSyncStatus | undefined = query.data?.gmailSync;
+  const calendarSync: CalendarSyncStatus | undefined = query.data?.calendarSync;
   const configured = query.data?.configured ?? false;
   const requestedScopes = useMemo(() => query.data?.requestedScopes ?? [], [query.data]);
   const status = connection?.status ?? "";
@@ -159,6 +170,22 @@ export default function IntegrationsPage() {
           created > 0
             ? `Added ${created} email${created === 1 ? "" : "s"} to your contacts' timelines.`
             : "Mailbox checked. No new email involving your contacts.",
+      });
+    },
+    onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
+  });
+
+  const syncCalendarNow = useMutation({
+    mutationFn: () => crm.syncGoogleCalendar({}),
+    onSuccess: (response) => {
+      void queryClient.invalidateQueries({ queryKey: ["crm.getGoogleConnection"] });
+      const created = response.entriesCreated;
+      toast.show({
+        tone: "success",
+        message:
+          created > 0
+            ? `Recorded ${created} meeting update${created === 1 ? "" : "s"} on your contacts' timelines.`
+            : "Calendar checked. Nothing new involving your contacts.",
       });
     },
     onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
@@ -309,6 +336,66 @@ export default function IntegrationsPage() {
                     onClick={() => syncNow.mutate()}
                   >
                     Check for new email
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {configured && status === "connected" && (
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-semibold text-slate-900">Calendar sync</h3>
+              <p className="mt-1 max-w-prose text-sm text-slate-600">
+                Meetings with people already in your contacts are added to the contact's
+                timeline, and the timeline is updated when one is moved or cancelled. Meetings
+                with no matching contact are never read into the CRM.
+              </p>
+
+              {calendarSync ? (
+                <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-slate-500">Meeting updates recorded</dt>
+                    <dd className="font-medium text-slate-900">
+                      {Number(calendarSync.activitiesCreated)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Last checked</dt>
+                    <dd className="font-medium text-slate-900">
+                      {formatMoment(calendarSync.lastSyncedAt) || "Not yet"}
+                    </dd>
+                  </div>
+                  {!calendarSync.backfillComplete && (
+                    <div className="sm:col-span-2">
+                      <p className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+                        Still working through your recent and upcoming meetings. This runs in the
+                        background and may take a few passes.
+                      </p>
+                    </div>
+                  )}
+                  {calendarSync.lastError && CALENDAR_SYNC_REASON[calendarSync.lastError] && (
+                    <div className="sm:col-span-2">
+                      <p className="rounded-md bg-warning-50 p-3 text-sm text-warning-700">
+                        {CALENDAR_SYNC_REASON[calendarSync.lastError]}
+                      </p>
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <p className="mt-3 text-sm text-slate-600">
+                  Calendar sync has not run yet. It starts automatically, or you can check now.
+                </p>
+              )}
+
+              {canWrite && (
+                <div className="mt-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={syncCalendarNow.isPending}
+                    onClick={() => syncCalendarNow.mutate()}
+                  >
+                    Check for meeting changes
                   </Button>
                 </div>
               )}

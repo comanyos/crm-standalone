@@ -1383,9 +1383,23 @@ redirect URLs, privacy/retention policy, and deployment secret ownership.
   which of several open deals it belongs to — a product decision, not a
   coding one); **threading** (`thread_id` is stored but nothing groups a
   conversation); and **timeline rendering** beyond the plain Activity entry.
-- [ ] Implement calendar connection, incremental sync, event linking,
+- [~] Implement calendar connection, incremental sync, event linking,
   attendee matching, time-zone handling, conflict policy, and timeline
   rendering.
+
+  Done for Google Calendar: incremental sync on Google's syncToken with a
+  bounded first window and a 410 restart; event linking through a mirror row
+  per timeline entry; attendee matching that excludes every address Google
+  marks as the account's own (aliases and delegated mailboxes included);
+  time-zone handling that stores the IANA zone with the instant and renders
+  every entry in the event's own zone; and a conflict policy — Google is
+  authoritative, the mirror follows in place, and only a status or start
+  change reaches the append-only timeline.
+
+  Open: **write-back** (the CRM never creates, moves or cancels an event, so
+  there is no two-way conflict to resolve yet); calendars other than
+  `primary`; grouping a recurring series, which currently posts one entry per
+  moved instance; and richer timeline rendering than the plain Activity entry.
 - [ ] Add provider webhooks with signature validation, replay protection,
   idempotency, dead-letter/retry handling, and tenant routing.
 - [~] Add clear user/admin controls for disconnect, purge, and sync health.

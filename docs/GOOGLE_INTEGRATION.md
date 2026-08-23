@@ -246,6 +246,90 @@ history because somebody unlinked a mailbox would be a surprise, not a privacy
 win. Erasing synced content on request is a separate operation this module
 does not have yet — see **What is not built yet**.
 
+## Calendar synchronisation
+
+The same privacy rule as Gmail, and for a sharper reason: a calendar names who
+somebody met and when. An event is recorded only when one of its attendees is
+already a Contact in the tenant, and the field mask sent to Google excludes
+`description` and `location`, so neither crosses the network.
+
+### What makes calendars harder than mail
+
+Events are **mutable**. Meetings move and meetings get cancelled, and telling
+a customer the wrong time is a real cost. Mail never does either, so calendar
+sync needs two things Gmail's does not:
+
+- **A mirror.** `calendar_events` holds Google's current state for an event and
+  is updated in place, while the CRM timeline stays append-only — the property
+  that makes an Activity worth having as evidence.
+- **A material-state fingerprint.** `state_key` covers status and start, and
+  nothing else. A new fingerprint appends a timeline entry; the same one
+  updates the mirror silently.
+
+The title is deliberately not material even though it is stored. Renaming
+"Call" to "Discovery call" is not news, and if it counted it would look to a
+reader exactly like a rescheduled meeting. So the timeline says only three
+things, and each says it once:
+
+| Transition | Timeline entry |
+| --- | --- |
+| first seen | `Meeting scheduled: <title> (<when>)` |
+| start moved | `Meeting rescheduled: …` |
+| status became cancelled | `Meeting cancelled: …` |
+
+Google keeps returning cancelled events on subsequent syncs, which is exactly
+why the fingerprint exists: without it the customer's timeline would fill with
+repeat cancellations.
+
+### Timezones
+
+This is the part that goes wrong quietly, so it is handled end to end and
+asserted in both directions.
+
+Google sends an all-day event as a bare date — `"date": "2026-08-01"` —
+meaning *the whole of 1 August wherever this calendar lives*. Reading that as
+UTC puts the day boundary in the wrong place for exactly the users who notice:
+in Asia/Kolkata the event starts 5½ hours into 1 August, and in
+America/Los_Angeles it starts the evening before.
+
+So: the date is parsed in the event's own zone, `all_day` and `time_zone` are
+stored together, a CHECK constraint refuses an all-day event without its zone,
+and every timeline entry renders in the event's zone rather than the reader's.
+A meeting at 09:00 in London does not read as 04:00 to the customer who
+attended it, and an all-day event on 1 August never reads as 31 July.
+
+When an event carries no zone of its own — common for all-day events — the
+calendar's own default is used, read once per pass. An unrecognized zone name
+falls back to UTC and *stores* UTC, which is at least true.
+
+### Matching
+
+Attendees and the organizer, minus every address belonging to the connected
+account. "Belonging to the connected account" is more than one address:
+Google marks its own rows with `self` on both the organizer and the attendee
+list, and that is the answer to trust. A user with aliases, a delegated
+mailbox, or a Google Group membership organizes meetings under addresses the
+connection has never heard of; comparing against the single configured address
+misses them, and the failure is quiet — the account matches itself as a
+Contact and every meeting it attends lands on its own timeline.
+
+### The cursor
+
+A first pass lists a bounded window — 90 days back, 180 days forward, the
+future window longer because upcoming meetings are the ones somebody is about
+to walk into — and Google returns a `syncToken` on the final page. Later
+passes send that token and nothing else: Google rejects a sync token combined
+with a time window, so the two request shapes stay strictly separate.
+
+A token Google has discarded comes back as HTTP 410. That restarts the window
+rather than resuming, for the same reason an expired Gmail history cursor
+does: an unknown amount changed while the token was invalid.
+
+One pass examines at most 250 events. The poller runs every five minutes to
+Gmail's one — calendars change far less often than mailboxes — as its own
+loop rather than sharing a pass, so a Gmail quota problem cannot stop meetings
+reaching timelines and an expired calendar cursor cannot delay anybody's mail.
+
 ## Audit and metrics
 
 Lifecycle events go through the module's transactional outbox on subject
@@ -266,9 +350,12 @@ and `crm_gmail_sync_passes_total{outcome}` counts sync passes. In both, the
 only label is a bounded reason-code set; no tenant, user, mailbox address or
 provider message is ever a metric label.
 
-`crm_gmail_timeline_entries_total` counts entries written by sync and has no
-labels at all — a per-tenant or per-mailbox breakdown of how much somebody
-emails is not something a metrics endpoint should carry.
+`crm_calendar_sync_passes_total{outcome}` is the calendar equivalent.
+
+`crm_gmail_timeline_entries_total` and `crm_calendar_timeline_entries_total`
+count entries written by sync and have no labels at all — a per-tenant or
+per-mailbox breakdown of how much somebody emails, or how many meetings they
+take, is not something a metrics endpoint should carry.
 
 ## Configuration
 
@@ -308,10 +395,15 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
 
 ## What is not built yet
 
-- **Calendar sync** — incremental sync, event linking, attendee matching,
-  timezone handling, and a conflict policy. Nothing reads or writes calendar
-  events yet, despite the scope being requested.
-- **Sending** — `gmail.send` is requested but nothing sends yet.
+- **Writing to Google** — sync is one-way in both streams. The CRM never
+  creates, moves or cancels an event, and `gmail.send` is requested but
+  nothing sends. Google is authoritative for everything synced; there is no
+  write-back and therefore no two-way conflict to resolve.
+- **Calendars other than `primary`** — a user with a separate work calendar
+  syncs only their main one.
+- **Recurring series** — instances are synced individually (`singleEvents`),
+  so moving a whole series posts one timeline entry per affected instance.
+  `recurring_event_id` is stored but nothing groups them.
 - **Account and opportunity matching** — sync attaches an email to matched
   Contacts only. Rolling that up to the Contact's Account, or onto an open
   Opportunity, needs a rule for which of several open deals an email belongs
