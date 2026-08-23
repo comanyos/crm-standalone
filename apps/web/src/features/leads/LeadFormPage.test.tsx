@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LeadFormPage from "./LeadFormPage";
 import { makeLead, makeTimestamp, renderRoutes, sampleCustomFields } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { getLead: vi.fn(), createLead: vi.fn(), updateLead: vi.fn() },
@@ -53,4 +54,13 @@ describe("LeadFormPage", () => {
     expect(sent.updatedAt).toEqual(savedAt);
     expect(sent.customFields).toEqual(sampleCustomFields);
   });
+
+  // A form is where label association and error-to-field wiring live, and
+  // both are invisible until something reads the page aloud.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/leads/lead-1/edit"]);
+    await waitFor(() => expect(screen.getByLabelText(/^Company/)).toHaveValue("Northwind"));
+    await expectNoA11yViolations(container);
+  });
+
 });

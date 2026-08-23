@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OpportunityFormPage from "./OpportunityFormPage";
 import { makeAccount, makeOpportunity, makeSalesStages, renderRoutes } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
@@ -82,4 +83,13 @@ describe("OpportunityFormPage stage options", () => {
     const stage = screen.getByLabelText(/^Stage/);
     expect(stage).toHaveAttribute("readonly");
   });
+
+  // A form is where label association and error-to-field wiring live, and
+  // both are invisible until something reads the page aloud.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/opportunities/opp-1/edit"]);
+    await waitFor(() => expect(screen.getByLabelText(/^Opportunity name/)).toHaveValue("Acme renewal"));
+    await expectNoA11yViolations(container);
+  });
+
 });

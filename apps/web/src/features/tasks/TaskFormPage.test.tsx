@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TaskFormPage from "./TaskFormPage";
 import { makeTask, makeTimestamp, renderRoutes, sampleCustomFields } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: { getTask: vi.fn(), createTask: vi.fn(), updateTask: vi.fn() },
@@ -52,4 +53,13 @@ describe("TaskFormPage", () => {
     expect(sent.updatedAt).toEqual(savedAt);
     expect(sent.customFields).toEqual(sampleCustomFields);
   });
+
+  // A form is where label association and error-to-field wiring live, and
+  // both are invisible until something reads the page aloud.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/tasks/task-1/edit"]);
+    await waitFor(() => expect(screen.getByLabelText(/^Title/)).toHaveValue("Send the proposal"));
+    await expectNoA11yViolations(container);
+  });
+
 });

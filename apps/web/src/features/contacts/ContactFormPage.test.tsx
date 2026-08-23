@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Code, ConnectError } from "@connectrpc/connect";
 import ContactFormPage from "./ContactFormPage";
 import { makeAccount, makeContact, makeTimestamp, renderRoutes, sampleCustomFields } from "../../test/harness";
+import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
@@ -193,4 +194,13 @@ describe("ContactFormPage — edit", () => {
     expect(await screen.findByText("You don't have access to this")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
   });
+
+  // A form is where label association and error-to-field wiring live, and
+  // both are invisible until something reads the page aloud.
+  it("has no accessibility violations", async () => {
+    const { container } = renderRoutes(routes, ["/contacts/con-1/edit"]);
+    await waitFor(() => expect(screen.getByLabelText(/^Email/)).toHaveValue("ada@acme.example"));
+    await expectNoA11yViolations(container);
+  });
+
 });
