@@ -39,6 +39,20 @@ var (
 		Name: "crm_google_oauth_flows_total",
 		Help: "Google connection lifecycle outcomes partitioned by safe outcome code.",
 	}, []string{"outcome"})
+	// GmailSyncPassesTotal counts sync passes by outcome. The label is the
+	// bounded reason-code set in internal/integration/gmail — never a
+	// mailbox, a tenant, or a provider message.
+	GmailSyncPassesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_gmail_sync_passes_total",
+		Help: "Gmail synchronisation passes partitioned by safe outcome code.",
+	}, []string{"outcome"})
+	// GmailTimelineEntriesTotal counts timeline entries written by sync. It
+	// has no labels at all: a per-tenant or per-mailbox breakdown of how much
+	// somebody emails is not something a metrics endpoint should carry.
+	GmailTimelineEntriesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "crm_gmail_timeline_entries_total",
+		Help: "CRM timeline entries created from synchronised Gmail messages.",
+	})
 	dbPoolAcquired = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_acquired_connections", Help: "Current acquired CRM database pool connections."})
 	dbPoolIdle     = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_idle_connections", Help: "Current idle CRM database pool connections."})
 	dbPoolTotal    = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_total_connections", Help: "Current total CRM database pool connections."})
