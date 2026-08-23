@@ -210,6 +210,9 @@ type MemStore struct {
 	// google holds the integration's two records. They are not memTables:
 	// see memstore_google.go for why.
 	google *googleTables
+	// gmail holds synchronisation cursors and the timeline index — likewise
+	// not memTables, see memstore_gmail.go.
+	gmail *gmailTables
 }
 
 // NewMemStore returns an empty in-memory store.
@@ -231,6 +234,7 @@ func NewMemStore() *MemStore {
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
 		google:           newGoogleTables(),
+		gmail:            newGmailTables(),
 	}
 }
 

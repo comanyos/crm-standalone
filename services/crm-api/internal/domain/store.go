@@ -155,6 +155,36 @@ type Store interface {
 	ListGoogleConnections(ctx context.Context, scope Scope) ([]*GoogleConnection, error)
 	DeleteGoogleConnection(ctx context.Context, scope Scope, ownerID string) error
 
+	// Gmail synchronisation (migrations/0020_gmail_sync.sql).
+	GetGmailSyncState(ctx context.Context, scope Scope, ownerID string) (*GmailSyncState, error)
+	SaveGmailSyncState(ctx context.Context, scope Scope, v *GmailSyncState) (*GmailSyncState, error)
+	// ClaimGmailSync leases one mailbox for one sync pass, so two replicas
+	// polling the same tenant do not both walk it and race to insert the same
+	// timeline entries. It returns ErrConflict when the lease is already
+	// held. The lease expires rather than needing release: a replica that
+	// dies mid-pass must not make a mailbox permanently unsyncable.
+	ClaimGmailSync(ctx context.Context, scope Scope, ownerID string, now time.Time, lease time.Duration) (*GmailSyncState, error)
+	// DueGmailMailboxes is the third method allowed to cross tenants, held to
+	// the same rule as DueOutboxTenants: it answers only "which mailboxes are
+	// unclaimed and least recently synced", returning identifiers. Every read
+	// and write that follows takes a real Scope built from them.
+	DueGmailMailboxes(ctx context.Context, now time.Time, limit int) ([]GmailMailboxRef, error)
+	// RecordGmailActivity writes one timeline entry: the Activity and the
+	// index row that makes it idempotent, in one transaction. It reports
+	// false when the entry already existed, which is the normal outcome of
+	// re-syncing a message. The two writes are one fact — an Activity with no
+	// index row is a duplicate waiting to be created on the next pass, and an
+	// index row with no Activity is a timeline entry that silently never
+	// appeared.
+	RecordGmailActivity(ctx context.Context, scope Scope, msg *GmailMessage, activity *Activity) (bool, error)
+	ListGmailMessagesForSubject(ctx context.Context, scope Scope, subjectType, subjectID string, limit int) ([]*GmailMessage, error)
+	// PurgeGmailDataForOwner erases one mailbox's sync state and every
+	// timeline index row it produced. The Activities themselves are left
+	// alone: they are CRM records the organization has since worked from, and
+	// silently deleting a customer's correspondence history because someone
+	// disconnected a mailbox would be a surprise, not a privacy win.
+	PurgeGmailDataForOwner(ctx context.Context, scope Scope, ownerID string) (int, error)
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 	// SearchRecords is the bounded cross-object quick-search surface. Results

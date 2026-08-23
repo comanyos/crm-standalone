@@ -78,6 +78,7 @@ type tenantFixture struct {
 	eventID       string
 	googleOwnerID string
 	googleState   string
+	gmailActivity string
 }
 
 // seedTenant writes a complete record set for one tenant, exercising the
@@ -237,6 +238,40 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		ExpiresAt:          time.Now().UTC().Add(10 * time.Minute),
 	}); err != nil {
 		t.Fatalf("[%s] create google oauth state: %v", label, err)
+	}
+
+	// Gmail synchronisation state and one timeline index row, for the same
+	// reason: without rows the catalog-driven behavioural test below skips
+	// both tables, and gmail_messages holds a customer's correspondence
+	// metadata.
+	if _, err := s.SaveGmailSyncState(ctx, f.scope, &GmailSyncState{
+		OwnerID: f.googleOwnerID, LastHistoryID: fmt.Sprintf("%d", stamp),
+		BackfillComplete: true, LastSyncedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("[%s] save gmail sync state: %v", label, err)
+	}
+
+	f.gmailActivity = newID()
+	if _, err := s.RecordGmailActivity(ctx, f.scope,
+		&GmailMessage{
+			OwnerID:           f.googleOwnerID,
+			ProviderMessageID: fmt.Sprintf("msg-iso-%s-%d", label, stamp),
+			SubjectType:       SubjectContact,
+			SubjectID:         f.contactID,
+			ThreadID:          fmt.Sprintf("thread-iso-%s-%d", label, stamp),
+			ActivityID:        f.gmailActivity,
+			MessageSubject:    label + " confidential deal terms",
+			FromAddress:       fmt.Sprintf("%s-%d@example.com", label, stamp),
+			Direction:         GmailInbound,
+			OccurredAt:        time.Now().UTC(),
+		},
+		&Activity{
+			ID: f.gmailActivity, Kind: GmailActivityKind,
+			SubjectType: SubjectContact, SubjectID: f.contactID,
+			Notes:   "Email: " + label + " confidential deal terms",
+			ActorID: f.googleOwnerID, OccurredAt: time.Now().UTC(),
+		}); err != nil {
+		t.Fatalf("[%s] record gmail activity: %v", label, err)
 	}
 
 	return f
@@ -399,6 +434,18 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		notFound(t, "GetGoogleConnection", err)
 		_, err = s.ConsumeGoogleOAuthState(ctx, b.scope, a.googleState, time.Now().UTC())
 		notFound(t, "ConsumeGoogleOAuthState", err)
+		_, err = s.GetGmailSyncState(ctx, b.scope, a.googleOwnerID)
+		notFound(t, "GetGmailSyncState", err)
+
+		// Correspondence metadata is not a Get, so it cannot answer
+		// NotFound — it must simply return nothing.
+		entries, err := s.ListGmailMessagesForSubject(ctx, b.scope, SubjectContact, a.contactID, 0)
+		if err != nil {
+			t.Errorf("ListGmailMessagesForSubject as another tenant: %v", err)
+		}
+		if len(entries) != 0 {
+			t.Errorf("tenant beta read %d of tenant alpha's synced messages", len(entries))
+		}
 	})
 
 	t.Run("writes", func(t *testing.T) {
@@ -618,18 +665,22 @@ func TestCrossTenantEntityAccessIsDenied(t *testing.T) {
 		}
 		// beta seeded exactly one of each entity, so any other number means
 		// the count either spans tenants or misses the caller's own rows.
-		for _, entity := range []string{"account", "contact", "lead", "opportunity", "activity"} {
-			if got := summary.Counts[entity]; got != 1 {
-				t.Errorf("Summary counts %d %s rows for tenant beta; want exactly 1", got, entity)
+		// Activity is the exception: the fixture logs one directly and Gmail
+		// sync records a second, so the expected count is stated per entity
+		// rather than assumed uniform.
+		want := map[string]int64{
+			"account": 1, "contact": 1, "lead": 1, "opportunity": 1,
+			"activity": 2, "task": 1, "note": 1,
+		}
+		var total int64
+		for entity, expected := range want {
+			total += expected
+			if got := summary.Counts[entity]; got != expected {
+				t.Errorf("Summary counts %d %s rows for tenant beta; want exactly %d", got, entity, expected)
 			}
 		}
-		for _, entity := range []string{"task", "note"} {
-			if got := summary.Counts[entity]; got != 1 {
-				t.Errorf("Summary counts %d %s rows for tenant beta; want exactly 1", got, entity)
-			}
-		}
-		if summary.Total != 7 {
-			t.Errorf("Summary.Total = %d for tenant beta; want 7", summary.Total)
+		if summary.Total != total {
+			t.Errorf("Summary.Total = %d for tenant beta; want %d", summary.Total, total)
 		}
 	})
 
