@@ -144,6 +144,9 @@ service CRMService {
   // cursor, so a large mailbox needs several and the caller can simply ask
   // again.
   rpc SyncGoogleMailbox(SyncGoogleMailboxRequest) returns (SyncGoogleMailboxResponse);
+  // SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
+  // calendar, and is bounded the same way.
+  rpc SyncGoogleCalendar(SyncGoogleCalendarRequest) returns (SyncGoogleCalendarResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -321,6 +324,8 @@ message GetGoogleConnectionResponse {
   repeated string requested_scopes = 3;
   // gmail_sync is absent until the mailbox has been synced at least once.
   GmailSyncStatus gmail_sync = 4;
+  // calendar_sync is absent until the calendar has been synced at least once.
+  CalendarSyncStatus calendar_sync = 5;
 }
 
 message ListGoogleConnectionsRequest {}
@@ -333,6 +338,32 @@ message DisconnectGoogleConnectionRequest {
   bool purge = 1;
 }
 message DisconnectGoogleConnectionResponse { GoogleConnection connection = 1; }
+
+// CalendarSyncStatus is how far calendar synchronisation has got. Like its
+// Gmail counterpart it reports progress and health only: no field here could
+// hold a meeting, an attendee, or a title.
+message CalendarSyncStatus {
+  bool backfill_complete = 1;
+  google.protobuf.Timestamp last_synced_at = 2;
+  // last_event_at is the start of the latest event indexed, which for a
+  // calendar is usually in the future. It is progress, not freshness.
+  google.protobuf.Timestamp last_event_at = 3;
+  // events_indexed counts events that matched a CRM contact. Events with no
+  // CRM counterparty are never recorded or counted.
+  int64 events_indexed = 4;
+  // activities_created counts timeline entries: a meeting appearing, moving,
+  // or being cancelled. It is much lower than events_indexed in steady state,
+  // because most passes find nothing material has changed.
+  int64 activities_created = 5;
+  string last_error = 6;
+}
+
+message SyncGoogleCalendarRequest {}
+message SyncGoogleCalendarResponse {
+  CalendarSyncStatus calendar_sync = 1;
+  int32 events_examined = 2;
+  int32 entries_created = 3;
+}
 
 message SyncGoogleMailboxRequest {}
 message SyncGoogleMailboxResponse {

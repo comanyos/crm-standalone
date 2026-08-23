@@ -110,6 +110,12 @@ func (s *CRMService) GetGoogleConnection(
 		return nil, connectErr(err)
 	}
 	resp.GmailSync = gmailSyncToProto(state)
+
+	calendarState, err := s.store.GetCalendarSyncState(ctx, scope, owner)
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		return nil, connectErr(err)
+	}
+	resp.CalendarSync = calendarSyncToProto(calendarState)
 	return connect.NewResponse(resp), nil
 }
 

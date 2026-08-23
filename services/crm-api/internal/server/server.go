@@ -15,6 +15,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
@@ -33,6 +34,7 @@ type Server struct {
 	authn     *auth.Authenticator
 	google    *google.Service
 	gmail     *gmail.Syncer
+	calendar  *calendar.Syncer
 	mux       *http.ServeMux
 	readiness func(context.Context) error
 }
@@ -58,19 +60,24 @@ func New(
 	// The syncer is built only when Google is actually configured: without a
 	// credential there is no mailbox to read, and a syncer wired to a nil
 	// token source would fail on every pass instead of not running.
-	var gmailSyncer *gmail.Syncer
+	var (
+		gmailSyncer    *gmail.Syncer
+		calendarSyncer *calendar.Syncer
+	)
 	if googleSvc.Configured() {
 		gmailSyncer = gmail.NewSyncer(store, gmail.New(nil), googleSvc, slog.Default())
+		calendarSyncer = calendar.NewSyncer(store, calendar.New(nil), googleSvc, slog.Default())
 	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
-		cfg:     cfg,
-		store:   store,
-		emitter: emitter,
-		authn:   authn,
-		google:  googleSvc,
-		gmail:   gmailSyncer,
-		mux:     http.NewServeMux(),
+		cfg:      cfg,
+		store:    store,
+		emitter:  emitter,
+		authn:    authn,
+		google:   googleSvc,
+		gmail:    gmailSyncer,
+		calendar: calendarSyncer,
+		mux:      http.NewServeMux(),
 	}
 	if pinger, ok := store.(interface{ Ping(context.Context) error }); ok {
 		s.readiness = pinger.Ping
@@ -81,9 +88,13 @@ func New(
 	return s, nil
 }
 
-// GmailSyncer exposes the sync engine to the background poller in
-// cmd/crm. It is nil when the deployment has no Google credentials.
+// GmailSyncer and CalendarSyncer expose the sync engines to the background
+// pollers in cmd/crm. Both are nil when the deployment has no Google
+// credentials.
 func (s *Server) GmailSyncer() *gmail.Syncer { return s.gmail }
+
+// CalendarSyncer is GmailSyncer's twin.
+func (s *Server) CalendarSyncer() *calendar.Syncer { return s.calendar }
 
 // Close gracefully drains the server's NATS connection.
 func (s *Server) Close() {
@@ -172,7 +183,7 @@ func (s *Server) routes() {
 	s.mux.Handle(modPath, modHandler)
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
-		api.NewCRMService(s.cfg, s.store, s.google, s.gmail), interceptors)
+		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect

@@ -142,7 +142,7 @@ func TestStartRejectsAnOffSiteReturnPathAtTheBoundary(t *testing.T) {
 // TestUnconfiguredDeploymentSaysSoRatherThanFailing. A CRM without Google
 // credentials is running correctly; the UI needs to render that state.
 func TestUnconfiguredDeploymentSaysSoRatherThanFailing(t *testing.T) {
-	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil)
+	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil, nil)
 	ctx := ctxAs("tenant-1", "org-1")
 
 	resp, err := s.GetGoogleConnection(ctx, connect.NewRequest(&crmv1.GetGoogleConnectionRequest{}))
@@ -239,7 +239,7 @@ func TestSyncGoogleMailboxReportsProgressWithoutCorrespondence(t *testing.T) {
 
 // TestSyncGoogleMailboxNeedsAConfiguredIntegration.
 func TestSyncGoogleMailboxNeedsAConfiguredIntegration(t *testing.T) {
-	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil)
+	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil, nil)
 	_, err := s.SyncGoogleMailbox(ctxAs("tenant-1", "org-1"),
 		connect.NewRequest(&crmv1.SyncGoogleMailboxRequest{}))
 	if err == nil {
@@ -288,5 +288,59 @@ func TestGetGoogleConnectionCarriesSyncStatus(t *testing.T) {
 		if strings.Contains(rendered, forbidden) {
 			t.Errorf("the connection response carries message content: %q", rendered)
 		}
+	}
+}
+
+// TestGetGoogleConnectionCarriesCalendarSyncStatus so one round trip renders
+// the whole Connected accounts page.
+func TestGetGoogleConnectionCarriesCalendarSyncStatus(t *testing.T) {
+	s, store := newTestServiceWithStore()
+	ctx := ctxAs("tenant-1", "org-1")
+	owner := principalSubject(ctx)
+	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	if _, err := store.SaveGoogleConnection(context.Background(), scope, &domain.GoogleConnection{
+		OwnerID: owner, Status: domain.GoogleStatusConnected,
+		TokenCiphertext: sealTestTokens(t, "tenant-1", owner),
+	}); err != nil {
+		t.Fatalf("seed connection: %v", err)
+	}
+	if _, err := store.SaveCalendarSyncState(context.Background(), scope, &domain.CalendarSyncState{
+		OwnerID: owner, BackfillComplete: true, EventsIndexed: 20, ActivitiesCreated: 4,
+		LastSyncedAt: time.Now().UTC(), LastEventAt: time.Now().UTC().Add(48 * time.Hour),
+	}); err != nil {
+		t.Fatalf("seed calendar state: %v", err)
+	}
+
+	resp, err := s.GetGoogleConnection(ctx, connect.NewRequest(&crmv1.GetGoogleConnectionRequest{}))
+	if err != nil {
+		t.Fatalf("GetGoogleConnection: %v", err)
+	}
+	sync := resp.Msg.GetCalendarSync()
+	if sync == nil {
+		t.Fatal("the response carries no calendar sync status")
+	}
+	if !sync.GetBackfillComplete() || sync.GetEventsIndexed() != 20 || sync.GetActivitiesCreated() != 4 {
+		t.Errorf("calendar sync status = %+v", sync)
+	}
+	// Nothing in the response resembles a meeting.
+	rendered := resp.Msg.String()
+	for _, forbidden := range []string{"Meeting", "attendee", "@acme"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Errorf("the connection response carries meeting content: %q", rendered)
+		}
+	}
+}
+
+// TestSyncGoogleCalendarNeedsAConfiguredIntegration.
+func TestSyncGoogleCalendarNeedsAConfiguredIntegration(t *testing.T) {
+	s := NewCRMService(config.Config{}, domain.NewMemStore(), nil, nil, nil)
+	_, err := s.SyncGoogleCalendar(ctxAs("tenant-1", "org-1"),
+		connect.NewRequest(&crmv1.SyncGoogleCalendarRequest{}))
+	if err == nil {
+		t.Fatal("calendar sync ran with no integration configured")
+	}
+	if got := connectCode(t, err); got != connect.CodeFailedPrecondition {
+		t.Errorf("code = %v, want FailedPrecondition", got)
 	}
 }

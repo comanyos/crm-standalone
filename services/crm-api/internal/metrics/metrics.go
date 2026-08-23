@@ -53,6 +53,15 @@ var (
 		Name: "crm_gmail_timeline_entries_total",
 		Help: "CRM timeline entries created from synchronised Gmail messages.",
 	})
+	// The Calendar equivalents, with the same labelling discipline.
+	CalendarSyncPassesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_calendar_sync_passes_total",
+		Help: "Google Calendar synchronisation passes partitioned by safe outcome code.",
+	}, []string{"outcome"})
+	CalendarTimelineEntriesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "crm_calendar_timeline_entries_total",
+		Help: "CRM timeline entries created from synchronised calendar events.",
+	})
 	dbPoolAcquired = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_acquired_connections", Help: "Current acquired CRM database pool connections."})
 	dbPoolIdle     = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_idle_connections", Help: "Current idle CRM database pool connections."})
 	dbPoolTotal    = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_total_connections", Help: "Current total CRM database pool connections."})

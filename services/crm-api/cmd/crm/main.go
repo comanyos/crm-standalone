@@ -16,6 +16,7 @@ import (
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/dispatch"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/platform"
 	"github.com/santoshguru/crm/internal/server"
@@ -86,6 +87,12 @@ func main() {
 	// shutdown leaves its cursor where it was and its lease to expire, so the
 	// next process resumes rather than repeats.
 	gmail.Start(dispatchCtx, store, srv.GmailSyncer(), 0, slog.Default())
+
+	// Calendar synchronisation runs as its own loop rather than sharing
+	// Gmail's pass. It costs a goroutine and buys independent failure: a
+	// Gmail quota problem must not stop meetings reaching customer timelines,
+	// and a calendar whose sync token expired must not delay anybody's mail.
+	calendar.Start(dispatchCtx, store, srv.CalendarSyncer(), 0, slog.Default())
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,

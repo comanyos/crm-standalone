@@ -16,6 +16,7 @@ import (
 	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
@@ -51,8 +52,10 @@ func newTestServiceWithStore() (*CRMService, domain.Store) {
 	// A syncer wired to a Gmail that answers nothing. The Gmail RPC tests
 	// substitute their own; this keeps the field non-nil so the RPC reports a
 	// real outcome instead of "not configured".
-	syncer := gmail.NewSyncer(store, gmail.New(&http.Client{Transport: stubGoogleTransport{}}), googleSvc, nil)
-	return NewCRMService(config.Config{}, store, googleSvc, syncer), store
+	transport := &http.Client{Transport: stubGoogleTransport{}}
+	syncer := gmail.NewSyncer(store, gmail.New(transport), googleSvc, nil)
+	calendarSyncer := calendar.NewSyncer(store, calendar.New(transport), googleSvc, nil)
+	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer), store
 }
 
 // testGoogleTokenKey is the sealing key this package's Google tests share, so

@@ -215,6 +215,9 @@ const (
 	// CRMServiceSyncGoogleMailboxProcedure is the fully-qualified name of the CRMService's
 	// SyncGoogleMailbox RPC.
 	CRMServiceSyncGoogleMailboxProcedure = "/crm.v1.CRMService/SyncGoogleMailbox"
+	// CRMServiceSyncGoogleCalendarProcedure is the fully-qualified name of the CRMService's
+	// SyncGoogleCalendar RPC.
+	CRMServiceSyncGoogleCalendarProcedure = "/crm.v1.CRMService/SyncGoogleCalendar"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -343,6 +346,9 @@ type CRMServiceClient interface {
 	// cursor, so a large mailbox needs several and the caller can simply ask
 	// again.
 	SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error)
+	// SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
+	// calendar, and is bounded the same way.
+	SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -770,6 +776,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleMailbox")),
 			connect.WithClientOptions(opts...),
 		),
+		syncGoogleCalendar: connect.NewClient[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse](
+			httpClient,
+			baseURL+CRMServiceSyncGoogleCalendarProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -844,6 +856,7 @@ type cRMServiceClient struct {
 	listGoogleConnections         *connect.Client[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse]
 	disconnectGoogleConnection    *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
 	syncGoogleMailbox             *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
+	syncGoogleCalendar            *connect.Client[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1191,6 +1204,11 @@ func (c *cRMServiceClient) SyncGoogleMailbox(ctx context.Context, req *connect.R
 	return c.syncGoogleMailbox.CallUnary(ctx, req)
 }
 
+// SyncGoogleCalendar calls crm.v1.CRMService.SyncGoogleCalendar.
+func (c *cRMServiceClient) SyncGoogleCalendar(ctx context.Context, req *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error) {
+	return c.syncGoogleCalendar.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1317,6 +1335,9 @@ type CRMServiceHandler interface {
 	// cursor, so a large mailbox needs several and the caller can simply ask
 	// again.
 	SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error)
+	// SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
+	// calendar, and is bounded the same way.
+	SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1740,6 +1761,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleMailbox")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceSyncGoogleCalendarHandler := connect.NewUnaryHandler(
+		CRMServiceSyncGoogleCalendarProcedure,
+		svc.SyncGoogleCalendar,
+		connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -1880,6 +1907,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceDisconnectGoogleConnectionHandler.ServeHTTP(w, r)
 		case CRMServiceSyncGoogleMailboxProcedure:
 			cRMServiceSyncGoogleMailboxHandler.ServeHTTP(w, r)
+		case CRMServiceSyncGoogleCalendarProcedure:
+			cRMServiceSyncGoogleCalendarHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2163,4 +2192,8 @@ func (UnimplementedCRMServiceHandler) DisconnectGoogleConnection(context.Context
 
 func (UnimplementedCRMServiceHandler) SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleMailbox is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleCalendar is not implemented"))
 }

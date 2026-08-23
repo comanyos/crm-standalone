@@ -293,6 +293,24 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Errorf("a sync pass run by tenant B wrote %d entries onto tenant A's timeline", len(entries))
 		}
 	},
+	"SyncGoogleCalendar": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// As with SyncGoogleMailbox: the stub answers nothing, so what is
+		// asserted is that a pass run as B leaves no trace in A.
+		_, _ = s.SyncGoogleCalendar(ctxB, connect.NewRequest(&crmv1.SyncGoogleCalendarRequest{}))
+
+		victimScope := domain.Scope{TenantID: "tenant-victim", OrgID: "org-victim"}
+		if _, err := s.store.GetCalendarSyncState(a.ctx, victimScope, a.googleOwner); err == nil {
+			t.Error("a calendar pass run by tenant B created sync state in tenant A")
+		}
+		events, err := s.store.ListCalendarEventsForSubject(a.ctx, victimScope,
+			domain.SubjectContact, a.contactID, 0)
+		if err != nil {
+			t.Fatalf("read A's meetings: %v", err)
+		}
+		if len(events) != 0 {
+			t.Errorf("a calendar pass run by tenant B wrote %d meetings onto tenant A's timeline", len(events))
+		}
+	},
 	"DisconnectGoogleConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		// B has its own seeded connection, so this succeeds — and must touch
 		// only B's. The assertion that matters is what happens to A's.

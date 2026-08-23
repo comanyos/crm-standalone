@@ -7,6 +7,7 @@ import (
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 )
@@ -22,14 +23,20 @@ type CRMService struct {
 	google *google.Service
 	// gmail is nil for the same reason google is: without provider
 	// credentials there is no mailbox to synchronise.
-	gmail *gmail.Syncer
+	gmail    *gmail.Syncer
+	calendar *calendar.Syncer
 }
 
-// NewCRMService wires the domain service. googleSvc and gmailSyncer may be nil.
+// NewCRMService wires the domain service. The integration arguments may all
+// be nil, which is what a deployment without Google credentials looks like.
 func NewCRMService(
-	cfg config.Config, store domain.Store, googleSvc *google.Service, gmailSyncer *gmail.Syncer,
+	cfg config.Config, store domain.Store, googleSvc *google.Service,
+	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
 ) *CRMService {
-	return &CRMService{cfg: cfg, store: store, google: googleSvc, gmail: gmailSyncer}
+	return &CRMService{
+		cfg: cfg, store: store, google: googleSvc,
+		gmail: gmailSyncer, calendar: calendarSyncer,
+	}
 }
 
 // CreateAccount stores a new Account.

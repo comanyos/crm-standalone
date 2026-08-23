@@ -360,6 +360,9 @@ func (s *Service) Disconnect(
 	if _, err := s.store.PurgeGmailDataForOwner(ctx, scope, ownerID, false); err != nil {
 		slog.Warn("could not stop gmail synchronisation for a disconnected mailbox", "error", err)
 	}
+	if _, err := s.store.PurgeCalendarDataForOwner(ctx, scope, ownerID, false); err != nil {
+		slog.Warn("could not stop calendar synchronisation for a disconnected account", "error", err)
+	}
 
 	now := s.now()
 	if purge {
