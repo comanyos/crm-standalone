@@ -1383,13 +1383,35 @@ Acceptance criteria:
 
 ### 7.1 Import/export
 
-- [ ] Define supported formats, field maps, limits, encoding, validation,
+- [x] Define supported formats, field maps, limits, encoding, validation,
   duplicate policy, error report format, dry-run behavior, rollback policy,
-  and data retention.
-- [ ] Implement asynchronous import jobs with uploaded-file scanning, tenant
+  and data retention. `docs/CSV_IMPORT_EXPORT.md`, written before
+  implementation as this item asked: accounts-only scope, CSV/UTF-8, 500
+  rows/2 MiB import bound, 500-row export bound, explicit field mapping,
+  never-auto-merge duplicate policy, bounded per-row errors, the two-call
+  preview/commit sequence, why content is stored inline instead of object
+  storage, why processing is synchronous rather than truly asynchronous,
+  why there is no outbox event, unenforced retention, and no rollback for
+  a committed import — each narrowing named rather than assumed.
+- [~] Implement asynchronous import jobs with uploaded-file scanning, tenant
   scope, field mapping UI, preview, per-row errors, and audit events.
-- [ ] Implement asynchronous exports with authorization snapshot, generated
+  `CreateImportJob`/`CommitImportJob` (accounts only) implement the tenant
+  scope, mapping UI, preview/dry-run, per-row errors, and the job record as
+  its own audit trail — verified live (a real CSV, mapped, previewed with
+  zero errors, committed, and the account confirmed to exist after
+  navigating away and back). Processing is **synchronous**, not
+  asynchronous — a documented scope narrowing, not the goal's original
+  ask — and there is no uploaded-file malware/virus scanning, since the
+  upload is parsed only as delimited text and never executed. Contacts,
+  leads, opportunities and tasks are not importable.
+- [~] Implement asynchronous exports with authorization snapshot, generated
   file expiry, watermark/audit options, and secure download.
+  `ExportAccounts` (accounts only) generates bounded CSV inline, scoped to
+  the caller's tenant, with an `ExportJob` audit row recording who and how
+  many rows — verified live. It is synchronous, not asynchronous; the file
+  is a one-time browser download over the authenticated RPC connection,
+  not a durable artifact, so there is no expiry or watermark to speak of
+  and no separate "secure download" mechanism beyond the RPC's own auth.
 
 ### 7.2 Dashboards and reports
 

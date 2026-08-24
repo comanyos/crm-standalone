@@ -315,7 +315,7 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (45%)
+## M4 — Data productivity (55%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
@@ -350,7 +350,13 @@ Dependencies: M2/M3 stable record schemas and indexes.
   tags, and dangling dedup flags on other accounts), an immutable audit
   trail, and an explicitly-documented no-undo policy — verified live, with
   two bugs live testing found and fixed. Contact and lead merge are not
-  implemented. Imports, exports, and their audit trails remain pending.
+  implemented. **CSV import/export for accounts is also done**: a
+  documented product decision record (`docs/CSV_IMPORT_EXPORT.md`) written
+  before implementation, a two-call preview/commit import with field
+  mapping and per-row errors, and a bounded inline export with an audit
+  trail — both verified live. Both are synchronous rather than truly
+  asynchronous, and neither covers contacts, leads, opportunities, or
+  tasks — named scope narrowings, not silent gaps.
 - [ ] Dashboard cards and basic reporting backed by query endpoints.
 
 Acceptance criteria: large result sets remain paginated; bulk actions are
