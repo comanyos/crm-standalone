@@ -337,7 +337,7 @@ Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
 
-## M5 — Communications and automation (60%)
+## M5 — Communications and automation (75%)
 
 Dependencies: provider ownership, OAuth credentials, retention policy, and
 webhook security decisions from the product owner.
@@ -393,12 +393,46 @@ webhook security decisions from the product owner.
   their Accounts or open Opportunities. `thread_id` and `recurring_event_id`
   are stored but nothing groups a conversation or a series in the UI. Sealing-key rotation still has no re-encryption path. Google verification submission stays deferred until a truthful demo
   can be recorded. Microsoft remains deliberately unconfigured.
-- [ ] Workflow engine, notifications, assignments, approvals, scheduled work,
+- [~] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.
-  The v1 safety and data-boundary contract is recorded in
-  [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md); implementation begins with
-  durable rule versions, execution idempotency, and in-app actions before any
-  provider-facing delivery.
+
+  **Done — the rule engine and in-app actions.** Rules fire on
+  `lead.created`, `opportunity.stage_changed` and `opportunity.closed_won`,
+  evaluate AND-only typed comparisons over allowlisted fixed fields, and
+  create tasks, log activities and raise in-app notifications. The engine
+  reads the same transactional outbox the bus does, on its own poller
+  (`migrations/0023`, `internal/integration/workflow`).
+
+  Two properties hold it up. Outbox delivery is at-least-once, so nothing
+  decides whether work has been done by remembering: the unique key
+  `(tenant, rule version, source event)` is the decision, and only the caller
+  that wins the insert acts. And the event payload evaluates conditions but
+  never drives a write — every action re-reads its target under the
+  execution's own tenant scope, because the record may have been reassigned
+  or deleted in between.
+
+  Rules are versioned and immutable: editing publishes a new version and, by
+  default, changes nothing about what is running, so an execution's ledger row
+  still names the exact text that ran. Non-matching events are recorded as
+  `skipped` rather than discarded, because "why didn't my rule fire" is the
+  question authors ask. Failures are bounded codes, retries are capped at
+  three with exponential backoff and resume from `actions_completed`, and a
+  deleted record fails terminally on the first attempt. Loop prevention is
+  structural — no trigger is an event a workflow action produces — and
+  `AssertTriggersCannotLoop` checks that at startup rather than trusting it.
+
+  `crm:workflow:*` is its own scope pair; notifications are the caller's own
+  and neither RPC takes a recipient. The web app has an Automation screen
+  whose every choice comes from `DescribeWorkflowCatalog`, so an editor cannot
+  compose a rule the server would refuse, plus a polling notification bell.
+
+  **Not done.** Approvals (a rule that waits needs a durable pause and a way
+  to address the approver), time-based triggers and recurrence (need a
+  scheduler), outbound webhooks with signing and retries (need an egress
+  policy and a secret story), templated action text (needs a field-visibility
+  model), custom fields in conditions (needs definition versioning), and
+  multi-step chaining (needs the causation-depth limit the loop-prevention
+  section names). See [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md).
 
 Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely

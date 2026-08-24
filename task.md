@@ -63,17 +63,19 @@ authority can only come from server-side role grants.
 | Compose stack | Running locally | PostgreSQL ×2, Redis, NATS, AuthinCore, Auth Admin, CRM API. |
 | Auth bootstrap | Implemented | `make bootstrap` reconciles an org, admin, roles, scopes, and public SPA client. |
 | OIDC/JWT integration | Live-verified via an automated browser test | `apps/web/tests-e2e/auth.spec.ts` (Playwright) exercises PKCE login, consent, live dashboard, reload, and logout end to end against the real stack. JWKS refresh/rotation and negative-path cases still need coverage. |
-| Tenant isolation | Proven by automated tests at four layers | All 36 CRM RPCs, the store against live PostgreSQL, a catalog-driven RLS check covering every table carrying `tenant_id`, and the outbox dispatcher's `crm_app`/`crm_drain` split. Audit-event and metric tenant labelling stays open because neither surface exists yet (§10.2). A token already issued outlives organization deactivation until it expires — see §1.3. |
+| Tenant isolation | Proven by automated tests at four layers | every CRM RPC that touches tenant data (84 of the 85; DescribeWorkflowCatalog is exempt in writing because it reads no store), the store against live PostgreSQL, a catalog-driven RLS check covering every table carrying `tenant_id`, and the outbox dispatcher's `crm_app`/`crm_drain` split. Audit-event and metric tenant labelling stays open because neither surface exists yet (§10.2). A token already issued outlives organization deactivation until it expires — see §1.3. |
 | Backend domain | Partially implemented | Accounts, contacts, leads, conversion, opportunities, activities, RLS, and tests exist. Production/contract coverage is incomplete. |
-| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard, and live CRUD workflows for accounts, contacts, leads, opportunities, and tasks, plus pipeline administration, an opportunity Kanban board, and an activity timeline with notes on four detail views. Search/automation/reporting screens and the remaining product workflows are still pending. |
+| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard, and live CRUD workflows for accounts, contacts, leads, opportunities, and tasks, plus pipeline administration, an opportunity Kanban board, and an activity timeline with notes on four detail views, a Connected accounts page, an Automation rule editor with its execution history, and an in-app notification bell. Search and reporting screens and the remaining product workflows are still pending. |
 | Production operations | Not started | Local keys/credentials and Compose are development-only. |
 
-Approximate total product completion: **55%** of the scoped product, and
-**~40%** including production operations. This is deliberately not an average
-of files present. The core record layer is live end to end — 47 RPCs and
-browser CRUD for accounts, contacts, leads, opportunities, and tasks — while
-communications, automation, reporting, bulk import/export, record-level
-permissions, and audit storage are not built, and nothing is deployed.
+Approximate total product completion: **62%** of the scoped product, and
+**~45%** including production operations. This is deliberately not an average
+of files present. The core record layer is live end to end — 85 RPCs and
+browser CRUD for accounts, contacts, leads, opportunities, and tasks — and
+communications (Gmail and Calendar synchronisation, with data-subject
+erasure) and workflow automation now run, while reporting, bulk
+import/export, record-level permissions, and audit storage are not built,
+and nothing is deployed.
 
 Measured against the products a buyer compares this with, completion is far
 lower — roughly 15%, because the metadata, automation, reporting, and
@@ -1423,17 +1425,51 @@ Acceptance criteria:
 
 ## Phase 9 — Workflow automation and notifications
 
-- [ ] Define event catalog, trigger conditions, filter language, action types,
+- [~] Define event catalog, trigger conditions, filter language, action types,
   approval states, scheduling, concurrency, retries, rate limits, and loop
   prevention.
-- [ ] Implement tenant-isolated workflow definitions, versioning, dry runs,
+
+  Done for v1 and written down in
+  [docs/WORKFLOW_AUTOMATION.md](docs/WORKFLOW_AUTOMATION.md): three
+  allowlisted triggers, AND-only typed comparisons over allowlisted fixed
+  fields, three action types, a cursor lease that bounds concurrency to one
+  runner per tenant, three retries with exponential backoff, and structural
+  loop prevention checked at startup. There is no filter *language* by
+  design — an expression language needs a sandbox this module does not have.
+  Approval states and scheduling are not defined and are named open items;
+  a per-tenant rate limit beyond the batch bound is not defined either.
+- [~] Implement tenant-isolated workflow definitions, versioning, dry runs,
   execution logs, failure handling, pause/resume, and audit history.
-- [ ] Implement notifications (in-app first; email/SMS only after provider
+
+  Done except dry runs. `migrations/0023` carries four RLS-protected tables;
+  versions are immutable and publishing does not change what is running;
+  every encounter with an event is logged, including the skipped ones;
+  failures are bounded codes with terminal and retryable classes;
+  pause/resume and a terminal archive are the rule lifecycle. Dry runs
+  (evaluate a draft against recent events without acting) are not built.
+- [~] Implement notifications (in-app first; email/SMS only after provider
   decisions) with preferences, read state, batching, and accessibility.
+
+  In-app notifications, read state and an accessible bell are done — the
+  unread count is in the control's accessible name, not only its badge.
+  Per-user preferences and batching/digesting are not built; every `notify`
+  action raises one notification.
 - [ ] Implement assignment rules, escalation, due-date reminders, approvals,
   and signed outbound webhooks.
-- [ ] Add reliability tests for duplicate events, failed actions, retries,
+
+  Assignment is done as far as an action's assignee selector goes
+  (`record_owner` resolved at execution time, or a named principal).
+  Escalation, due-date reminders and approvals all need a scheduler or a
+  durable pause; signed webhooks need an egress policy. None is built.
+- [~] Add reliability tests for duplicate events, failed actions, retries,
   long-running jobs, cross-tenant routing, and webhook replay attacks.
+
+  Duplicate delivery, failed actions, retry resumption, terminal failures,
+  concurrent claims and cross-tenant routing are covered
+  (`internal/integration/workflow/engine_test.go`,
+  `internal/domain/workflow_test.go` against both stores, and eleven probes
+  in `internal/api/tenant_isolation_test.go`). Long-running jobs and webhook
+  replay have nothing to test yet: neither exists.
 
 Acceptance criteria:
 
