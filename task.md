@@ -1294,8 +1294,24 @@ Acceptance criteria:
   saved results remain pending.
 - [ ] Define search technology and privacy model (Postgres FTS initially or a
   dedicated index later). Search indexes must be tenant-filtered.
-- [ ] Implement reusable structured filters, sort controls, column selection,
-  saved views, sharing rules, and defaults per entity.
+- [~] Implement reusable structured filters, sort controls, column selection,
+  saved views, sharing rules, and defaults per entity. Saved views are
+  implemented: a private, per-owner preset (filters, sort, column
+  selection) per entity list, RLS-enforced (`migrations/0025_saved_views.sql`),
+  every store/API method requires the owner id the same way
+  ListNotifications requires a recipient — so no query shape can return,
+  update or delete someone else's view — deny-by-default
+  `crm:saved_view:read`/`write` scopes (crm_viewer holds neither, by its
+  existing no-write-authority invariant, so a pure viewer cannot save a
+  view: a named limitation), cross-tenant isolation probes, and a picker +
+  save/delete UI on the accounts list, verified live. Sharing views with
+  teammates is explicitly out of scope until record-level authorization
+  exists (task.md §1.4) — the same reason record-level FGA is blocked
+  generally. Column selection is stored but not yet applied by any list UI
+  (the accounts list still renders its fixed column set). Reusable
+  structured filters/sort beyond what each entity's existing filter struct
+  already offers, and saved-view UI on contacts/leads/opportunities/tasks,
+  remain pending.
 - [~] Implement bulk select/action APIs with authorization per affected record,
   bounded batches, idempotency keys, progress/failure reporting, and audit.
   Seven RPCs cover the safe starter set the goal named: bulk tag

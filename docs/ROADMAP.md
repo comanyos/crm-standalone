@@ -315,7 +315,7 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (32%)
+## M4 — Data productivity (38%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
@@ -334,7 +334,13 @@ Dependencies: M2/M3 stable record schemas and indexes.
   authorized bulk RPCs for tag assign/remove, task complete/reopen, task
   reassignment, and account/lead owner reassignment — each id succeeds or
   fails independently and is reported back, not all-or-nothing — with
-  selection UI on the tasks and accounts lists. Saved views remain pending.
+  selection UI on the tasks and accounts lists. **Saved views are also
+  done**: private, per-owner filter/sort/column presets per entity list,
+  RLS-enforced, owner-scoped the same way notifications are (no query
+  shape can reach another user's view), with a save/apply/delete picker on
+  the accounts list, verified live. Column selection is stored but not yet
+  applied by any list UI. Sharing a view with teammates is out of scope
+  until record-level authorization exists.
 - [~] Custom fields, deduplication/merge policy, CSV import validation, and
   export jobs with audit trails. Tenant administrators can already define
   typed custom fields and custom objects without runtime DDL; deduplication
