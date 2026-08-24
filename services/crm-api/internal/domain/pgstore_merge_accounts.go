@@ -112,6 +112,17 @@ func (s *PgStore) MergeAccounts(
 		scope.TenantID, duplicate.ID, survivor.ID); err != nil {
 		return nil, nil, err
 	}
+	// Any other account that flagged the duplicate as its own possible
+	// match is repointed at the survivor, not cleared: the account merging
+	// resolved which of the two was kept, but did not resolve whether this
+	// third account is itself a duplicate — that question just moved to
+	// point at the id that still exists.
+	if err := migrate("dedup_flags",
+		`UPDATE accounts SET duplicate_of_account_id = $3
+		  WHERE tenant_id = $1 AND duplicate_of_account_id = $2 AND id <> $3`,
+		scope.TenantID, duplicate.ID, survivor.ID); err != nil {
+		return nil, nil, err
+	}
 	if err := migrate("activities",
 		`UPDATE activities SET subject_id = $3 WHERE tenant_id = $1 AND subject_type = 'account' AND subject_id = $2`,
 		scope.TenantID, duplicate.ID, survivor.ID); err != nil {
@@ -161,19 +172,32 @@ func (s *PgStore) MergeAccounts(
 	updatedSurvivor := &Account{}
 	err = scanAccount(tx.QueryRow(ctx,
 		`UPDATE accounts SET name = $3, industry = $4, tier = $5, owner_id = $6, website = $7,
-		        annual_revenue = $8, parent_id = $9, updated_at = $10, website_domain = $11
+		        annual_revenue = $8, parent_id = $9, duplicate_of_account_id = $10, updated_at = $11,
+		        website_domain = $12
 		  WHERE tenant_id = $1 AND id = $2
 		RETURNING `+accountColumns,
 		scope.TenantID, survivor.ID, survivor.Name, survivor.Industry, survivor.Tier, survivor.OwnerID,
-		survivor.Website, survivor.AnnualRevenue, survivor.ParentID, now, websiteDomain(survivor.Website)),
+		survivor.Website, survivor.AnnualRevenue, survivor.ParentID, survivor.DuplicateOfAccountID,
+		now, websiteDomain(survivor.Website)),
 		updatedSurvivor)
 	if err != nil {
 		return nil, nil, fmt.Errorf("update survivor account: %w", err)
 	}
 
-	fieldResolutions, err := json.Marshal(in.FieldResolutions)
+	// A nil map (the common case: a caller who resolves no field
+	// differences) marshals to the JSON literal null, which
+	// account_merges_field_resolutions_is_object rejects — the same nil
+	// guard marshalSavedViewFilters uses for the identical reason.
+	resolutions := in.FieldResolutions
+	if resolutions == nil {
+		resolutions = map[string]string{}
+	}
+	fieldResolutions, err := json.Marshal(resolutions)
 	if err != nil {
 		return nil, nil, err
+	}
+	if migrated == nil {
+		migrated = map[string]int{}
 	}
 	relationshipsMigrated, err := json.Marshal(migrated)
 	if err != nil {

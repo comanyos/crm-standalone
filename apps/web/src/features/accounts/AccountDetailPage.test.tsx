@@ -12,6 +12,7 @@ const { crm, auth } = vi.hoisted(() => ({
     listContacts: vi.fn(),
     listActivitiesForSubject: vi.fn(),
     deleteAccount: vi.fn(),
+    mergeAccounts: vi.fn(),
   },
   auth: {
     hasScope: vi.fn(),
@@ -42,6 +43,7 @@ beforeEach(() => {
   crm.listContacts.mockResolvedValue({ contacts: [], nextPageToken: "" });
   crm.listActivitiesForSubject.mockResolvedValue({ activities: [] });
   crm.deleteAccount.mockResolvedValue({});
+  crm.mergeAccounts.mockResolvedValue({ account: makeAccount(), merge: {} });
 });
 
 describe("AccountDetailPage", () => {
@@ -118,7 +120,7 @@ describe("AccountDetailPage", () => {
     expect(screen.queryByText("Accounts list")).not.toBeInTheDocument();
   });
 
-  it("flags a possible duplicate without offering to merge it", async () => {
+  it("flags a possible duplicate and offers to review and merge it", async () => {
     crm.getAccount.mockResolvedValue({ account: makeAccount({ duplicateOfAccountId: "acc-2" }) });
     renderRoutes(routes, ["/accounts/acc-1"]);
 
@@ -126,7 +128,36 @@ describe("AccountDetailPage", () => {
       "href",
       "/accounts/acc-2",
     );
-    expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
+    // The banner offers a way to act on the flag, not just read it — but
+    // merging never happens from this click alone: it opens the review
+    // dialog rather than merging immediately.
+    expect(screen.getByRole("button", { name: "Review & merge" })).toBeInTheDocument();
+  });
+
+  it("hides the merge action from a reader who cannot write accounts", async () => {
+    crm.getAccount.mockResolvedValue({ account: makeAccount({ duplicateOfAccountId: "acc-2" }) });
+    auth.hasScope.mockImplementation((scope: string) => scope !== "crm:account:write");
+    renderRoutes(routes, ["/accounts/acc-1"]);
+
+    await screen.findByRole("link", { name: "another account" });
+    expect(screen.queryByRole("button", { name: "Review & merge" })).not.toBeInTheDocument();
+  });
+
+  it("opens the merge review dialog without merging on click alone", async () => {
+    crm.getAccount.mockImplementation((req: { id: string }) =>
+      Promise.resolve({
+        account: req.id === "acc-2"
+          ? makeAccount({ id: "acc-2", name: "Acme Duplicate" })
+          : makeAccount({ duplicateOfAccountId: "acc-2" }),
+      }),
+    );
+    renderRoutes(routes, ["/accounts/acc-1"]);
+    await screen.findByRole("link", { name: "another account" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Review & merge" }));
+
+    expect(await screen.findByRole("dialog", { name: "Review and merge duplicate account" })).toBeInTheDocument();
+    expect(crm.mergeAccounts).not.toHaveBeenCalled();
   });
 
   it("carries the account into the contact form from the Add contact shortcut", async () => {

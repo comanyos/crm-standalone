@@ -15,6 +15,7 @@ import { ActivityTimeline } from "../../components/ActivityTimeline";
 import { TasksPanel } from "../../components/TasksPanel";
 import { NotesPanel } from "../../components/NotesPanel";
 import { TagsPanel } from "../../components/TagsPanel";
+import { MergeAccountsDialog } from "./MergeAccountsDialog";
 
 export default function AccountDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
@@ -24,6 +25,8 @@ export default function AccountDetailPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const canMerge = hasScope("crm:account:write");
 
   const accountQuery = useQuery({
     queryKey: ["crm.getAccount", id],
@@ -108,12 +111,19 @@ export default function AccountDetailPage() {
       />
 
       {account.duplicateOfAccountId && (
-        <div className="mb-4 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
-          This account's website matches{" "}
-          <Link to={`/accounts/${account.duplicateOfAccountId}`} className="font-medium underline">
-            another account
-          </Link>
-          . Review both before assuming they're unrelated — accounts are never merged automatically.
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
+          <span>
+            This account's website matches{" "}
+            <Link to={`/accounts/${account.duplicateOfAccountId}`} className="font-medium underline">
+              another account
+            </Link>
+            . Review both before assuming they're unrelated — accounts are never merged automatically.
+          </span>
+          {canMerge && (
+            <Button size="sm" variant="secondary" onClick={() => setMerging(true)}>
+              Review &amp; merge
+            </Button>
+          )}
         </div>
       )}
 
@@ -230,6 +240,20 @@ export default function AccountDetailPage() {
         onConfirm={() => deleteMutation.mutate()}
         onCancel={() => setConfirmingDelete(false)}
       />
+      {account.duplicateOfAccountId && (
+        <MergeAccountsDialog
+          open={merging}
+          onClose={() => setMerging(false)}
+          survivorId={id}
+          duplicateId={account.duplicateOfAccountId}
+          onMerged={() => {
+            setMerging(false);
+            queryClient.invalidateQueries({ queryKey: ["crm.getAccount"] });
+            queryClient.invalidateQueries({ queryKey: ["crm.listContacts.forAccount", id] });
+            queryClient.invalidateQueries({ queryKey: ["crm.listAccounts.children", id] });
+          }}
+        />
+      )}
     </div>
   );
 }

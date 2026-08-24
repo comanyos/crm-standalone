@@ -131,6 +131,15 @@ func resolveAccountFields(survivor, duplicate *Account, resolutions map[string]s
 	if survivor.ParentID == survivor.ID {
 		survivor.ParentID = ""
 	}
+	// If the survivor's own dedup flag pointed at exactly the account this
+	// merge just deleted, that flag is now resolved and must not survive as
+	// a dangling reference — the UI's "review this possible duplicate" link
+	// would otherwise point at an id nothing can ever fetch again. A flag
+	// pointing at some other, still-live account is left alone: it names a
+	// separate, still-open question this merge did not touch.
+	if survivor.DuplicateOfAccountID == duplicate.ID {
+		survivor.DuplicateOfAccountID = ""
+	}
 }
 
 // AccountMergeRecord is one immutable audit row: what was merged, by whom,

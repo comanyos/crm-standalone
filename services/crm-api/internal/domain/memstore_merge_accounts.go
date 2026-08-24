@@ -78,14 +78,26 @@ func (s *MemStore) MergeAccounts(
 		return nil, nil, err
 	}
 	for _, child := range children {
-		if child.ParentID != duplicate.ID || child.ID == survivor.ID {
+		changed := false
+		if child.ParentID == duplicate.ID && child.ID != survivor.ID {
+			child.ParentID = survivor.ID
+			migrated["child_accounts"]++
+			changed = true
+		}
+		// Any other account that flagged the duplicate as its own possible
+		// match is repointed at the survivor, not cleared — see
+		// pgstore_merge_accounts.go's identical statement for why.
+		if child.DuplicateOfAccountID == duplicate.ID && child.ID != survivor.ID {
+			child.DuplicateOfAccountID = survivor.ID
+			migrated["dedup_flags"]++
+			changed = true
+		}
+		if !changed {
 			continue
 		}
-		child.ParentID = survivor.ID
 		if _, err := s.account.update(scope, child); err != nil {
 			return nil, nil, err
 		}
-		migrated["child_accounts"]++
 	}
 
 	activities, err := s.activity.all(scope)

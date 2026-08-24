@@ -224,6 +224,101 @@ func TestMergeAccountsIsTheSameInBothStores(t *testing.T) {
 	})
 }
 
+// TestMergeAccountsClearsTheSurvivorsOwnDedupFlag proves a merge never
+// leaves the survivor's own duplicate_of_account_id pointing at the id the
+// merge just deleted. The flag is set the ordinary way — a real matching
+// website domain, the same path account_hierarchy.go's own tests use —
+// rather than hand-assigned, because CreateAccount/UpdateAccount recompute
+// it from the current tenant state on every write and would silently
+// overwrite a hand-assigned value that did not come from an actual domain
+// match.
+func TestMergeAccountsClearsTheSurvivorsOwnDedupFlag(t *testing.T) {
+	eachMergeStore(t, func(t *testing.T, name string, s Store) {
+		ctx := context.Background()
+		scope := mergeScope(name)
+
+		duplicate, err := s.CreateAccount(ctx, scope, &Account{
+			Name: "Acme Inc", OwnerID: "bob", Website: "https://acme-merge-clears.example",
+		})
+		if err != nil {
+			t.Fatalf("create duplicate: %v", err)
+		}
+		// Created after "duplicate" with the same website domain, so
+		// applyAccountDuplicateFlag naturally flags it against the only
+		// existing match at the time: "duplicate" itself.
+		survivor, err := s.CreateAccount(ctx, scope, &Account{
+			Name: "Acme", OwnerID: "alice", Website: "https://acme-merge-clears.example/about",
+		})
+		if err != nil {
+			t.Fatalf("create survivor: %v", err)
+		}
+		if survivor.DuplicateOfAccountID != duplicate.ID {
+			t.Fatalf("test setup: survivor.duplicate_of_account_id = %q, want %q", survivor.DuplicateOfAccountID, duplicate.ID)
+		}
+
+		mergedSurvivor, _, err := s.MergeAccounts(ctx, scope, MergeAccountsInput{
+			SurvivorID: survivor.ID, DuplicateID: duplicate.ID,
+		})
+		if err != nil {
+			t.Fatalf("merge: %v", err)
+		}
+		if mergedSurvivor.DuplicateOfAccountID != "" {
+			t.Errorf("survivor.duplicate_of_account_id = %q, want cleared (the account it named was just deleted)",
+				mergedSurvivor.DuplicateOfAccountID)
+		}
+	})
+}
+
+// TestMergeAccountsRepointsAThirdPartysDedupFlag proves that when some other
+// account flagged the duplicate (not the survivor) as its own possible
+// match, a merge repoints that flag at the survivor instead of leaving it
+// dangling — the merge resolved which of the two was kept, not whether the
+// third account is itself a duplicate, so that open question follows the id
+// that still exists.
+func TestMergeAccountsRepointsAThirdPartysDedupFlag(t *testing.T) {
+	eachMergeStore(t, func(t *testing.T, name string, s Store) {
+		ctx := context.Background()
+		scope := mergeScope(name)
+
+		duplicate, err := s.CreateAccount(ctx, scope, &Account{
+			Name: "Acme Inc", OwnerID: "bob", Website: "https://acme-merge-repoints.example",
+		})
+		if err != nil {
+			t.Fatalf("create duplicate: %v", err)
+		}
+		thirdParty, err := s.CreateAccount(ctx, scope, &Account{
+			Name: "Acme LLC", OwnerID: "carol", Website: "https://acme-merge-repoints.example/llc",
+		})
+		if err != nil {
+			t.Fatalf("create third-party account: %v", err)
+		}
+		if thirdParty.DuplicateOfAccountID != duplicate.ID {
+			t.Fatalf("test setup: third_party.duplicate_of_account_id = %q, want %q", thirdParty.DuplicateOfAccountID, duplicate.ID)
+		}
+		// A survivor with an unrelated domain, so merging it in does not
+		// itself trigger any dedup flag.
+		survivor, err := s.CreateAccount(ctx, scope, &Account{Name: "Acme", OwnerID: "alice"})
+		if err != nil {
+			t.Fatalf("create survivor: %v", err)
+		}
+
+		if _, _, err := s.MergeAccounts(ctx, scope, MergeAccountsInput{
+			SurvivorID: survivor.ID, DuplicateID: duplicate.ID,
+		}); err != nil {
+			t.Fatalf("merge: %v", err)
+		}
+
+		gotThirdParty, err := s.GetAccount(ctx, scope, thirdParty.ID)
+		if err != nil {
+			t.Fatalf("get third party: %v", err)
+		}
+		if gotThirdParty.DuplicateOfAccountID != survivor.ID {
+			t.Errorf("third_party.duplicate_of_account_id = %q, want %q (repointed, not cleared)",
+				gotThirdParty.DuplicateOfAccountID, survivor.ID)
+		}
+	})
+}
+
 func TestMergeAccountsRejectsUnknownAccounts(t *testing.T) {
 	eachMergeStore(t, func(t *testing.T, name string, s Store) {
 		ctx := context.Background()
