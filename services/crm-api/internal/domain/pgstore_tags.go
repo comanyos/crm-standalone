@@ -182,6 +182,11 @@ func (s *PgStore) AssignTag(ctx context.Context, scope Scope, v *TagAssignment) 
 		}
 		return nil, err
 	}
+	// The tagged object must exist in this tenant too — see
+	// requireTaggableObject's doc comment.
+	if err := requireTaggableObject(ctx, s, scope, record.ObjectType, record.ObjectID); err != nil {
+		return nil, err
+	}
 	if record.ID == "" {
 		record.ID = newID()
 	}

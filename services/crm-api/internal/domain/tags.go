@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -124,4 +126,46 @@ func cloneTagAssignment(v *TagAssignment) *TagAssignment {
 	}
 	c := *v
 	return &c
+}
+
+// taggableObjectReader is what requireTaggableObject needs from a store: one
+// tenant-scoped Get per taggable type. subjectReader already covers four of
+// the five; task.go's Task is the one taggable type that is not also a
+// polymorphic subject, so it is added explicitly.
+type taggableObjectReader interface {
+	subjectReader
+	GetTask(ctx context.Context, scope Scope, id string) (*Task, error)
+}
+
+// requireTaggableObject confirms objectID names a real record of objectType
+// in the caller's own tenant before AssignTag lets a tag point at it.
+//
+// Without this, a tag assignment naming an id nothing resolves would insert
+// silently — the row satisfies every constraint the schema can express, and
+// nothing would ever surface it as wrong until a UI tried to render "the
+// tagged account" and found none. The lookup always goes through the
+// caller's own scope, so a real record belonging to another tenant is
+// indistinguishable from one that does not exist — the same property
+// requireSubject holds for Activity/Task/Note subjects.
+func requireTaggableObject(ctx context.Context, r taggableObjectReader, scope Scope, objectType, objectID string) error {
+	var err error
+	switch objectType {
+	case "account":
+		_, err = r.GetAccount(ctx, scope, objectID)
+	case "contact":
+		_, err = r.GetContact(ctx, scope, objectID)
+	case "lead":
+		_, err = r.GetLead(ctx, scope, objectID)
+	case "opportunity":
+		_, err = r.GetOpportunity(ctx, scope, objectID)
+	case "task":
+		_, err = r.GetTask(ctx, scope, objectID)
+	default:
+		return fmt.Errorf("%w: %q is not a taggable record type (allowed: %s)",
+			ErrInvalid, objectType, strings.Join(SortedTaggableObjectTypes(), ", "))
+	}
+	if errors.Is(err, ErrNotFound) {
+		return fmt.Errorf("%w: no %s %q exists in this tenant", ErrInvalid, objectType, objectID)
+	}
+	return err
 }

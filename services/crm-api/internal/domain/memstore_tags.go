@@ -163,7 +163,7 @@ func assignmentKey(objectType, objectID, tagID string) string {
 // AssignTag attaches a tag to a record. Idempotent: assigning a tag a record
 // already carries returns the existing assignment rather than a conflict, so
 // a bulk "add tag" action can retry safely without needing to check first.
-func (s *MemStore) AssignTag(_ context.Context, scope Scope, v *TagAssignment) (*TagAssignment, error) {
+func (s *MemStore) AssignTag(ctx context.Context, scope Scope, v *TagAssignment) (*TagAssignment, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
@@ -172,6 +172,13 @@ func (s *MemStore) AssignTag(_ context.Context, scope Scope, v *TagAssignment) (
 	}
 	record := cloneTagAssignment(v)
 	if err := record.Validate(); err != nil {
+		return nil, err
+	}
+	// Confirmed outside tags.mu: the object's own memTable takes its own
+	// lock, and a tag assignment must not be able to point at a record that
+	// does not exist in this tenant — see requireTaggableObject's doc
+	// comment.
+	if err := requireTaggableObject(ctx, s, scope, record.ObjectType, record.ObjectID); err != nil {
 		return nil, err
 	}
 

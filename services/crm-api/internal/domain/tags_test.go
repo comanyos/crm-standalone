@@ -111,14 +111,23 @@ func TestTagLifecycleIsTheSameInBothStores(t *testing.T) {
 			t.Fatalf("list tags = %d, want 2", len(tags))
 		}
 
+		acct1, err := s.CreateAccount(ctx, scope, &Account{Name: "Acct One", OwnerID: "owner-1"})
+		if err != nil {
+			t.Fatalf("create account 1: %v", err)
+		}
+		acct2, err := s.CreateAccount(ctx, scope, &Account{Name: "Acct Two", OwnerID: "owner-1"})
+		if err != nil {
+			t.Fatalf("create account 2: %v", err)
+		}
+
 		// Assigning is idempotent: the same call twice must not error and
 		// must not create a second row — the property a bulk "add tag"
 		// retry depends on.
-		first, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: "acct-1"})
+		first, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: acct1.ID})
 		if err != nil {
 			t.Fatalf("assign tag: %v", err)
 		}
-		second, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: "acct-1"})
+		second, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: acct1.ID})
 		if err != nil {
 			t.Fatalf("re-assign tag: %v", err)
 		}
@@ -126,23 +135,26 @@ func TestTagLifecycleIsTheSameInBothStores(t *testing.T) {
 			t.Fatalf("re-assigning created a second row: %s != %s", first.ID, second.ID)
 		}
 
-		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: other.ID, ObjectType: "account", ObjectID: "acct-1"}); err != nil {
+		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: other.ID, ObjectType: "account", ObjectID: acct1.ID}); err != nil {
 			t.Fatalf("assign second tag: %v", err)
 		}
-		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: "acct-2"}); err != nil {
+		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: acct2.ID}); err != nil {
 			t.Fatalf("assign to second record: %v", err)
 		}
 
-		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: "missing", ObjectType: "account", ObjectID: "acct-1"}); !errors.Is(err, ErrInvalid) {
+		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: "missing", ObjectType: "account", ObjectID: acct1.ID}); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("assign unknown tag = %v, want ErrInvalid", err)
 		}
+		if _, err := s.AssignTag(ctx, scope, &TagAssignment{TagID: tag.ID, ObjectType: "account", ObjectID: "does-not-exist"}); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("assign to nonexistent account = %v, want ErrInvalid", err)
+		}
 
-		recordTags, err := s.ListTagsForRecord(ctx, scope, "account", "acct-1")
+		recordTags, err := s.ListTagsForRecord(ctx, scope, "account", acct1.ID)
 		if err != nil {
 			t.Fatalf("list tags for record: %v", err)
 		}
 		if len(recordTags) != 2 {
-			t.Fatalf("tags for acct-1 = %d, want 2", len(recordTags))
+			t.Fatalf("tags for acct1 = %d, want 2", len(recordTags))
 		}
 
 		assignments, next, err := s.ListTaggedRecords(ctx, scope, tag.ID, "", Page{})
@@ -157,13 +169,13 @@ func TestTagLifecycleIsTheSameInBothStores(t *testing.T) {
 		}
 
 		// Removing is idempotent too: removing twice must not error.
-		if err := s.RemoveTag(ctx, scope, "account", "acct-1", tag.ID); err != nil {
+		if err := s.RemoveTag(ctx, scope, "account", acct1.ID, tag.ID); err != nil {
 			t.Fatalf("remove tag: %v", err)
 		}
-		if err := s.RemoveTag(ctx, scope, "account", "acct-1", tag.ID); err != nil {
+		if err := s.RemoveTag(ctx, scope, "account", acct1.ID, tag.ID); err != nil {
 			t.Fatalf("re-remove tag: %v", err)
 		}
-		recordTags, err = s.ListTagsForRecord(ctx, scope, "account", "acct-1")
+		recordTags, err = s.ListTagsForRecord(ctx, scope, "account", acct1.ID)
 		if err != nil {
 			t.Fatalf("list tags for record after remove: %v", err)
 		}
