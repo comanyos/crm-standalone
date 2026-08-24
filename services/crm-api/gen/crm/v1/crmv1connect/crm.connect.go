@@ -281,6 +281,27 @@ const (
 	// CRMServiceListTaggedRecordsProcedure is the fully-qualified name of the CRMService's
 	// ListTaggedRecords RPC.
 	CRMServiceListTaggedRecordsProcedure = "/crm.v1.CRMService/ListTaggedRecords"
+	// CRMServiceBulkAssignTagProcedure is the fully-qualified name of the CRMService's BulkAssignTag
+	// RPC.
+	CRMServiceBulkAssignTagProcedure = "/crm.v1.CRMService/BulkAssignTag"
+	// CRMServiceBulkRemoveTagProcedure is the fully-qualified name of the CRMService's BulkRemoveTag
+	// RPC.
+	CRMServiceBulkRemoveTagProcedure = "/crm.v1.CRMService/BulkRemoveTag"
+	// CRMServiceBulkCompleteTasksProcedure is the fully-qualified name of the CRMService's
+	// BulkCompleteTasks RPC.
+	CRMServiceBulkCompleteTasksProcedure = "/crm.v1.CRMService/BulkCompleteTasks"
+	// CRMServiceBulkReopenTasksProcedure is the fully-qualified name of the CRMService's
+	// BulkReopenTasks RPC.
+	CRMServiceBulkReopenTasksProcedure = "/crm.v1.CRMService/BulkReopenTasks"
+	// CRMServiceBulkReassignTaskAssigneeProcedure is the fully-qualified name of the CRMService's
+	// BulkReassignTaskAssignee RPC.
+	CRMServiceBulkReassignTaskAssigneeProcedure = "/crm.v1.CRMService/BulkReassignTaskAssignee"
+	// CRMServiceBulkReassignAccountOwnerProcedure is the fully-qualified name of the CRMService's
+	// BulkReassignAccountOwner RPC.
+	CRMServiceBulkReassignAccountOwnerProcedure = "/crm.v1.CRMService/BulkReassignAccountOwner"
+	// CRMServiceBulkReassignLeadOwnerProcedure is the fully-qualified name of the CRMService's
+	// BulkReassignLeadOwner RPC.
+	CRMServiceBulkReassignLeadOwnerProcedure = "/crm.v1.CRMService/BulkReassignLeadOwner"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -471,6 +492,30 @@ type CRMServiceClient interface {
 	// me every record tagged X" until per-entity filters grow a tag field of
 	// their own.
 	ListTaggedRecords(context.Context, *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error)
+	// Bulk operations (M4 — data productivity).
+	//
+	// Every bulk RPC is bounded (see maxBulkBatch in internal/api) and reports
+	// one BulkItemResult per requested id rather than succeeding or failing as
+	// a unit: a batch is not a transaction, and telling a caller "12 of 40
+	// succeeded, here are the 28 that did not and why" is the honest answer
+	// when the underlying per-record operations already have their own
+	// semantics (idempotent assign/remove, optimistic-concurrency updates).
+	// Each item is authorized exactly as its single-record RPC would be —
+	// scope-gated by procedure, then existence-checked per id inside the
+	// caller's own tenant — so a foreign or nonexistent id fails only that
+	// item, the same NotFound a direct call would produce.
+	BulkAssignTag(context.Context, *connect.Request[v1.BulkAssignTagRequest]) (*connect.Response[v1.BulkAssignTagResponse], error)
+	BulkRemoveTag(context.Context, *connect.Request[v1.BulkRemoveTagRequest]) (*connect.Response[v1.BulkRemoveTagResponse], error)
+	BulkCompleteTasks(context.Context, *connect.Request[v1.BulkCompleteTasksRequest]) (*connect.Response[v1.BulkCompleteTasksResponse], error)
+	BulkReopenTasks(context.Context, *connect.Request[v1.BulkReopenTasksRequest]) (*connect.Response[v1.BulkReopenTasksResponse], error)
+	BulkReassignTaskAssignee(context.Context, *connect.Request[v1.BulkReassignTaskAssigneeRequest]) (*connect.Response[v1.BulkReassignTaskAssigneeResponse], error)
+	// BulkReassignAccountOwner and BulkReassignLeadOwner are separate RPCs
+	// rather than one parameterized by object_type, so each can carry its own
+	// static write scope (crm:account:write / crm:lead:write) the way every
+	// other entity-specific RPC does, instead of a scope check that depends on
+	// a request field the interceptor's static policy cannot see.
+	BulkReassignAccountOwner(context.Context, *connect.Request[v1.BulkReassignAccountOwnerRequest]) (*connect.Response[v1.BulkReassignAccountOwnerResponse], error)
+	BulkReassignLeadOwner(context.Context, *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1042,6 +1087,48 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListTaggedRecords")),
 			connect.WithClientOptions(opts...),
 		),
+		bulkAssignTag: connect.NewClient[v1.BulkAssignTagRequest, v1.BulkAssignTagResponse](
+			httpClient,
+			baseURL+CRMServiceBulkAssignTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkAssignTag")),
+			connect.WithClientOptions(opts...),
+		),
+		bulkRemoveTag: connect.NewClient[v1.BulkRemoveTagRequest, v1.BulkRemoveTagResponse](
+			httpClient,
+			baseURL+CRMServiceBulkRemoveTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkRemoveTag")),
+			connect.WithClientOptions(opts...),
+		),
+		bulkCompleteTasks: connect.NewClient[v1.BulkCompleteTasksRequest, v1.BulkCompleteTasksResponse](
+			httpClient,
+			baseURL+CRMServiceBulkCompleteTasksProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkCompleteTasks")),
+			connect.WithClientOptions(opts...),
+		),
+		bulkReopenTasks: connect.NewClient[v1.BulkReopenTasksRequest, v1.BulkReopenTasksResponse](
+			httpClient,
+			baseURL+CRMServiceBulkReopenTasksProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkReopenTasks")),
+			connect.WithClientOptions(opts...),
+		),
+		bulkReassignTaskAssignee: connect.NewClient[v1.BulkReassignTaskAssigneeRequest, v1.BulkReassignTaskAssigneeResponse](
+			httpClient,
+			baseURL+CRMServiceBulkReassignTaskAssigneeProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkReassignTaskAssignee")),
+			connect.WithClientOptions(opts...),
+		),
+		bulkReassignAccountOwner: connect.NewClient[v1.BulkReassignAccountOwnerRequest, v1.BulkReassignAccountOwnerResponse](
+			httpClient,
+			baseURL+CRMServiceBulkReassignAccountOwnerProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkReassignAccountOwner")),
+			connect.WithClientOptions(opts...),
+		),
+		bulkReassignLeadOwner: connect.NewClient[v1.BulkReassignLeadOwnerRequest, v1.BulkReassignLeadOwnerResponse](
+			httpClient,
+			baseURL+CRMServiceBulkReassignLeadOwnerProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("BulkReassignLeadOwner")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1140,6 +1227,13 @@ type cRMServiceClient struct {
 	removeTag                     *connect.Client[v1.RemoveTagRequest, v1.RemoveTagResponse]
 	listTagsForRecord             *connect.Client[v1.ListTagsForRecordRequest, v1.ListTagsForRecordResponse]
 	listTaggedRecords             *connect.Client[v1.ListTaggedRecordsRequest, v1.ListTaggedRecordsResponse]
+	bulkAssignTag                 *connect.Client[v1.BulkAssignTagRequest, v1.BulkAssignTagResponse]
+	bulkRemoveTag                 *connect.Client[v1.BulkRemoveTagRequest, v1.BulkRemoveTagResponse]
+	bulkCompleteTasks             *connect.Client[v1.BulkCompleteTasksRequest, v1.BulkCompleteTasksResponse]
+	bulkReopenTasks               *connect.Client[v1.BulkReopenTasksRequest, v1.BulkReopenTasksResponse]
+	bulkReassignTaskAssignee      *connect.Client[v1.BulkReassignTaskAssigneeRequest, v1.BulkReassignTaskAssigneeResponse]
+	bulkReassignAccountOwner      *connect.Client[v1.BulkReassignAccountOwnerRequest, v1.BulkReassignAccountOwnerResponse]
+	bulkReassignLeadOwner         *connect.Client[v1.BulkReassignLeadOwnerRequest, v1.BulkReassignLeadOwnerResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1607,6 +1701,41 @@ func (c *cRMServiceClient) ListTaggedRecords(ctx context.Context, req *connect.R
 	return c.listTaggedRecords.CallUnary(ctx, req)
 }
 
+// BulkAssignTag calls crm.v1.CRMService.BulkAssignTag.
+func (c *cRMServiceClient) BulkAssignTag(ctx context.Context, req *connect.Request[v1.BulkAssignTagRequest]) (*connect.Response[v1.BulkAssignTagResponse], error) {
+	return c.bulkAssignTag.CallUnary(ctx, req)
+}
+
+// BulkRemoveTag calls crm.v1.CRMService.BulkRemoveTag.
+func (c *cRMServiceClient) BulkRemoveTag(ctx context.Context, req *connect.Request[v1.BulkRemoveTagRequest]) (*connect.Response[v1.BulkRemoveTagResponse], error) {
+	return c.bulkRemoveTag.CallUnary(ctx, req)
+}
+
+// BulkCompleteTasks calls crm.v1.CRMService.BulkCompleteTasks.
+func (c *cRMServiceClient) BulkCompleteTasks(ctx context.Context, req *connect.Request[v1.BulkCompleteTasksRequest]) (*connect.Response[v1.BulkCompleteTasksResponse], error) {
+	return c.bulkCompleteTasks.CallUnary(ctx, req)
+}
+
+// BulkReopenTasks calls crm.v1.CRMService.BulkReopenTasks.
+func (c *cRMServiceClient) BulkReopenTasks(ctx context.Context, req *connect.Request[v1.BulkReopenTasksRequest]) (*connect.Response[v1.BulkReopenTasksResponse], error) {
+	return c.bulkReopenTasks.CallUnary(ctx, req)
+}
+
+// BulkReassignTaskAssignee calls crm.v1.CRMService.BulkReassignTaskAssignee.
+func (c *cRMServiceClient) BulkReassignTaskAssignee(ctx context.Context, req *connect.Request[v1.BulkReassignTaskAssigneeRequest]) (*connect.Response[v1.BulkReassignTaskAssigneeResponse], error) {
+	return c.bulkReassignTaskAssignee.CallUnary(ctx, req)
+}
+
+// BulkReassignAccountOwner calls crm.v1.CRMService.BulkReassignAccountOwner.
+func (c *cRMServiceClient) BulkReassignAccountOwner(ctx context.Context, req *connect.Request[v1.BulkReassignAccountOwnerRequest]) (*connect.Response[v1.BulkReassignAccountOwnerResponse], error) {
+	return c.bulkReassignAccountOwner.CallUnary(ctx, req)
+}
+
+// BulkReassignLeadOwner calls crm.v1.CRMService.BulkReassignLeadOwner.
+func (c *cRMServiceClient) BulkReassignLeadOwner(ctx context.Context, req *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error) {
+	return c.bulkReassignLeadOwner.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1795,6 +1924,30 @@ type CRMServiceHandler interface {
 	// me every record tagged X" until per-entity filters grow a tag field of
 	// their own.
 	ListTaggedRecords(context.Context, *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error)
+	// Bulk operations (M4 — data productivity).
+	//
+	// Every bulk RPC is bounded (see maxBulkBatch in internal/api) and reports
+	// one BulkItemResult per requested id rather than succeeding or failing as
+	// a unit: a batch is not a transaction, and telling a caller "12 of 40
+	// succeeded, here are the 28 that did not and why" is the honest answer
+	// when the underlying per-record operations already have their own
+	// semantics (idempotent assign/remove, optimistic-concurrency updates).
+	// Each item is authorized exactly as its single-record RPC would be —
+	// scope-gated by procedure, then existence-checked per id inside the
+	// caller's own tenant — so a foreign or nonexistent id fails only that
+	// item, the same NotFound a direct call would produce.
+	BulkAssignTag(context.Context, *connect.Request[v1.BulkAssignTagRequest]) (*connect.Response[v1.BulkAssignTagResponse], error)
+	BulkRemoveTag(context.Context, *connect.Request[v1.BulkRemoveTagRequest]) (*connect.Response[v1.BulkRemoveTagResponse], error)
+	BulkCompleteTasks(context.Context, *connect.Request[v1.BulkCompleteTasksRequest]) (*connect.Response[v1.BulkCompleteTasksResponse], error)
+	BulkReopenTasks(context.Context, *connect.Request[v1.BulkReopenTasksRequest]) (*connect.Response[v1.BulkReopenTasksResponse], error)
+	BulkReassignTaskAssignee(context.Context, *connect.Request[v1.BulkReassignTaskAssigneeRequest]) (*connect.Response[v1.BulkReassignTaskAssigneeResponse], error)
+	// BulkReassignAccountOwner and BulkReassignLeadOwner are separate RPCs
+	// rather than one parameterized by object_type, so each can carry its own
+	// static write scope (crm:account:write / crm:lead:write) the way every
+	// other entity-specific RPC does, instead of a scope check that depends on
+	// a request field the interceptor's static policy cannot see.
+	BulkReassignAccountOwner(context.Context, *connect.Request[v1.BulkReassignAccountOwnerRequest]) (*connect.Response[v1.BulkReassignAccountOwnerResponse], error)
+	BulkReassignLeadOwner(context.Context, *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2362,6 +2515,48 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListTaggedRecords")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceBulkAssignTagHandler := connect.NewUnaryHandler(
+		CRMServiceBulkAssignTagProcedure,
+		svc.BulkAssignTag,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkAssignTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceBulkRemoveTagHandler := connect.NewUnaryHandler(
+		CRMServiceBulkRemoveTagProcedure,
+		svc.BulkRemoveTag,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkRemoveTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceBulkCompleteTasksHandler := connect.NewUnaryHandler(
+		CRMServiceBulkCompleteTasksProcedure,
+		svc.BulkCompleteTasks,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkCompleteTasks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceBulkReopenTasksHandler := connect.NewUnaryHandler(
+		CRMServiceBulkReopenTasksProcedure,
+		svc.BulkReopenTasks,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkReopenTasks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceBulkReassignTaskAssigneeHandler := connect.NewUnaryHandler(
+		CRMServiceBulkReassignTaskAssigneeProcedure,
+		svc.BulkReassignTaskAssignee,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkReassignTaskAssignee")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceBulkReassignAccountOwnerHandler := connect.NewUnaryHandler(
+		CRMServiceBulkReassignAccountOwnerProcedure,
+		svc.BulkReassignAccountOwner,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkReassignAccountOwner")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceBulkReassignLeadOwnerHandler := connect.NewUnaryHandler(
+		CRMServiceBulkReassignLeadOwnerProcedure,
+		svc.BulkReassignLeadOwner,
+		connect.WithSchema(cRMServiceMethods.ByName("BulkReassignLeadOwner")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -2550,6 +2745,20 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListTagsForRecordHandler.ServeHTTP(w, r)
 		case CRMServiceListTaggedRecordsProcedure:
 			cRMServiceListTaggedRecordsHandler.ServeHTTP(w, r)
+		case CRMServiceBulkAssignTagProcedure:
+			cRMServiceBulkAssignTagHandler.ServeHTTP(w, r)
+		case CRMServiceBulkRemoveTagProcedure:
+			cRMServiceBulkRemoveTagHandler.ServeHTTP(w, r)
+		case CRMServiceBulkCompleteTasksProcedure:
+			cRMServiceBulkCompleteTasksHandler.ServeHTTP(w, r)
+		case CRMServiceBulkReopenTasksProcedure:
+			cRMServiceBulkReopenTasksHandler.ServeHTTP(w, r)
+		case CRMServiceBulkReassignTaskAssigneeProcedure:
+			cRMServiceBulkReassignTaskAssigneeHandler.ServeHTTP(w, r)
+		case CRMServiceBulkReassignAccountOwnerProcedure:
+			cRMServiceBulkReassignAccountOwnerHandler.ServeHTTP(w, r)
+		case CRMServiceBulkReassignLeadOwnerProcedure:
+			cRMServiceBulkReassignLeadOwnerHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2929,4 +3138,32 @@ func (UnimplementedCRMServiceHandler) ListTagsForRecord(context.Context, *connec
 
 func (UnimplementedCRMServiceHandler) ListTaggedRecords(context.Context, *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListTaggedRecords is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkAssignTag(context.Context, *connect.Request[v1.BulkAssignTagRequest]) (*connect.Response[v1.BulkAssignTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkAssignTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkRemoveTag(context.Context, *connect.Request[v1.BulkRemoveTagRequest]) (*connect.Response[v1.BulkRemoveTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkRemoveTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkCompleteTasks(context.Context, *connect.Request[v1.BulkCompleteTasksRequest]) (*connect.Response[v1.BulkCompleteTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkCompleteTasks is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkReopenTasks(context.Context, *connect.Request[v1.BulkReopenTasksRequest]) (*connect.Response[v1.BulkReopenTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkReopenTasks is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkReassignTaskAssignee(context.Context, *connect.Request[v1.BulkReassignTaskAssigneeRequest]) (*connect.Response[v1.BulkReassignTaskAssigneeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkReassignTaskAssignee is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkReassignAccountOwner(context.Context, *connect.Request[v1.BulkReassignAccountOwnerRequest]) (*connect.Response[v1.BulkReassignAccountOwnerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkReassignAccountOwner is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) BulkReassignLeadOwner(context.Context, *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkReassignLeadOwner is not implemented"))
 }

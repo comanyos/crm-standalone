@@ -8,6 +8,7 @@ import { Table, type Column } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/StatePanel";
 import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors";
@@ -41,6 +42,19 @@ export default function TasksListPage() {
   const currentToken = history[history.length - 1] ?? "";
   const canWrite = hasScope("crm:task:write");
   const me = session?.claims.sub ?? "";
+
+  // Bulk selection is page-local: it is not carried across a filter change
+  // or a page turn, both of which already invalidate what "selected" means
+  // (a different, or no longer visible, set of rows).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmingBulk, setConfirmingBulk] = useState<"complete" | "reopen" | null>(null);
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // The filter each view sends. Overdue is open_only plus due_before now,
   // which is exactly how the backend defines it — an undated task is never
@@ -80,7 +94,68 @@ export default function TasksListPage() {
     onError: (err) => toast.show({ tone: "danger", message: mutationErrorMessage(err) }),
   });
 
+  // Reports one toast for the whole batch rather than one per task: the
+  // caller asked for one bulk action, and 12 individual toasts would say
+  // less than "10 of 12 completed" says in one line.
+  const reportBulkOutcome = (results: { success: boolean }[], verb: string) => {
+    const succeeded = results.filter((r) => r.success).length;
+    const failed = results.length - succeeded;
+    if (failed === 0) {
+      toast.show({ tone: "success", message: `${succeeded} task${succeeded === 1 ? "" : "s"} ${verb}.` });
+    } else {
+      toast.show({
+        tone: "warning",
+        message: `${succeeded} ${verb}, ${failed} failed — a task may have changed or been removed since you selected it.`,
+      });
+    }
+  };
+
+  const bulkComplete = useMutation({
+    mutationFn: () => crm.bulkCompleteTasks({ ids: Array.from(selected) }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["crm.listTasks"] });
+      setConfirmingBulk(null);
+      setSelected(new Set());
+      reportBulkOutcome(res.results, "completed");
+    },
+    onError: (err) => {
+      setConfirmingBulk(null);
+      toast.show({ tone: "danger", message: mutationErrorMessage(err) });
+    },
+  });
+  const bulkReopen = useMutation({
+    mutationFn: () => crm.bulkReopenTasks({ ids: Array.from(selected) }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["crm.listTasks"] });
+      setConfirmingBulk(null);
+      setSelected(new Set());
+      reportBulkOutcome(res.results, "reopened");
+    },
+    onError: (err) => {
+      setConfirmingBulk(null);
+      toast.show({ tone: "danger", message: mutationErrorMessage(err) });
+    },
+  });
+
   const columns: Column<Task>[] = [
+    {
+      key: "select",
+      header: "Select", headerHidden: true,
+      render: (task) =>
+        canWrite ? (
+          <input
+            type="checkbox"
+            checked={selected.has(task.id)}
+            aria-label={`Select ${task.title}`}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              event.stopPropagation();
+              toggleSelected(task.id);
+            }}
+            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+        ) : null,
+    },
     {
       key: "done",
       header: "Row actions", headerHidden: true,
@@ -177,6 +252,22 @@ export default function TasksListPage() {
 
       {data && data.tasks.length > 0 && (
         <div className={isPlaceholderData ? "opacity-60" : undefined}>
+          {canWrite && selected.size > 0 && (
+            <div className="mb-3 flex items-center gap-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-sm">
+              <span className="font-medium text-brand-800">
+                {selected.size} task{selected.size === 1 ? "" : "s"} selected
+              </span>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmingBulk("complete")}>
+                Complete selected
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmingBulk("reopen")}>
+                Reopen selected
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setSelected(new Set())}>
+                Clear selection
+              </Button>
+            </div>
+          )}
           <Table
             caption="Tasks"
             columns={columns}
@@ -194,6 +285,15 @@ export default function TasksListPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmingBulk !== null}
+        title={confirmingBulk === "complete" ? `Complete ${selected.size} task(s)?` : `Reopen ${selected.size} task(s)?`}
+        description="Each task is completed or reopened independently. If one has changed since you selected it, the rest still go through and you'll see how many succeeded."
+        confirmLabel={confirmingBulk === "complete" ? "Complete tasks" : "Reopen tasks"}
+        loading={bulkComplete.isPending || bulkReopen.isPending}
+        onConfirm={() => (confirmingBulk === "complete" ? bulkComplete.mutate() : bulkReopen.mutate())}
+        onCancel={() => setConfirmingBulk(null)}
+      />
     </div>
   );
 }

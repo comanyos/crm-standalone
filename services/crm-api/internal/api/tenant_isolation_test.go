@@ -1217,6 +1217,130 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Error("ListTaggedRecords returned organization A's tag assignments for a foreign tag id")
 		}
 	},
+	"BulkAssignTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.BulkAssignTag(ctxB, connect.NewRequest(&crmv1.BulkAssignTagRequest{
+			TagId: a.tagID, ObjectType: "account", ObjectIds: []string{a.accountID},
+		}))
+		if err != nil {
+			t.Fatalf("BulkAssignTag: %v", err)
+		}
+		for _, r := range res.Msg.GetResults() {
+			if r.GetSuccess() {
+				t.Error("BulkAssignTag: organization B assigned organization A's tag to organization A's account")
+			}
+		}
+	},
+	"BulkRemoveTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		if _, err := s.BulkRemoveTag(ctxB, connect.NewRequest(&crmv1.BulkRemoveTagRequest{
+			TagId: a.tagID, ObjectType: "account", ObjectIds: []string{a.accountID},
+		})); err != nil {
+			t.Fatalf("BulkRemoveTag: %v", err)
+		}
+		tags, err := s.ListTagsForRecord(a.ctx, connect.NewRequest(&crmv1.ListTagsForRecordRequest{
+			ObjectType: "account", ObjectId: a.accountID,
+		}))
+		if err != nil {
+			t.Fatalf("verify victim's tags survived: %v", err)
+		}
+		found := false
+		for _, tag := range tags.Msg.GetTags() {
+			if tag.GetId() == a.tagID {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("BulkRemoveTag: organization B removed organization A's tag assignment")
+		}
+	},
+	"BulkCompleteTasks": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.BulkCompleteTasks(ctxB, connect.NewRequest(&crmv1.BulkCompleteTasksRequest{Ids: []string{a.taskID}}))
+		if err != nil {
+			t.Fatalf("BulkCompleteTasks: %v", err)
+		}
+		for _, r := range res.Msg.GetResults() {
+			if r.GetSuccess() {
+				t.Error("BulkCompleteTasks: organization B completed organization A's task")
+			}
+		}
+		task, err := s.GetTask(a.ctx, connect.NewRequest(&crmv1.GetTaskRequest{Id: a.taskID}))
+		if err != nil {
+			t.Fatalf("verify victim's task survived: %v", err)
+		}
+		if task.Msg.GetTask().GetStatus() == "completed" {
+			t.Error("BulkCompleteTasks: organization A's task was completed by organization B's request")
+		}
+	},
+	"BulkReopenTasks": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.BulkReopenTasks(ctxB, connect.NewRequest(&crmv1.BulkReopenTasksRequest{Ids: []string{a.taskID}}))
+		if err != nil {
+			t.Fatalf("BulkReopenTasks: %v", err)
+		}
+		for _, r := range res.Msg.GetResults() {
+			if r.GetSuccess() {
+				t.Error("BulkReopenTasks: organization B reopened organization A's task")
+			}
+		}
+	},
+	"BulkReassignTaskAssignee": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.BulkReassignTaskAssignee(ctxB, connect.NewRequest(&crmv1.BulkReassignTaskAssigneeRequest{
+			Ids: []string{a.taskID}, NewAssigneeId: "attacker",
+		}))
+		if err != nil {
+			t.Fatalf("BulkReassignTaskAssignee: %v", err)
+		}
+		for _, r := range res.Msg.GetResults() {
+			if r.GetSuccess() {
+				t.Error("BulkReassignTaskAssignee: organization B reassigned organization A's task")
+			}
+		}
+		task, err := s.GetTask(a.ctx, connect.NewRequest(&crmv1.GetTaskRequest{Id: a.taskID}))
+		if err != nil {
+			t.Fatalf("verify victim's task survived: %v", err)
+		}
+		if task.Msg.GetTask().GetAssigneeId() == "attacker" {
+			t.Error("BulkReassignTaskAssignee: organization A's task was reassigned by organization B's request")
+		}
+	},
+	"BulkReassignAccountOwner": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.BulkReassignAccountOwner(ctxB, connect.NewRequest(&crmv1.BulkReassignAccountOwnerRequest{
+			Ids: []string{a.accountID}, NewOwnerId: "attacker",
+		}))
+		if err != nil {
+			t.Fatalf("BulkReassignAccountOwner: %v", err)
+		}
+		for _, r := range res.Msg.GetResults() {
+			if r.GetSuccess() {
+				t.Error("BulkReassignAccountOwner: organization B reassigned organization A's account")
+			}
+		}
+		account, err := s.GetAccount(a.ctx, connect.NewRequest(&crmv1.GetAccountRequest{Id: a.accountID}))
+		if err != nil {
+			t.Fatalf("verify victim's account survived: %v", err)
+		}
+		if account.Msg.GetAccount().GetOwnerId() == "attacker" {
+			t.Error("BulkReassignAccountOwner: organization A's account was reassigned by organization B's request")
+		}
+	},
+	"BulkReassignLeadOwner": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.BulkReassignLeadOwner(ctxB, connect.NewRequest(&crmv1.BulkReassignLeadOwnerRequest{
+			Ids: []string{a.leadID}, NewOwnerId: "attacker",
+		}))
+		if err != nil {
+			t.Fatalf("BulkReassignLeadOwner: %v", err)
+		}
+		for _, r := range res.Msg.GetResults() {
+			if r.GetSuccess() {
+				t.Error("BulkReassignLeadOwner: organization B reassigned organization A's lead")
+			}
+		}
+		lead, err := s.GetLead(a.ctx, connect.NewRequest(&crmv1.GetLeadRequest{Id: a.leadID}))
+		if err != nil {
+			t.Fatalf("verify victim's lead survived: %v", err)
+		}
+		if lead.Msg.GetLead().GetOwnerId() == "attacker" {
+			t.Error("BulkReassignLeadOwner: organization A's lead was reassigned by organization B's request")
+		}
+	},
 }
 
 // TestCrossOrganizationRPCAccessIsDenied runs every probe against a live

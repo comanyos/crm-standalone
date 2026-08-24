@@ -173,6 +173,17 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/RemoveTag":         "crm:tag:write",
 	"/crm.v1.CRMService/ListTagsForRecord": "crm:tag:read",
 	"/crm.v1.CRMService/ListTaggedRecords": "crm:tag:read",
+
+	// Bulk operations. Each carries the same scope its single-record
+	// equivalent would — a bulk action is authorization-equivalent to
+	// looping the single-record RPC, not a separate authority.
+	"/crm.v1.CRMService/BulkAssignTag":            "crm:tag:write",
+	"/crm.v1.CRMService/BulkRemoveTag":            "crm:tag:write",
+	"/crm.v1.CRMService/BulkCompleteTasks":        "crm:task:write",
+	"/crm.v1.CRMService/BulkReopenTasks":          "crm:task:write",
+	"/crm.v1.CRMService/BulkReassignTaskAssignee": "crm:task:write",
+	"/crm.v1.CRMService/BulkReassignAccountOwner": "crm:account:write",
+	"/crm.v1.CRMService/BulkReassignLeadOwner":    "crm:lead:write",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

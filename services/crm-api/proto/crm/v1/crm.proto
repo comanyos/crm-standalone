@@ -210,6 +210,31 @@ service CRMService {
   // me every record tagged X" until per-entity filters grow a tag field of
   // their own.
   rpc ListTaggedRecords(ListTaggedRecordsRequest) returns (ListTaggedRecordsResponse);
+
+  // Bulk operations (M4 — data productivity).
+  //
+  // Every bulk RPC is bounded (see maxBulkBatch in internal/api) and reports
+  // one BulkItemResult per requested id rather than succeeding or failing as
+  // a unit: a batch is not a transaction, and telling a caller "12 of 40
+  // succeeded, here are the 28 that did not and why" is the honest answer
+  // when the underlying per-record operations already have their own
+  // semantics (idempotent assign/remove, optimistic-concurrency updates).
+  // Each item is authorized exactly as its single-record RPC would be —
+  // scope-gated by procedure, then existence-checked per id inside the
+  // caller's own tenant — so a foreign or nonexistent id fails only that
+  // item, the same NotFound a direct call would produce.
+  rpc BulkAssignTag(BulkAssignTagRequest) returns (BulkAssignTagResponse);
+  rpc BulkRemoveTag(BulkRemoveTagRequest) returns (BulkRemoveTagResponse);
+  rpc BulkCompleteTasks(BulkCompleteTasksRequest) returns (BulkCompleteTasksResponse);
+  rpc BulkReopenTasks(BulkReopenTasksRequest) returns (BulkReopenTasksResponse);
+  rpc BulkReassignTaskAssignee(BulkReassignTaskAssigneeRequest) returns (BulkReassignTaskAssigneeResponse);
+  // BulkReassignAccountOwner and BulkReassignLeadOwner are separate RPCs
+  // rather than one parameterized by object_type, so each can carry its own
+  // static write scope (crm:account:write / crm:lead:write) the way every
+  // other entity-specific RPC does, instead of a scope check that depends on
+  // a request field the interceptor's static policy cannot see.
+  rpc BulkReassignAccountOwner(BulkReassignAccountOwnerRequest) returns (BulkReassignAccountOwnerResponse);
+  rpc BulkReassignLeadOwner(BulkReassignLeadOwnerRequest) returns (BulkReassignLeadOwnerResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -1254,3 +1279,50 @@ message ListTaggedRecordsResponse {
   repeated TaggedRecord records = 1;
   string next_page_token = 2;
 }
+
+// Bulk operations.
+message BulkItemResult {
+  string id = 1;
+  bool success = 2;
+  // error is empty on success. It carries the same bounded, user-safe text
+  // every single-record RPC's error does — never a raw internal message.
+  string error = 3;
+}
+
+message BulkAssignTagRequest {
+  string tag_id = 1;
+  string object_type = 2;
+  repeated string object_ids = 3;
+}
+message BulkAssignTagResponse { repeated BulkItemResult results = 1; }
+
+message BulkRemoveTagRequest {
+  string tag_id = 1;
+  string object_type = 2;
+  repeated string object_ids = 3;
+}
+message BulkRemoveTagResponse { repeated BulkItemResult results = 1; }
+
+message BulkCompleteTasksRequest { repeated string ids = 1; }
+message BulkCompleteTasksResponse { repeated BulkItemResult results = 1; }
+
+message BulkReopenTasksRequest { repeated string ids = 1; }
+message BulkReopenTasksResponse { repeated BulkItemResult results = 1; }
+
+message BulkReassignTaskAssigneeRequest {
+  repeated string ids = 1;
+  string new_assignee_id = 2;
+}
+message BulkReassignTaskAssigneeResponse { repeated BulkItemResult results = 1; }
+
+message BulkReassignAccountOwnerRequest {
+  repeated string ids = 1;
+  string new_owner_id = 2;
+}
+message BulkReassignAccountOwnerResponse { repeated BulkItemResult results = 1; }
+
+message BulkReassignLeadOwnerRequest {
+  repeated string ids = 1;
+  string new_owner_id = 2;
+}
+message BulkReassignLeadOwnerResponse { repeated BulkItemResult results = 1; }

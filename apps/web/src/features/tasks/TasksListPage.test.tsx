@@ -6,7 +6,7 @@ import { makeTask, renderRoutes } from "../../test/harness";
 import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
-  crm: { listTasks: vi.fn(), completeTask: vi.fn(), reopenTask: vi.fn() },
+  crm: { listTasks: vi.fn(), completeTask: vi.fn(), reopenTask: vi.fn(), bulkCompleteTasks: vi.fn(), bulkReopenTasks: vi.fn() },
   auth: {
     hasScope: vi.fn(),
     hasRole: vi.fn(),
@@ -33,6 +33,8 @@ beforeEach(() => {
   crm.listTasks.mockResolvedValue({ tasks: [makeTask()], nextPageToken: "" });
   crm.completeTask.mockResolvedValue({ task: makeTask({ status: "completed" }) });
   crm.reopenTask.mockResolvedValue({ task: makeTask({ status: "open" }) });
+  crm.bulkCompleteTasks.mockResolvedValue({ results: [{ id: "task-1", success: true, error: "" }] });
+  crm.bulkReopenTasks.mockResolvedValue({ results: [{ id: "task-1", success: true, error: "" }] });
 });
 
 function lastListRequest() {
@@ -138,6 +140,60 @@ describe("TasksListPage", () => {
     expect(screen.queryByRole("button", { name: "New task" })).not.toBeInTheDocument();
   });
 
+  // Bulk selection: select a row, confirm, and the batch call carries every
+  // selected id — not a loop of single-record calls.
+  it("bulk-completes the selected tasks after confirmation", async () => {
+    crm.listTasks.mockResolvedValue({
+      tasks: [makeTask(), makeTask({ id: "task-2", title: "Send the invoice" })],
+      nextPageToken: "",
+    });
+    crm.bulkCompleteTasks.mockResolvedValue({
+      results: [
+        { id: "task-1", success: true, error: "" },
+        { id: "task-2", success: true, error: "" },
+      ],
+    });
+    renderRoutes(routes, ["/tasks"]);
+    await screen.findByText("Send the proposal");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Send the proposal" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Send the invoice" }));
+    expect(screen.getByText("2 tasks selected")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Complete selected" }));
+    await screen.findByRole("dialog");
+    expect(crm.bulkCompleteTasks).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Complete tasks" }));
+    await waitFor(() => expect(crm.bulkCompleteTasks).toHaveBeenCalledWith({ ids: ["task-1", "task-2"] }));
+
+    // The batch clears the selection and its own toolbar on success.
+    await waitFor(() => expect(screen.queryByText(/tasks selected/)).not.toBeInTheDocument());
+  });
+
+  it("reports a partial bulk failure rather than a bare success", async () => {
+    crm.bulkCompleteTasks.mockResolvedValue({
+      results: [{ id: "task-1", success: false, error: "not found" }],
+    });
+    renderRoutes(routes, ["/tasks"]);
+    await screen.findByText("Send the proposal");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Send the proposal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete selected" }));
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "Complete tasks" }));
+
+    expect(await screen.findByText(/0 completed, 1 failed/)).toBeInTheDocument();
+  });
+
+  it("offers no selection controls without write scope", async () => {
+    auth.hasScope.mockImplementation((scope: string) => scope !== "crm:task:write");
+    renderRoutes(routes, ["/tasks"]);
+    await screen.findByText("Send the proposal");
+
+    expect(screen.queryByRole("checkbox", { name: /^Select /i })).not.toBeInTheDocument();
+  });
+
   it("explains an empty overdue view differently from an empty list", async () => {
     crm.listTasks.mockResolvedValue({ tasks: [], nextPageToken: "" });
     renderRoutes(routes, ["/tasks"]);
@@ -152,6 +208,15 @@ describe("TasksListPage", () => {
   it("has no accessibility violations", async () => {
     const { container } = renderRoutes(routes, ["/tasks"]);
     await screen.findByRole("table");
+    await expectNoA11yViolations(container);
+  });
+
+  it("has no accessibility violations with the bulk toolbar and confirm dialog open", async () => {
+    const { container } = renderRoutes(routes, ["/tasks"]);
+    await screen.findByText("Send the proposal");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Send the proposal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Complete selected" }));
+    await screen.findByRole("dialog");
     await expectNoA11yViolations(container);
   });
 
