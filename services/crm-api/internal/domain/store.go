@@ -289,6 +289,25 @@ type Store interface {
 	// as the others: identifiers only.
 	DueWorkflowTenants(ctx context.Context, now time.Time, limit int) ([]string, error)
 
+	// Tags (migrations/0024_tags.sql, tags.go). Deleting a definition removes
+	// its assignments too — see DeleteTagDefinition's doc comment for why a
+	// tag has no archive state the way a pipeline or custom field does.
+	CreateTagDefinition(ctx context.Context, scope Scope, v *TagDefinition) (*TagDefinition, error)
+	GetTagDefinition(ctx context.Context, scope Scope, id string) (*TagDefinition, error)
+	ListTagDefinitions(ctx context.Context, scope Scope) ([]*TagDefinition, error)
+	UpdateTagDefinition(ctx context.Context, scope Scope, v *TagDefinition) (*TagDefinition, error)
+	DeleteTagDefinition(ctx context.Context, scope Scope, id string) error
+	// AssignTag and RemoveTag are both idempotent, so a bulk tag action can
+	// retry a partial batch without double-counting or erroring on a record
+	// that already reflects the change.
+	AssignTag(ctx context.Context, scope Scope, v *TagAssignment) (*TagAssignment, error)
+	RemoveTag(ctx context.Context, scope Scope, objectType, objectID, tagID string) error
+	ListTagsForRecord(ctx context.Context, scope Scope, objectType, objectID string) ([]*TagDefinition, error)
+	// ListTaggedRecords is the filter surface a list page uses to answer
+	// "show me every X tagged Y" until per-entity filter structs grow a tag
+	// field of their own.
+	ListTaggedRecords(ctx context.Context, scope Scope, tagID, objectType string, page Page) ([]*TagAssignment, string, error)
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the

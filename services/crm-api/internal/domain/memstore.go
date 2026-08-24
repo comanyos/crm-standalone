@@ -213,6 +213,8 @@ type MemStore struct {
 	// gmail holds synchronisation cursors and the timeline index — likewise
 	// not memTables, see memstore_gmail.go.
 	gmail *gmailTables
+	// tags holds tag definitions and assignments — see memstore_tags.go.
+	tags *tagTables
 	// calendar holds the event mirror and its cursor — see
 	// memstore_calendar.go.
 	calendar *calendarTables
@@ -248,6 +250,7 @@ func NewMemStore() *MemStore {
 		calendar:         newCalendarTables(),
 		suppressions:     make(map[string]map[string]*SyncSuppression),
 		workflow:         newWorkflowTables(),
+		tags:             newTagTables(),
 	}
 }
 
