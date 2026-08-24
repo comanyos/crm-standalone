@@ -1298,7 +1298,25 @@ Acceptance criteria:
   saved views, sharing rules, and defaults per entity.
 - [ ] Implement bulk select/action APIs with authorization per affected record,
   bounded batches, idempotency keys, progress/failure reporting, and audit.
-- [ ] Add tags, custom fields, validation rules, and controlled schema changes.
+- [~] Add tags, custom fields, validation rules, and controlled schema changes.
+  Tags are implemented end to end: tenant-scoped `tag_definitions` and
+  `tag_assignments` tables (`migrations/0024_tags.sql`) with RLS enabled and
+  forced, an explicit allowlist of taggable record types (account, contact,
+  lead, opportunity, task), idempotent assign/remove for safe bulk-action
+  retries, MemStore/PgStore parity tests, cross-tenant isolation probes for
+  all eight new RPCs, a deny-by-default `crm:tag:read`/`crm:tag:write` scope
+  pair wired into the role matrix and AuthinCore's bootstrap seeding, a Tags
+  settings page (create/rename/recolor/delete), and a reusable tag
+  assign/remove panel on account/contact/lead/opportunity/task pages —
+  verified live end to end against the running stack (create → assign →
+  persists across reload → remove), with component/page tests including
+  axe accessibility checks. `ListTaggedRecords` exists as the "show every
+  record tagged X" filter surface, but per-entity filter structs
+  (`AccountFilter` etc.) do not yet have a native tag field — filtering an
+  entity list by tag still requires the separate RPC rather than composing
+  with other filters. Custom fields and validation rules predate this work
+  (task_v2 Phase 1.1). Controlled schema changes for custom objects also
+  predate this work (task_v2 Phase 1.2).
 - [ ] Implement duplicate review/merge with field-by-field resolution,
   relationship migration, immutable merge audit, undo policy, and conflict
   constraints.

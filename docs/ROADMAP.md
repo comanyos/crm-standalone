@@ -315,7 +315,7 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (20%)
+## M4 — Data productivity (25%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
@@ -325,7 +325,12 @@ Dependencies: M2/M3 stable record schemas and indexes.
   searches account, contact, lead, opportunity, and task identifiers in the
   database with trigram indexes, has a dedicated `crm:search:read` scope, and
   has API isolation coverage. Entity filters/pagination exist where already
-  implemented, but saved views, tags, and bulk operations remain pending.
+  implemented. **Tags are done**: tenant-scoped definitions and assignments
+  for an explicit allowlist of record types, RLS-enforced, idempotent
+  assign/remove, deny-by-default `crm:tag:*` scopes in the role matrix and
+  AuthinCore bootstrap, a settings page, and an assign/remove panel on every
+  taggable record's detail page — verified live against the running stack.
+  Saved views and bulk operations remain pending.
 - [~] Custom fields, deduplication/merge policy, CSV import validation, and
   export jobs with audit trails. Tenant administrators can already define
   typed custom fields and custom objects without runtime DDL; deduplication
