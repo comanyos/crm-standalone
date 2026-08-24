@@ -1296,8 +1296,23 @@ Acceptance criteria:
   dedicated index later). Search indexes must be tenant-filtered.
 - [ ] Implement reusable structured filters, sort controls, column selection,
   saved views, sharing rules, and defaults per entity.
-- [ ] Implement bulk select/action APIs with authorization per affected record,
+- [~] Implement bulk select/action APIs with authorization per affected record,
   bounded batches, idempotency keys, progress/failure reporting, and audit.
+  Seven RPCs cover the safe starter set the goal named: bulk tag
+  assign/remove, task complete/reopen, task-assignee reassignment, and
+  account/lead owner reassignment. Every batch is bounded at 200 ids,
+  authorizes and reports each id independently (BulkItemResult per item —
+  no all-or-nothing), reuses each entity's existing write scope, and has
+  cross-tenant isolation probes plus unit tests for partial failure and
+  idempotent retry. Account owner reassignment reuses UpdateAccount's
+  existing ownership-history audit trail; lead owner reassignment does not
+  (leads have no ownership-history table — a named gap, not a silent one).
+  Web UI: selection + bulk complete/reopen on the tasks list, selection +
+  bulk tag add/remove on the accounts list, both verified live. Not yet
+  built: an idempotency-key header for retrying an entire batch exactly
+  once (each item is independently idempotent today, which covers the
+  common case, but a client-generated batch key is not implemented), and
+  bulk UI on the contacts/leads/opportunities lists.
 - [~] Add tags, custom fields, validation rules, and controlled schema changes.
   Tags are implemented end to end: tenant-scoped `tag_definitions` and
   `tag_assignments` tables (`migrations/0024_tags.sql`) with RLS enabled and

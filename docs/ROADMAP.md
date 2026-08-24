@@ -315,7 +315,7 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (25%)
+## M4 — Data productivity (32%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
@@ -330,7 +330,11 @@ Dependencies: M2/M3 stable record schemas and indexes.
   assign/remove, deny-by-default `crm:tag:*` scopes in the role matrix and
   AuthinCore bootstrap, a settings page, and an assign/remove panel on every
   taggable record's detail page — verified live against the running stack.
-  Saved views and bulk operations remain pending.
+  **Bulk operations are also started**: bounded (≤200 ids), per-item-
+  authorized bulk RPCs for tag assign/remove, task complete/reopen, task
+  reassignment, and account/lead owner reassignment — each id succeeds or
+  fails independently and is reported back, not all-or-nothing — with
+  selection UI on the tasks and accounts lists. Saved views remain pending.
 - [~] Custom fields, deduplication/merge policy, CSV import validation, and
   export jobs with audit trails. Tenant administrators can already define
   typed custom fields and custom objects without runtime DDL; deduplication
