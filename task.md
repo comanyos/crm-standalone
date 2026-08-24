@@ -65,7 +65,7 @@ authority can only come from server-side role grants.
 | OIDC/JWT integration | Live-verified via an automated browser test | `apps/web/tests-e2e/auth.spec.ts` (Playwright) exercises PKCE login, consent, live dashboard, reload, and logout end to end against the real stack. JWKS refresh/rotation and negative-path cases still need coverage. |
 | Tenant isolation | Proven by automated tests at four layers | every CRM RPC that touches tenant data (84 of the 85; DescribeWorkflowCatalog is exempt in writing because it reads no store), the store against live PostgreSQL, a catalog-driven RLS check covering every table carrying `tenant_id`, and the outbox dispatcher's `crm_app`/`crm_drain` split. Audit-event and metric tenant labelling stays open because neither surface exists yet (§10.2). A token already issued outlives organization deactivation until it expires — see §1.3. |
 | Backend domain | Partially implemented | Accounts, contacts, leads, conversion, opportunities, activities, RLS, and tests exist. Production/contract coverage is incomplete. |
-| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard, and live CRUD workflows for accounts, contacts, leads, opportunities, and tasks, plus pipeline administration, an opportunity Kanban board, and an activity timeline with notes on four detail views, a Connected accounts page, an Automation rule editor with its execution history, and an in-app notification bell. Search and reporting screens and the remaining product workflows are still pending. |
+| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard (now including pipeline/task/conversion/forecast reporting, §7.2), and live CRUD workflows for accounts, contacts, leads, opportunities, and tasks, plus pipeline administration, an opportunity Kanban board, and an activity timeline with notes on four detail views, a Connected accounts page, an Automation rule editor with its execution history, an in-app notification bell, tags, saved views and bulk operations (accounts/tasks), account merge, and CSV import/export (accounts). Quick search has an RPC (`SearchRecords`) but no dedicated results screen yet, and saved-view/bulk-operation UI does not yet cover every entity list. |
 | Production operations | Not started | Local keys/credentials and Compose are development-only. |
 
 Approximate total product completion: **62%** of the scoped product, and
@@ -1415,13 +1415,41 @@ Acceptance criteria:
 
 ### 7.2 Dashboards and reports
 
-- [ ] Define canonical metrics and date/currency/time-zone semantics.
-- [ ] Implement dashboard/query APIs with bounded filters and tenant-aware
+- [x] Define canonical metrics and date/currency/time-zone semantics.
+  Documented directly in `internal/domain/reporting.go`'s package comment:
+  currency is the tenant's raw `Opportunity.Amount`, summed with no
+  conversion (multi-currency mixing is named, not hidden); every date
+  boundary (e.g. "overdue") compares in UTC, matching `nowStamp()`'s
+  convention tenant-wide, with no per-tenant/per-user time zone setting;
+  pipeline status is `PipelineStage.terminal_type`, never a stage's name or
+  position.
+- [x] Implement dashboard/query APIs with bounded filters and tenant-aware
   aggregation; never aggregate through bypass-RLS connections without an
-  explicit tenant filter.
-- [ ] Build personal/team dashboards, pipeline reports, activity reports,
+  explicit tenant filter. `GetDashboardReport` composes one bounded page
+  (≤500 rows) each of `ListPipelines`/`ListOpportunities`/`ListTasks`/
+  `ListLeads` through the caller's own tenant-scoped `Store`, same as every
+  other RPC — no separate aggregation connection, no bypass of RLS.
+  Covered by a cross-tenant isolation probe. Verified live.
+- [~] Build personal/team dashboards, pipeline reports, activity reports,
   conversion funnels, win/loss, forecast, and exportable reports.
-- [ ] Add reporting permission model and cache invalidation/refresh policy.
+  **Done**: a per-pipeline stage/won/lost report, a task status summary, the
+  lead conversion funnel with rate, and a weighted forecast (reusing the
+  domain layer's pre-existing, previously-unwired `PipelineForecast` /
+  `DefaultStageProbabilities`, labeled in the UI as a default weighting, not
+  a confirmed methodology) — a dashboard page renders all four, verified
+  live against the running stack (a real $4,200 opportunity at Prospecting's
+  10% default weight correctly produced a $420 weighted forecast bucket).
+  **Not done**: activity-specific reports, a personal-vs-team distinction
+  (the report is simply "this caller's tenant," like every other RPC), and
+  exporting the report itself (CSV export exists for accounts, §7.1, not for
+  report data).
+- [x] Add reporting permission model. Reuses `crm:summary:read` — already
+  granted to `crm_manager`/`crm_member`/`crm_viewer` — on the reasoning that
+  a dashboard is a read-only aggregate over records the caller could already
+  list one type at a time, not a new authorization surface; no RBAC
+  bootstrap or role-matrix changes were needed. There is no cache to
+  invalidate: the report is computed fresh from bounded reads on every call,
+  the same posture `PipelineForecast` already took before this session.
 
 ### 7.3 Administration
 

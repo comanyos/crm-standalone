@@ -315,7 +315,7 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (55%)
+## M4 — Data productivity (70%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
@@ -357,11 +357,36 @@ Dependencies: M2/M3 stable record schemas and indexes.
   trail — both verified live. Both are synchronous rather than truly
   asynchronous, and neither covers contacts, leads, opportunities, or
   tasks — named scope narrowings, not silent gaps.
-- [ ] Dashboard cards and basic reporting backed by query endpoints.
+- [x] Dashboard cards and basic reporting backed by query endpoints. A single
+  bounded `GetDashboardReport` RPC (`crm:summary:read`, the same scope
+  `GetSummary` already uses) composes one page (≤500 rows) each of a
+  tenant's pipelines/opportunities/tasks/leads through pure, unit-tested
+  aggregation functions (`internal/domain/reporting.go`): a per-pipeline
+  stage breakdown with won/lost totals (from `PipelineStage.terminal_type`,
+  never a stage's name or position), a task status summary with an overdue
+  count, and the lead conversion funnel with its rate. It also surfaces the
+  weighted pipeline forecast — a pre-existing, previously-unwired
+  `PipelineForecast`/`DefaultStageProbabilities` rollup found already
+  written and tested in the domain layer — labeled in the UI as a default
+  weighting, not a confirmed methodology, per its own doc comment. Canonical
+  metric semantics (currency: raw tenant amounts, no conversion; dates:
+  UTC; pipeline status: from `terminal_type`) are documented directly in
+  `reporting.go` rather than assumed. Covered by a cross-tenant isolation
+  probe and, on the web side, a dashboard page (pipeline cards, task tiles,
+  funnel, forecast table) — verified live against the running stack: a real
+  opportunity's amount flowed through to its pipeline's stage count, the
+  tenant total, and the forecast bucket ($4,200 at the Prospecting stage's
+  10% default weight correctly showed as a $420 weighted forecast).
 
 Acceptance criteria: large result sets remain paginated; bulk actions are
 atomic or report per-record failures; imports are dry-runnable and exports are
 tenant scoped.
+
+Still open within M4: contact and lead merge (account merge only); CSV
+import/export covers accounts only; saved views and bulk-operation selection
+UI exist on some entity lists (accounts, tasks) but not all; saved-view
+column selection is stored but not yet applied by any list UI; and
+custom-field-aware search/filter integration has not been started.
 
 ## M5 — Communications and automation (75%)
 
