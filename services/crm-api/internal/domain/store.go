@@ -301,6 +301,22 @@ type Store interface {
 	// as the survivor or the (now-deleted) duplicate, newest first.
 	ListAccountMerges(ctx context.Context, scope Scope, accountID string) ([]*AccountMergeRecord, error)
 
+	// CSV import and export, accounts only in v1 (docs/CSV_IMPORT_EXPORT.md,
+	// migrations/0027_import_export.sql). CreateImportJob is the dry run:
+	// it validates and stores the job without writing any Account.
+	// CommitImportJob is idempotent — calling it again on an already
+	// "completed" job returns the stored result rather than re-running it.
+	CreateImportJob(ctx context.Context, scope Scope, in CreateImportJobInput) (*ImportJob, error)
+	GetImportJob(ctx context.Context, scope Scope, id string) (*ImportJob, error)
+	ListImportJobs(ctx context.Context, scope Scope, objectType string) ([]*ImportJob, error)
+	CommitImportJob(ctx context.Context, scope Scope, id string) (*ImportJob, error)
+	// CreateExportJob generates and returns CSV content for the caller's
+	// own tenant (bounded at maxExportRows) and records an ExportJob audit
+	// row. The file itself is never persisted — see
+	// docs/CSV_IMPORT_EXPORT.md's "No object storage" section.
+	CreateExportJob(ctx context.Context, scope Scope, objectType, requestedBy string) (*ExportJob, string, error)
+	ListExportJobs(ctx context.Context, scope Scope, objectType string) ([]*ExportJob, error)
+
 	CreateTagDefinition(ctx context.Context, scope Scope, v *TagDefinition) (*TagDefinition, error)
 	GetTagDefinition(ctx context.Context, scope Scope, id string) (*TagDefinition, error)
 	ListTagDefinitions(ctx context.Context, scope Scope) ([]*TagDefinition, error)

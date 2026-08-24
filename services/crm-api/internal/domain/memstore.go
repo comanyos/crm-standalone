@@ -205,6 +205,8 @@ type MemStore struct {
 	ownershipHistory *memTable[*AccountOwnershipHistory]
 	customField      *memTable[*CustomFieldDefinition]
 	accountMerge     *memTable[*AccountMergeRecord]
+	importJob        *memTable[*ImportJob]
+	exportJob        *memTable[*ExportJob]
 	customObject     *memTable[*CustomObjectDefinition]
 	customRecord     *memTable[*CustomRecord]
 
@@ -248,6 +250,8 @@ func NewMemStore() *MemStore {
 		ownershipHistory: newMemTable(cloneAccountOwnershipHistory),
 		customField:      newMemTable(cloneCustomFieldDefinition),
 		accountMerge:     newMemTable(cloneAccountMergeRecord),
+		importJob:        newMemTable(cloneImportJob),
+		exportJob:        newMemTable(cloneExportJob),
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
 		google:           newGoogleTables(),
