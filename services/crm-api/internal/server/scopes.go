@@ -204,6 +204,18 @@ var crmScopes = map[string]string{
 	// UpdateAccount plus a DeleteAccount on the two accounts it touches.
 	"/crm.v1.CRMService/MergeAccounts":     "crm:account:write",
 	"/crm.v1.CRMService/ListAccountMerges": "crm:account:read",
+
+	// CSV import and export, accounts only in v1. Every RPC reuses the
+	// account scope pair rather than a scope of its own — see
+	// docs/CSV_IMPORT_EXPORT.md's "Authorization" section: an import is
+	// authorization-equivalent to calling CreateAccount once per row, and
+	// an export to calling ListAccounts.
+	"/crm.v1.CRMService/CreateImportJob": "crm:account:write",
+	"/crm.v1.CRMService/GetImportJob":    "crm:account:read",
+	"/crm.v1.CRMService/ListImportJobs":  "crm:account:read",
+	"/crm.v1.CRMService/CommitImportJob": "crm:account:write",
+	"/crm.v1.CRMService/ExportAccounts":  "crm:account:read",
+	"/crm.v1.CRMService/ListExportJobs":  "crm:account:read",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

@@ -252,6 +252,29 @@ service CRMService {
   // ListAccountMerges is the immutable audit trail: every merge one account
   // was ever part of, as the kept id or the retired one.
   rpc ListAccountMerges(ListAccountMergesRequest) returns (ListAccountMergesResponse);
+
+  // CSV import and export, accounts only in v1 (M4 — data productivity).
+  // See docs/CSV_IMPORT_EXPORT.md for the full product decision record:
+  // size bounds, field mapping, duplicate policy, and — importantly —
+  // that both run synchronously inside the RPC call rather than as a
+  // true background job, and that a committed import has no rollback.
+  //
+  // CreateImportJob is the dry run: it validates and stores the upload,
+  // returning per-row errors, without creating any Account.
+  // CommitImportJob is what actually creates them, and is idempotent —
+  // calling it again on an already-completed job returns the stored
+  // result rather than re-running it.
+  rpc CreateImportJob(CreateImportJobRequest) returns (CreateImportJobResponse);
+  rpc GetImportJob(GetImportJobRequest) returns (GetImportJobResponse);
+  rpc ListImportJobs(ListImportJobsRequest) returns (ListImportJobsResponse);
+  rpc CommitImportJob(CommitImportJobRequest) returns (CommitImportJobResponse);
+  // ExportAccounts generates and returns CSV for the caller's own tenant,
+  // bounded at 500 rows, inline in the response — there is no object
+  // storage to hand back a download link from (docs/CSV_IMPORT_EXPORT.md).
+  rpc ExportAccounts(ExportAccountsRequest) returns (ExportAccountsResponse);
+  // ListExportJobs is the audit trail of who exported, when, and how many
+  // rows — the export content itself is never persisted.
+  rpc ListExportJobs(ListExportJobsRequest) returns (ListExportJobsResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -1411,3 +1434,63 @@ message MergeAccountsResponse {
 
 message ListAccountMergesRequest { string account_id = 1; }
 message ListAccountMergesResponse { repeated AccountMergeRecord merges = 1; }
+
+// CSV import and export.
+message ImportRowError {
+  int32 row_number = 1;
+  string message = 2;
+}
+
+message ImportJob {
+  string id = 1;
+  string object_type = 2;
+  string status = 3;
+  string file_name = 4;
+  map<string, string> mapping = 5;
+  int32 row_count = 6;
+  int32 created_rows = 7;
+  int32 skipped_rows = 8;
+  repeated ImportRowError errors = 9;
+  string created_by = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  // The uploaded content is deliberately not echoed back here — a client
+  // already has it, and it would double every response's size for no
+  // purpose.
+}
+
+message CreateImportJobRequest {
+  string object_type = 1;
+  string file_name = 2;
+  string content = 3;
+  // mapping is CSV header text -> one of the importable Account fields
+  // (name, industry, tier, owner_id, website, annual_revenue, parent_id).
+  map<string, string> mapping = 4;
+}
+message CreateImportJobResponse { ImportJob job = 1; }
+
+message GetImportJobRequest { string id = 1; }
+message GetImportJobResponse { ImportJob job = 1; }
+
+message ListImportJobsRequest { string object_type = 1; }
+message ListImportJobsResponse { repeated ImportJob jobs = 1; }
+
+message CommitImportJobRequest { string id = 1; }
+message CommitImportJobResponse { ImportJob job = 1; }
+
+message ExportAccountsRequest {}
+message ExportAccountsResponse {
+  ExportJob job = 1;
+  string content = 2;
+}
+
+message ExportJob {
+  string id = 1;
+  string object_type = 2;
+  int32 row_count = 3;
+  string requested_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListExportJobsRequest { string object_type = 1; }
+message ListExportJobsResponse { repeated ExportJob jobs = 1; }

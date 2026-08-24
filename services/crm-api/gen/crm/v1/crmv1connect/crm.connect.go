@@ -320,6 +320,23 @@ const (
 	// CRMServiceListAccountMergesProcedure is the fully-qualified name of the CRMService's
 	// ListAccountMerges RPC.
 	CRMServiceListAccountMergesProcedure = "/crm.v1.CRMService/ListAccountMerges"
+	// CRMServiceCreateImportJobProcedure is the fully-qualified name of the CRMService's
+	// CreateImportJob RPC.
+	CRMServiceCreateImportJobProcedure = "/crm.v1.CRMService/CreateImportJob"
+	// CRMServiceGetImportJobProcedure is the fully-qualified name of the CRMService's GetImportJob RPC.
+	CRMServiceGetImportJobProcedure = "/crm.v1.CRMService/GetImportJob"
+	// CRMServiceListImportJobsProcedure is the fully-qualified name of the CRMService's ListImportJobs
+	// RPC.
+	CRMServiceListImportJobsProcedure = "/crm.v1.CRMService/ListImportJobs"
+	// CRMServiceCommitImportJobProcedure is the fully-qualified name of the CRMService's
+	// CommitImportJob RPC.
+	CRMServiceCommitImportJobProcedure = "/crm.v1.CRMService/CommitImportJob"
+	// CRMServiceExportAccountsProcedure is the fully-qualified name of the CRMService's ExportAccounts
+	// RPC.
+	CRMServiceExportAccountsProcedure = "/crm.v1.CRMService/ExportAccounts"
+	// CRMServiceListExportJobsProcedure is the fully-qualified name of the CRMService's ListExportJobs
+	// RPC.
+	CRMServiceListExportJobsProcedure = "/crm.v1.CRMService/ListExportJobs"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -549,6 +566,28 @@ type CRMServiceClient interface {
 	// ListAccountMerges is the immutable audit trail: every merge one account
 	// was ever part of, as the kept id or the retired one.
 	ListAccountMerges(context.Context, *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error)
+	// CSV import and export, accounts only in v1 (M4 — data productivity).
+	// See docs/CSV_IMPORT_EXPORT.md for the full product decision record:
+	// size bounds, field mapping, duplicate policy, and — importantly —
+	// that both run synchronously inside the RPC call rather than as a
+	// true background job, and that a committed import has no rollback.
+	//
+	// CreateImportJob is the dry run: it validates and stores the upload,
+	// returning per-row errors, without creating any Account.
+	// CommitImportJob is what actually creates them, and is idempotent —
+	// calling it again on an already-completed job returns the stored
+	// result rather than re-running it.
+	CreateImportJob(context.Context, *connect.Request[v1.CreateImportJobRequest]) (*connect.Response[v1.CreateImportJobResponse], error)
+	GetImportJob(context.Context, *connect.Request[v1.GetImportJobRequest]) (*connect.Response[v1.GetImportJobResponse], error)
+	ListImportJobs(context.Context, *connect.Request[v1.ListImportJobsRequest]) (*connect.Response[v1.ListImportJobsResponse], error)
+	CommitImportJob(context.Context, *connect.Request[v1.CommitImportJobRequest]) (*connect.Response[v1.CommitImportJobResponse], error)
+	// ExportAccounts generates and returns CSV for the caller's own tenant,
+	// bounded at 500 rows, inline in the response — there is no object
+	// storage to hand back a download link from (docs/CSV_IMPORT_EXPORT.md).
+	ExportAccounts(context.Context, *connect.Request[v1.ExportAccountsRequest]) (*connect.Response[v1.ExportAccountsResponse], error)
+	// ListExportJobs is the audit trail of who exported, when, and how many
+	// rows — the export content itself is never persisted.
+	ListExportJobs(context.Context, *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1198,6 +1237,42 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListAccountMerges")),
 			connect.WithClientOptions(opts...),
 		),
+		createImportJob: connect.NewClient[v1.CreateImportJobRequest, v1.CreateImportJobResponse](
+			httpClient,
+			baseURL+CRMServiceCreateImportJobProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateImportJob")),
+			connect.WithClientOptions(opts...),
+		),
+		getImportJob: connect.NewClient[v1.GetImportJobRequest, v1.GetImportJobResponse](
+			httpClient,
+			baseURL+CRMServiceGetImportJobProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetImportJob")),
+			connect.WithClientOptions(opts...),
+		),
+		listImportJobs: connect.NewClient[v1.ListImportJobsRequest, v1.ListImportJobsResponse](
+			httpClient,
+			baseURL+CRMServiceListImportJobsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListImportJobs")),
+			connect.WithClientOptions(opts...),
+		),
+		commitImportJob: connect.NewClient[v1.CommitImportJobRequest, v1.CommitImportJobResponse](
+			httpClient,
+			baseURL+CRMServiceCommitImportJobProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CommitImportJob")),
+			connect.WithClientOptions(opts...),
+		),
+		exportAccounts: connect.NewClient[v1.ExportAccountsRequest, v1.ExportAccountsResponse](
+			httpClient,
+			baseURL+CRMServiceExportAccountsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ExportAccounts")),
+			connect.WithClientOptions(opts...),
+		),
+		listExportJobs: connect.NewClient[v1.ListExportJobsRequest, v1.ListExportJobsResponse](
+			httpClient,
+			baseURL+CRMServiceListExportJobsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListExportJobs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1309,6 +1384,12 @@ type cRMServiceClient struct {
 	deleteSavedView               *connect.Client[v1.DeleteSavedViewRequest, v1.DeleteSavedViewResponse]
 	mergeAccounts                 *connect.Client[v1.MergeAccountsRequest, v1.MergeAccountsResponse]
 	listAccountMerges             *connect.Client[v1.ListAccountMergesRequest, v1.ListAccountMergesResponse]
+	createImportJob               *connect.Client[v1.CreateImportJobRequest, v1.CreateImportJobResponse]
+	getImportJob                  *connect.Client[v1.GetImportJobRequest, v1.GetImportJobResponse]
+	listImportJobs                *connect.Client[v1.ListImportJobsRequest, v1.ListImportJobsResponse]
+	commitImportJob               *connect.Client[v1.CommitImportJobRequest, v1.CommitImportJobResponse]
+	exportAccounts                *connect.Client[v1.ExportAccountsRequest, v1.ExportAccountsResponse]
+	listExportJobs                *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1841,6 +1922,36 @@ func (c *cRMServiceClient) ListAccountMerges(ctx context.Context, req *connect.R
 	return c.listAccountMerges.CallUnary(ctx, req)
 }
 
+// CreateImportJob calls crm.v1.CRMService.CreateImportJob.
+func (c *cRMServiceClient) CreateImportJob(ctx context.Context, req *connect.Request[v1.CreateImportJobRequest]) (*connect.Response[v1.CreateImportJobResponse], error) {
+	return c.createImportJob.CallUnary(ctx, req)
+}
+
+// GetImportJob calls crm.v1.CRMService.GetImportJob.
+func (c *cRMServiceClient) GetImportJob(ctx context.Context, req *connect.Request[v1.GetImportJobRequest]) (*connect.Response[v1.GetImportJobResponse], error) {
+	return c.getImportJob.CallUnary(ctx, req)
+}
+
+// ListImportJobs calls crm.v1.CRMService.ListImportJobs.
+func (c *cRMServiceClient) ListImportJobs(ctx context.Context, req *connect.Request[v1.ListImportJobsRequest]) (*connect.Response[v1.ListImportJobsResponse], error) {
+	return c.listImportJobs.CallUnary(ctx, req)
+}
+
+// CommitImportJob calls crm.v1.CRMService.CommitImportJob.
+func (c *cRMServiceClient) CommitImportJob(ctx context.Context, req *connect.Request[v1.CommitImportJobRequest]) (*connect.Response[v1.CommitImportJobResponse], error) {
+	return c.commitImportJob.CallUnary(ctx, req)
+}
+
+// ExportAccounts calls crm.v1.CRMService.ExportAccounts.
+func (c *cRMServiceClient) ExportAccounts(ctx context.Context, req *connect.Request[v1.ExportAccountsRequest]) (*connect.Response[v1.ExportAccountsResponse], error) {
+	return c.exportAccounts.CallUnary(ctx, req)
+}
+
+// ListExportJobs calls crm.v1.CRMService.ListExportJobs.
+func (c *cRMServiceClient) ListExportJobs(ctx context.Context, req *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error) {
+	return c.listExportJobs.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2068,6 +2179,28 @@ type CRMServiceHandler interface {
 	// ListAccountMerges is the immutable audit trail: every merge one account
 	// was ever part of, as the kept id or the retired one.
 	ListAccountMerges(context.Context, *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error)
+	// CSV import and export, accounts only in v1 (M4 — data productivity).
+	// See docs/CSV_IMPORT_EXPORT.md for the full product decision record:
+	// size bounds, field mapping, duplicate policy, and — importantly —
+	// that both run synchronously inside the RPC call rather than as a
+	// true background job, and that a committed import has no rollback.
+	//
+	// CreateImportJob is the dry run: it validates and stores the upload,
+	// returning per-row errors, without creating any Account.
+	// CommitImportJob is what actually creates them, and is idempotent —
+	// calling it again on an already-completed job returns the stored
+	// result rather than re-running it.
+	CreateImportJob(context.Context, *connect.Request[v1.CreateImportJobRequest]) (*connect.Response[v1.CreateImportJobResponse], error)
+	GetImportJob(context.Context, *connect.Request[v1.GetImportJobRequest]) (*connect.Response[v1.GetImportJobResponse], error)
+	ListImportJobs(context.Context, *connect.Request[v1.ListImportJobsRequest]) (*connect.Response[v1.ListImportJobsResponse], error)
+	CommitImportJob(context.Context, *connect.Request[v1.CommitImportJobRequest]) (*connect.Response[v1.CommitImportJobResponse], error)
+	// ExportAccounts generates and returns CSV for the caller's own tenant,
+	// bounded at 500 rows, inline in the response — there is no object
+	// storage to hand back a download link from (docs/CSV_IMPORT_EXPORT.md).
+	ExportAccounts(context.Context, *connect.Request[v1.ExportAccountsRequest]) (*connect.Response[v1.ExportAccountsResponse], error)
+	// ListExportJobs is the audit trail of who exported, when, and how many
+	// rows — the export content itself is never persisted.
+	ListExportJobs(context.Context, *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2713,6 +2846,42 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListAccountMerges")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateImportJobHandler := connect.NewUnaryHandler(
+		CRMServiceCreateImportJobProcedure,
+		svc.CreateImportJob,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateImportJob")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetImportJobHandler := connect.NewUnaryHandler(
+		CRMServiceGetImportJobProcedure,
+		svc.GetImportJob,
+		connect.WithSchema(cRMServiceMethods.ByName("GetImportJob")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListImportJobsHandler := connect.NewUnaryHandler(
+		CRMServiceListImportJobsProcedure,
+		svc.ListImportJobs,
+		connect.WithSchema(cRMServiceMethods.ByName("ListImportJobs")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCommitImportJobHandler := connect.NewUnaryHandler(
+		CRMServiceCommitImportJobProcedure,
+		svc.CommitImportJob,
+		connect.WithSchema(cRMServiceMethods.ByName("CommitImportJob")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceExportAccountsHandler := connect.NewUnaryHandler(
+		CRMServiceExportAccountsProcedure,
+		svc.ExportAccounts,
+		connect.WithSchema(cRMServiceMethods.ByName("ExportAccounts")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListExportJobsHandler := connect.NewUnaryHandler(
+		CRMServiceListExportJobsProcedure,
+		svc.ListExportJobs,
+		connect.WithSchema(cRMServiceMethods.ByName("ListExportJobs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -2927,6 +3096,18 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceMergeAccountsHandler.ServeHTTP(w, r)
 		case CRMServiceListAccountMergesProcedure:
 			cRMServiceListAccountMergesHandler.ServeHTTP(w, r)
+		case CRMServiceCreateImportJobProcedure:
+			cRMServiceCreateImportJobHandler.ServeHTTP(w, r)
+		case CRMServiceGetImportJobProcedure:
+			cRMServiceGetImportJobHandler.ServeHTTP(w, r)
+		case CRMServiceListImportJobsProcedure:
+			cRMServiceListImportJobsHandler.ServeHTTP(w, r)
+		case CRMServiceCommitImportJobProcedure:
+			cRMServiceCommitImportJobHandler.ServeHTTP(w, r)
+		case CRMServiceExportAccountsProcedure:
+			cRMServiceExportAccountsHandler.ServeHTTP(w, r)
+		case CRMServiceListExportJobsProcedure:
+			cRMServiceListExportJobsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3358,4 +3539,28 @@ func (UnimplementedCRMServiceHandler) MergeAccounts(context.Context, *connect.Re
 
 func (UnimplementedCRMServiceHandler) ListAccountMerges(context.Context, *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListAccountMerges is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateImportJob(context.Context, *connect.Request[v1.CreateImportJobRequest]) (*connect.Response[v1.CreateImportJobResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateImportJob is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetImportJob(context.Context, *connect.Request[v1.GetImportJobRequest]) (*connect.Response[v1.GetImportJobResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetImportJob is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListImportJobs(context.Context, *connect.Request[v1.ListImportJobsRequest]) (*connect.Response[v1.ListImportJobsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListImportJobs is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CommitImportJob(context.Context, *connect.Request[v1.CommitImportJobRequest]) (*connect.Response[v1.CommitImportJobResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CommitImportJob is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ExportAccounts(context.Context, *connect.Request[v1.ExportAccountsRequest]) (*connect.Response[v1.ExportAccountsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ExportAccounts is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListExportJobs(context.Context, *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListExportJobs is not implemented"))
 }

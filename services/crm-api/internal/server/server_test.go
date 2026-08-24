@@ -178,8 +178,18 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // "Merge" joined it for MergeAccounts: it deletes the duplicate account and
 // writes the survivor, even though the response also carries a read-shaped
 // audit record.
+//
+// "Commit" joined it for CommitImportJob: it creates every valid row's
+// Account. CreateImportJob already matches the "Create" prefix above and is
+// guarded by crm:account:write, even though it only validates and stores an
+// upload rather than creating any Account — the dry-run half of the same
+// feature is still a write in the sense of "must not be reachable by a
+// principal who cannot create accounts," since a stored upload is itself
+// tenant data. ExportAccounts is spelled to avoid matching any prefix here:
+// it writes an audit row, but the authority it needs is "may read
+// accounts," so it is guarded by crm:account:read like the data it exports.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

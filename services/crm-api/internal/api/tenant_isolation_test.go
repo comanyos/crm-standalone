@@ -70,6 +70,12 @@ type apiFixture struct {
 	// account into accountID, so a merge probe has an audit record and a
 	// (deleted) duplicate id to try to leak or resurrect.
 	accountMergeID string
+	// importJobID names a committed import job, so an import probe has a
+	// job (carrying the uploaded CSV content) to try to leak or resurrect.
+	importJobID string
+	// exportJobID names a recorded export audit row, so a list-exports
+	// probe has something to try to leak.
+	exportJobID string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -316,6 +322,22 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] seed account merge: %v", label, err)
 	}
 	f.accountMergeID = merge.Msg.GetMerge().GetId()
+
+	importJob, err := s.CreateImportJob(f.ctx, connect.NewRequest(&crmv1.CreateImportJobRequest{
+		ObjectType: "account", FileName: label + "-confidential.csv",
+		Content: "Company\n" + label + " Confidential Import\n",
+		Mapping: map[string]string{"Company": "name"},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed import job: %v", label, err)
+	}
+	f.importJobID = importJob.Msg.GetJob().GetId()
+
+	export, err := s.ExportAccounts(f.ctx, connect.NewRequest(&crmv1.ExportAccountsRequest{}))
+	if err != nil {
+		t.Fatalf("[%s] seed export job: %v", label, err)
+	}
+	f.exportJobID = export.Msg.GetJob().GetId()
 
 	return f
 }
@@ -1237,6 +1259,62 @@ var crossTenantProbes = map[string]isolationProbe{
 		}
 		if len(res.Msg.GetTags()) != 0 {
 			t.Error("ListTagsForRecord returned organization A's tags for a foreign account id")
+		}
+	},
+	"CreateImportJob": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// A fresh job created by B does not name organization A at all;
+		// the assertion is that B's own upload lands only in B and stays
+		// invisible to A, mirroring "CreateLead"'s own probe shape.
+		res, err := s.CreateImportJob(ctxB, connect.NewRequest(&crmv1.CreateImportJobRequest{
+			ObjectType: "account", FileName: "attacker.csv", Content: "Company\nAttacker Co\n",
+			Mapping: map[string]string{"Company": "name"},
+		}))
+		if err != nil {
+			t.Fatalf("CreateImportJob: %v", err)
+		}
+		if res.Msg.GetJob().GetId() == a.importJobID {
+			t.Error("CreateImportJob: organization B was handed organization A's import job id")
+		}
+	},
+	"GetImportJob": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetImportJob(ctxB, connect.NewRequest(&crmv1.GetImportJobRequest{Id: a.importJobID}))
+		wantNotFound(t, "GetImportJob", err)
+	},
+	"ListImportJobs": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListImportJobs(ctxB, connect.NewRequest(&crmv1.ListImportJobsRequest{ObjectType: "account"}))
+		if err != nil {
+			t.Fatalf("ListImportJobs: %v", err)
+		}
+		for _, job := range res.Msg.GetJobs() {
+			if job.GetId() == a.importJobID {
+				t.Error("ListImportJobs returned organization A's import job")
+			}
+		}
+	},
+	"CommitImportJob": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.CommitImportJob(ctxB, connect.NewRequest(&crmv1.CommitImportJobRequest{Id: a.importJobID}))
+		if err == nil {
+			t.Errorf("CommitImportJob: organization B committed organization A's import job: %+v", res.Msg)
+		}
+	},
+	"ExportAccounts": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ExportAccounts(ctxB, connect.NewRequest(&crmv1.ExportAccountsRequest{}))
+		if err != nil {
+			t.Fatalf("ExportAccounts: %v", err)
+		}
+		if strings.Contains(res.Msg.GetContent(), a.accountID) {
+			t.Error("ExportAccounts: organization B's export contains organization A's account id")
+		}
+	},
+	"ListExportJobs": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListExportJobs(ctxB, connect.NewRequest(&crmv1.ListExportJobsRequest{ObjectType: "account"}))
+		if err != nil {
+			t.Fatalf("ListExportJobs: %v", err)
+		}
+		for _, job := range res.Msg.GetJobs() {
+			if job.GetId() == a.exportJobID {
+				t.Error("ListExportJobs returned organization A's export audit row")
+			}
 		}
 	},
 	"MergeAccounts": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
