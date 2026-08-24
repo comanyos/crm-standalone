@@ -194,6 +194,22 @@ service CRMService {
   // could fix.
   rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
   rpc MarkNotificationRead(MarkNotificationReadRequest) returns (MarkNotificationReadResponse);
+
+  // Tags (M4 — data productivity). A tag is a tenant-authored label; an
+  // assignment attaches one to one record of an allowlisted type (account,
+  // contact, lead, opportunity, task). AssignTag and RemoveTag are
+  // idempotent, so a bulk "add tag" action can retry a partial batch safely.
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc UpdateTag(UpdateTagRequest) returns (UpdateTagResponse);
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+  rpc AssignTag(AssignTagRequest) returns (AssignTagResponse);
+  rpc RemoveTag(RemoveTagRequest) returns (RemoveTagResponse);
+  rpc ListTagsForRecord(ListTagsForRecordRequest) returns (ListTagsForRecordResponse);
+  // ListTaggedRecords is the filter surface a list page uses to answer "show
+  // me every record tagged X" until per-entity filters grow a tag field of
+  // their own.
+  rpc ListTaggedRecords(ListTaggedRecordsRequest) returns (ListTaggedRecordsResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -1170,3 +1186,71 @@ message ListNotificationsResponse {
 
 message MarkNotificationReadRequest { string id = 1; }
 message MarkNotificationReadResponse { Notification notification = 1; }
+
+// Tags (M4 — data productivity).
+message Tag {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+  string created_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message CreateTagRequest {
+  string name = 1;
+  string color = 2;
+}
+message CreateTagResponse { Tag tag = 1; }
+
+message ListTagsRequest {}
+message ListTagsResponse { repeated Tag tags = 1; }
+
+message UpdateTagRequest {
+  string id = 1;
+  string name = 2;
+  string color = 3;
+}
+message UpdateTagResponse { Tag tag = 1; }
+
+message DeleteTagRequest { string id = 1; }
+message DeleteTagResponse {}
+
+message AssignTagRequest {
+  string tag_id = 1;
+  string object_type = 2;
+  string object_id = 3;
+}
+// tags is the record's full current tag list after the assignment, so the UI
+// can refresh a badge list from one round trip instead of a second read.
+message AssignTagResponse { repeated Tag tags = 1; }
+
+message RemoveTagRequest {
+  string tag_id = 1;
+  string object_type = 2;
+  string object_id = 3;
+}
+message RemoveTagResponse { repeated Tag tags = 1; }
+
+message ListTagsForRecordRequest {
+  string object_type = 1;
+  string object_id = 2;
+}
+message ListTagsForRecordResponse { repeated Tag tags = 1; }
+
+message ListTaggedRecordsRequest {
+  string tag_id = 1;
+  // object_type narrows to one record kind. Empty means every taggable type.
+  string object_type = 2;
+  int32 page_size = 3;
+  string page_token = 4;
+}
+message TaggedRecord {
+  string object_type = 1;
+  string object_id = 2;
+  google.protobuf.Timestamp tagged_at = 3;
+}
+message ListTaggedRecordsResponse {
+  repeated TaggedRecord records = 1;
+  string next_page_token = 2;
+}

@@ -59,6 +59,9 @@ type apiFixture struct {
 	workflowRuleID    string
 	workflowVersionID string
 	notificationID    string
+	// tagID names a tag created and assigned to accountID, so a tag probe
+	// has both a definition and an assignment to try to leak.
+	tagID string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -271,6 +274,17 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] seed notification: %v", label, err)
 	}
 	f.notificationID = notification.ID
+
+	tag, err := s.CreateTag(f.ctx, connect.NewRequest(&crmv1.CreateTagRequest{Name: label + " confidential tag"}))
+	if err != nil {
+		t.Fatalf("[%s] seed tag: %v", label, err)
+	}
+	f.tagID = tag.Msg.GetTag().GetId()
+	if _, err := s.AssignTag(f.ctx, connect.NewRequest(&crmv1.AssignTagRequest{
+		TagId: f.tagID, ObjectType: "account", ObjectId: f.accountID,
+	})); err != nil {
+		t.Fatalf("[%s] seed tag assignment: %v", label, err)
+	}
 
 	return f
 }
@@ -1117,6 +1131,91 @@ var crossTenantProbes = map[string]isolationProbe{
 		_, err := s.MarkNotificationRead(ctxB, connect.NewRequest(
 			&crmv1.MarkNotificationReadRequest{Id: a.notificationID}))
 		wantNotFound(t, "MarkNotificationRead", err)
+	},
+	"CreateTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// A tag has no cross-tenant reference to abuse at creation; the
+		// assertion is that B may reuse organization A's tag name (names are
+		// unique per tenant, not globally) and gets its own id.
+		res, err := s.CreateTag(ctxB, connect.NewRequest(&crmv1.CreateTagRequest{Name: "victim confidential tag"}))
+		if err != nil {
+			t.Fatalf("CreateTag: %v", err)
+		}
+		if res.Msg.GetTag().GetId() == a.tagID {
+			t.Error("CreateTag: organization B was handed organization A's tag id")
+		}
+	},
+	"ListTags": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListTags(ctxB, connect.NewRequest(&crmv1.ListTagsRequest{}))
+		if err != nil {
+			t.Fatalf("ListTags: %v", err)
+		}
+		for _, row := range res.Msg.GetTags() {
+			if row.GetId() == a.tagID {
+				t.Error("ListTags returned organization A's tag")
+			}
+		}
+	},
+	"UpdateTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateTag(ctxB, connect.NewRequest(&crmv1.UpdateTagRequest{Id: a.tagID, Name: "seized"}))
+		wantNotFound(t, "UpdateTag", err)
+	},
+	"DeleteTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteTag(ctxB, connect.NewRequest(&crmv1.DeleteTagRequest{Id: a.tagID}))
+		wantNotFound(t, "DeleteTag", err)
+	},
+	"AssignTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Assigning organization A's tag id to anything — even B's own
+		// account — must fail: the tag does not exist in B's tenant.
+		_, err := s.AssignTag(ctxB, connect.NewRequest(&crmv1.AssignTagRequest{
+			TagId: a.tagID, ObjectType: "account", ObjectId: "attacker-account",
+		}))
+		if err == nil {
+			t.Error("AssignTag: organization B assigned organization A's tag")
+		}
+	},
+	"RemoveTag": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// RemoveTag is idempotent by design, so this must not error — but it
+		// must not touch organization A's assignment either.
+		if _, err := s.RemoveTag(ctxB, connect.NewRequest(&crmv1.RemoveTagRequest{
+			TagId: a.tagID, ObjectType: "account", ObjectId: a.accountID,
+		})); err != nil {
+			t.Fatalf("RemoveTag: %v", err)
+		}
+		tags, err := s.ListTagsForRecord(a.ctx, connect.NewRequest(&crmv1.ListTagsForRecordRequest{
+			ObjectType: "account", ObjectId: a.accountID,
+		}))
+		if err != nil {
+			t.Fatalf("verify victim's tags survived: %v", err)
+		}
+		found := false
+		for _, tag := range tags.Msg.GetTags() {
+			if tag.GetId() == a.tagID {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("RemoveTag: organization B removed organization A's tag assignment")
+		}
+	},
+	"ListTagsForRecord": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListTagsForRecord(ctxB, connect.NewRequest(&crmv1.ListTagsForRecordRequest{
+			ObjectType: "account", ObjectId: a.accountID,
+		}))
+		if err != nil {
+			t.Fatalf("ListTagsForRecord: %v", err)
+		}
+		if len(res.Msg.GetTags()) != 0 {
+			t.Error("ListTagsForRecord returned organization A's tags for a foreign account id")
+		}
+	},
+	"ListTaggedRecords": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListTaggedRecords(ctxB, connect.NewRequest(&crmv1.ListTaggedRecordsRequest{TagId: a.tagID}))
+		if err != nil {
+			t.Fatalf("ListTaggedRecords: %v", err)
+		}
+		if len(res.Msg.GetRecords()) != 0 {
+			t.Error("ListTaggedRecords returned organization A's tag assignments for a foreign tag id")
+		}
 	},
 }
 

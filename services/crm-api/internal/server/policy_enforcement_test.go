@@ -288,6 +288,10 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.StartGoogleConnection(ctx, withToken(&crmv1.StartGoogleConnectionRequest{}, tok))
 			return err
 		},
+		"crm:tag:write": func(tok string) error {
+			_, err := client.CreateTag(ctx, withToken(&crmv1.CreateTagRequest{Name: "x"}, tok))
+			return err
+		},
 	}
 
 	// Every write scope this service demands needs a probe here.

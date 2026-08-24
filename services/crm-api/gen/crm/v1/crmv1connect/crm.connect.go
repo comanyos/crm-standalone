@@ -263,6 +263,24 @@ const (
 	// CRMServiceMarkNotificationReadProcedure is the fully-qualified name of the CRMService's
 	// MarkNotificationRead RPC.
 	CRMServiceMarkNotificationReadProcedure = "/crm.v1.CRMService/MarkNotificationRead"
+	// CRMServiceCreateTagProcedure is the fully-qualified name of the CRMService's CreateTag RPC.
+	CRMServiceCreateTagProcedure = "/crm.v1.CRMService/CreateTag"
+	// CRMServiceListTagsProcedure is the fully-qualified name of the CRMService's ListTags RPC.
+	CRMServiceListTagsProcedure = "/crm.v1.CRMService/ListTags"
+	// CRMServiceUpdateTagProcedure is the fully-qualified name of the CRMService's UpdateTag RPC.
+	CRMServiceUpdateTagProcedure = "/crm.v1.CRMService/UpdateTag"
+	// CRMServiceDeleteTagProcedure is the fully-qualified name of the CRMService's DeleteTag RPC.
+	CRMServiceDeleteTagProcedure = "/crm.v1.CRMService/DeleteTag"
+	// CRMServiceAssignTagProcedure is the fully-qualified name of the CRMService's AssignTag RPC.
+	CRMServiceAssignTagProcedure = "/crm.v1.CRMService/AssignTag"
+	// CRMServiceRemoveTagProcedure is the fully-qualified name of the CRMService's RemoveTag RPC.
+	CRMServiceRemoveTagProcedure = "/crm.v1.CRMService/RemoveTag"
+	// CRMServiceListTagsForRecordProcedure is the fully-qualified name of the CRMService's
+	// ListTagsForRecord RPC.
+	CRMServiceListTagsForRecordProcedure = "/crm.v1.CRMService/ListTagsForRecord"
+	// CRMServiceListTaggedRecordsProcedure is the fully-qualified name of the CRMService's
+	// ListTaggedRecords RPC.
+	CRMServiceListTaggedRecordsProcedure = "/crm.v1.CRMService/ListTaggedRecords"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -438,6 +456,21 @@ type CRMServiceClient interface {
 	// could fix.
 	ListNotifications(context.Context, *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error)
 	MarkNotificationRead(context.Context, *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error)
+	// Tags (M4 — data productivity). A tag is a tenant-authored label; an
+	// assignment attaches one to one record of an allowlisted type (account,
+	// contact, lead, opportunity, task). AssignTag and RemoveTag are
+	// idempotent, so a bulk "add tag" action can retry a partial batch safely.
+	CreateTag(context.Context, *connect.Request[v1.CreateTagRequest]) (*connect.Response[v1.CreateTagResponse], error)
+	ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error)
+	UpdateTag(context.Context, *connect.Request[v1.UpdateTagRequest]) (*connect.Response[v1.UpdateTagResponse], error)
+	DeleteTag(context.Context, *connect.Request[v1.DeleteTagRequest]) (*connect.Response[v1.DeleteTagResponse], error)
+	AssignTag(context.Context, *connect.Request[v1.AssignTagRequest]) (*connect.Response[v1.AssignTagResponse], error)
+	RemoveTag(context.Context, *connect.Request[v1.RemoveTagRequest]) (*connect.Response[v1.RemoveTagResponse], error)
+	ListTagsForRecord(context.Context, *connect.Request[v1.ListTagsForRecordRequest]) (*connect.Response[v1.ListTagsForRecordResponse], error)
+	// ListTaggedRecords is the filter surface a list page uses to answer "show
+	// me every record tagged X" until per-entity filters grow a tag field of
+	// their own.
+	ListTaggedRecords(context.Context, *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -961,6 +994,54 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("MarkNotificationRead")),
 			connect.WithClientOptions(opts...),
 		),
+		createTag: connect.NewClient[v1.CreateTagRequest, v1.CreateTagResponse](
+			httpClient,
+			baseURL+CRMServiceCreateTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateTag")),
+			connect.WithClientOptions(opts...),
+		),
+		listTags: connect.NewClient[v1.ListTagsRequest, v1.ListTagsResponse](
+			httpClient,
+			baseURL+CRMServiceListTagsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListTags")),
+			connect.WithClientOptions(opts...),
+		),
+		updateTag: connect.NewClient[v1.UpdateTagRequest, v1.UpdateTagResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateTag")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteTag: connect.NewClient[v1.DeleteTagRequest, v1.DeleteTagResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteTag")),
+			connect.WithClientOptions(opts...),
+		),
+		assignTag: connect.NewClient[v1.AssignTagRequest, v1.AssignTagResponse](
+			httpClient,
+			baseURL+CRMServiceAssignTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("AssignTag")),
+			connect.WithClientOptions(opts...),
+		),
+		removeTag: connect.NewClient[v1.RemoveTagRequest, v1.RemoveTagResponse](
+			httpClient,
+			baseURL+CRMServiceRemoveTagProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("RemoveTag")),
+			connect.WithClientOptions(opts...),
+		),
+		listTagsForRecord: connect.NewClient[v1.ListTagsForRecordRequest, v1.ListTagsForRecordResponse](
+			httpClient,
+			baseURL+CRMServiceListTagsForRecordProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListTagsForRecord")),
+			connect.WithClientOptions(opts...),
+		),
+		listTaggedRecords: connect.NewClient[v1.ListTaggedRecordsRequest, v1.ListTaggedRecordsResponse](
+			httpClient,
+			baseURL+CRMServiceListTaggedRecordsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListTaggedRecords")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1051,6 +1132,14 @@ type cRMServiceClient struct {
 	listWorkflowExecutions        *connect.Client[v1.ListWorkflowExecutionsRequest, v1.ListWorkflowExecutionsResponse]
 	listNotifications             *connect.Client[v1.ListNotificationsRequest, v1.ListNotificationsResponse]
 	markNotificationRead          *connect.Client[v1.MarkNotificationReadRequest, v1.MarkNotificationReadResponse]
+	createTag                     *connect.Client[v1.CreateTagRequest, v1.CreateTagResponse]
+	listTags                      *connect.Client[v1.ListTagsRequest, v1.ListTagsResponse]
+	updateTag                     *connect.Client[v1.UpdateTagRequest, v1.UpdateTagResponse]
+	deleteTag                     *connect.Client[v1.DeleteTagRequest, v1.DeleteTagResponse]
+	assignTag                     *connect.Client[v1.AssignTagRequest, v1.AssignTagResponse]
+	removeTag                     *connect.Client[v1.RemoveTagRequest, v1.RemoveTagResponse]
+	listTagsForRecord             *connect.Client[v1.ListTagsForRecordRequest, v1.ListTagsForRecordResponse]
+	listTaggedRecords             *connect.Client[v1.ListTaggedRecordsRequest, v1.ListTaggedRecordsResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1478,6 +1567,46 @@ func (c *cRMServiceClient) MarkNotificationRead(ctx context.Context, req *connec
 	return c.markNotificationRead.CallUnary(ctx, req)
 }
 
+// CreateTag calls crm.v1.CRMService.CreateTag.
+func (c *cRMServiceClient) CreateTag(ctx context.Context, req *connect.Request[v1.CreateTagRequest]) (*connect.Response[v1.CreateTagResponse], error) {
+	return c.createTag.CallUnary(ctx, req)
+}
+
+// ListTags calls crm.v1.CRMService.ListTags.
+func (c *cRMServiceClient) ListTags(ctx context.Context, req *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error) {
+	return c.listTags.CallUnary(ctx, req)
+}
+
+// UpdateTag calls crm.v1.CRMService.UpdateTag.
+func (c *cRMServiceClient) UpdateTag(ctx context.Context, req *connect.Request[v1.UpdateTagRequest]) (*connect.Response[v1.UpdateTagResponse], error) {
+	return c.updateTag.CallUnary(ctx, req)
+}
+
+// DeleteTag calls crm.v1.CRMService.DeleteTag.
+func (c *cRMServiceClient) DeleteTag(ctx context.Context, req *connect.Request[v1.DeleteTagRequest]) (*connect.Response[v1.DeleteTagResponse], error) {
+	return c.deleteTag.CallUnary(ctx, req)
+}
+
+// AssignTag calls crm.v1.CRMService.AssignTag.
+func (c *cRMServiceClient) AssignTag(ctx context.Context, req *connect.Request[v1.AssignTagRequest]) (*connect.Response[v1.AssignTagResponse], error) {
+	return c.assignTag.CallUnary(ctx, req)
+}
+
+// RemoveTag calls crm.v1.CRMService.RemoveTag.
+func (c *cRMServiceClient) RemoveTag(ctx context.Context, req *connect.Request[v1.RemoveTagRequest]) (*connect.Response[v1.RemoveTagResponse], error) {
+	return c.removeTag.CallUnary(ctx, req)
+}
+
+// ListTagsForRecord calls crm.v1.CRMService.ListTagsForRecord.
+func (c *cRMServiceClient) ListTagsForRecord(ctx context.Context, req *connect.Request[v1.ListTagsForRecordRequest]) (*connect.Response[v1.ListTagsForRecordResponse], error) {
+	return c.listTagsForRecord.CallUnary(ctx, req)
+}
+
+// ListTaggedRecords calls crm.v1.CRMService.ListTaggedRecords.
+func (c *cRMServiceClient) ListTaggedRecords(ctx context.Context, req *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error) {
+	return c.listTaggedRecords.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1651,6 +1780,21 @@ type CRMServiceHandler interface {
 	// could fix.
 	ListNotifications(context.Context, *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error)
 	MarkNotificationRead(context.Context, *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error)
+	// Tags (M4 — data productivity). A tag is a tenant-authored label; an
+	// assignment attaches one to one record of an allowlisted type (account,
+	// contact, lead, opportunity, task). AssignTag and RemoveTag are
+	// idempotent, so a bulk "add tag" action can retry a partial batch safely.
+	CreateTag(context.Context, *connect.Request[v1.CreateTagRequest]) (*connect.Response[v1.CreateTagResponse], error)
+	ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error)
+	UpdateTag(context.Context, *connect.Request[v1.UpdateTagRequest]) (*connect.Response[v1.UpdateTagResponse], error)
+	DeleteTag(context.Context, *connect.Request[v1.DeleteTagRequest]) (*connect.Response[v1.DeleteTagResponse], error)
+	AssignTag(context.Context, *connect.Request[v1.AssignTagRequest]) (*connect.Response[v1.AssignTagResponse], error)
+	RemoveTag(context.Context, *connect.Request[v1.RemoveTagRequest]) (*connect.Response[v1.RemoveTagResponse], error)
+	ListTagsForRecord(context.Context, *connect.Request[v1.ListTagsForRecordRequest]) (*connect.Response[v1.ListTagsForRecordResponse], error)
+	// ListTaggedRecords is the filter surface a list page uses to answer "show
+	// me every record tagged X" until per-entity filters grow a tag field of
+	// their own.
+	ListTaggedRecords(context.Context, *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2170,6 +2314,54 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("MarkNotificationRead")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateTagHandler := connect.NewUnaryHandler(
+		CRMServiceCreateTagProcedure,
+		svc.CreateTag,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListTagsHandler := connect.NewUnaryHandler(
+		CRMServiceListTagsProcedure,
+		svc.ListTags,
+		connect.WithSchema(cRMServiceMethods.ByName("ListTags")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateTagHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateTagProcedure,
+		svc.UpdateTag,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteTagHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteTagProcedure,
+		svc.DeleteTag,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceAssignTagHandler := connect.NewUnaryHandler(
+		CRMServiceAssignTagProcedure,
+		svc.AssignTag,
+		connect.WithSchema(cRMServiceMethods.ByName("AssignTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceRemoveTagHandler := connect.NewUnaryHandler(
+		CRMServiceRemoveTagProcedure,
+		svc.RemoveTag,
+		connect.WithSchema(cRMServiceMethods.ByName("RemoveTag")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListTagsForRecordHandler := connect.NewUnaryHandler(
+		CRMServiceListTagsForRecordProcedure,
+		svc.ListTagsForRecord,
+		connect.WithSchema(cRMServiceMethods.ByName("ListTagsForRecord")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListTaggedRecordsHandler := connect.NewUnaryHandler(
+		CRMServiceListTaggedRecordsProcedure,
+		svc.ListTaggedRecords,
+		connect.WithSchema(cRMServiceMethods.ByName("ListTaggedRecords")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -2342,6 +2534,22 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListNotificationsHandler.ServeHTTP(w, r)
 		case CRMServiceMarkNotificationReadProcedure:
 			cRMServiceMarkNotificationReadHandler.ServeHTTP(w, r)
+		case CRMServiceCreateTagProcedure:
+			cRMServiceCreateTagHandler.ServeHTTP(w, r)
+		case CRMServiceListTagsProcedure:
+			cRMServiceListTagsHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateTagProcedure:
+			cRMServiceUpdateTagHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteTagProcedure:
+			cRMServiceDeleteTagHandler.ServeHTTP(w, r)
+		case CRMServiceAssignTagProcedure:
+			cRMServiceAssignTagHandler.ServeHTTP(w, r)
+		case CRMServiceRemoveTagProcedure:
+			cRMServiceRemoveTagHandler.ServeHTTP(w, r)
+		case CRMServiceListTagsForRecordProcedure:
+			cRMServiceListTagsForRecordHandler.ServeHTTP(w, r)
+		case CRMServiceListTaggedRecordsProcedure:
+			cRMServiceListTaggedRecordsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2689,4 +2897,36 @@ func (UnimplementedCRMServiceHandler) ListNotifications(context.Context, *connec
 
 func (UnimplementedCRMServiceHandler) MarkNotificationRead(context.Context, *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.MarkNotificationRead is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateTag(context.Context, *connect.Request[v1.CreateTagRequest]) (*connect.Response[v1.CreateTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListTags(context.Context, *connect.Request[v1.ListTagsRequest]) (*connect.Response[v1.ListTagsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListTags is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateTag(context.Context, *connect.Request[v1.UpdateTagRequest]) (*connect.Response[v1.UpdateTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteTag(context.Context, *connect.Request[v1.DeleteTagRequest]) (*connect.Response[v1.DeleteTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) AssignTag(context.Context, *connect.Request[v1.AssignTagRequest]) (*connect.Response[v1.AssignTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.AssignTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) RemoveTag(context.Context, *connect.Request[v1.RemoveTagRequest]) (*connect.Response[v1.RemoveTagResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.RemoveTag is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListTagsForRecord(context.Context, *connect.Request[v1.ListTagsForRecordRequest]) (*connect.Response[v1.ListTagsForRecordResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListTagsForRecord is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListTaggedRecords(context.Context, *connect.Request[v1.ListTaggedRecordsRequest]) (*connect.Response[v1.ListTaggedRecordsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListTaggedRecords is not implemented"))
 }

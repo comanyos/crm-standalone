@@ -166,8 +166,12 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // revokes a grant at Google and erases a stored credential. "Sync" joined it
 // for the same reason: reading a mailbox is how it decides what to write, but
 // what it writes is CRM Activities.
+//
+// "Assign" and "Remove" joined it for tags: AssignTag and RemoveTag write a
+// tag_assignments row each, even though both also return a read-shaped list
+// of the record's current tags for the caller's convenience.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

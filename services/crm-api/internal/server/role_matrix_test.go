@@ -169,6 +169,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:integration_admin:read": true, "crm:integration_admin:write": true,
 			"crm:workflow:read": true, "crm:workflow:write": true,
 			"crm:notification:read": true, "crm:notification:write": true,
+			"crm:tag:read": true, "crm:tag:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -190,6 +191,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// somebody retires it.
 			"crm:workflow:read": true, "crm:workflow:write": true,
 			"crm:notification:read": true, "crm:notification:write": true,
+			"crm:tag:read": true, "crm:tag:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -219,6 +221,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// active, which is manager authority.
 			"crm:workflow:read": true, "crm:workflow:write": false,
 			"crm:notification:read": true, "crm:notification:write": true,
+			"crm:tag:read": true, "crm:tag:write": true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -243,6 +246,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// this role's defining property rather than an approximation of
 			// it — see TestViewerHoldsNoWriteAuthority.
 			"crm:notification:read": true, "crm:notification:write": false,
+			"crm:tag:read": true, "crm:tag:write": false,
 		},
 	}
 

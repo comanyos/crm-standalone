@@ -156,6 +156,23 @@ var crmScopes = map[string]string{
 	// participates in the in-app inbox at all, and every CRM user does.
 	"/crm.v1.CRMService/ListNotifications":    "crm:notification:read",
 	"/crm.v1.CRMService/MarkNotificationRead": "crm:notification:write",
+
+	// Tags. Defining/renaming/deleting a tag is administration of a
+	// tenant-shared taxonomy, so it gets its own write scope rather than
+	// riding on any one entity's — a role that may edit contacts is not
+	// thereby a role that may rename a label every other user sees.
+	// Assigning/removing a tag on a record and reading a record's tags need
+	// only the read scope of tags themselves, since the record-level
+	// authorization for the record itself is enforced by the record's own
+	// scope on whichever RPC loaded it into view.
+	"/crm.v1.CRMService/CreateTag":         "crm:tag:write",
+	"/crm.v1.CRMService/ListTags":          "crm:tag:read",
+	"/crm.v1.CRMService/UpdateTag":         "crm:tag:write",
+	"/crm.v1.CRMService/DeleteTag":         "crm:tag:write",
+	"/crm.v1.CRMService/AssignTag":         "crm:tag:write",
+	"/crm.v1.CRMService/RemoveTag":         "crm:tag:write",
+	"/crm.v1.CRMService/ListTagsForRecord": "crm:tag:read",
+	"/crm.v1.CRMService/ListTaggedRecords": "crm:tag:read",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for
