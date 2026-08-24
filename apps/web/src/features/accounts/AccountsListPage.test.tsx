@@ -9,6 +9,7 @@ const { crm, auth } = vi.hoisted(() => ({
   crm: {
     listAccounts: vi.fn(), listTags: vi.fn(), bulkAssignTag: vi.fn(), bulkRemoveTag: vi.fn(),
     listSavedViews: vi.fn(), createSavedView: vi.fn(), deleteSavedView: vi.fn(),
+    exportAccounts: vi.fn(),
   },
   auth: {
     hasScope: vi.fn(),
@@ -42,6 +43,10 @@ beforeEach(() => {
     view: { $typeName: "crm.v1.SavedView", id: "view-1", objectType: "account", name: "Gold accounts", filters: { nameContains: "", tier: "gold" }, sort: "", columns: [] },
   });
   crm.deleteSavedView.mockResolvedValue({});
+  crm.exportAccounts.mockResolvedValue({
+    job: { $typeName: "crm.v1.ExportJob", id: "export-1", objectType: "account", rowCount: 1, requestedBy: "user-1" },
+    content: "id,name\nacc-1,Acme Corp\n",
+  });
 });
 
 /** The last argument ListAccounts was called with — the request the screen
@@ -257,6 +262,43 @@ describe("AccountsListPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete view" }));
 
     await waitFor(() => expect(crm.deleteSavedView).toHaveBeenCalledWith({ id: "view-1" }));
+  });
+
+  it("exports accounts as a CSV download", async () => {
+    const url = URL.createObjectURL;
+    const revoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn().mockReturnValue("blob:mock");
+    URL.revokeObjectURL = vi.fn();
+    try {
+      renderRoutes(routes, ["/accounts"]);
+      await screen.findByText("Acme Corp");
+
+      fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+
+      await waitFor(() => expect(crm.exportAccounts).toHaveBeenCalledWith({}));
+      expect(await screen.findByText("Exported 1 accounts.")).toBeInTheDocument();
+    } finally {
+      URL.createObjectURL = url;
+      URL.revokeObjectURL = revoke;
+    }
+  });
+
+  it("navigates to the CSV import flow", async () => {
+    const { router } = renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    fireEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/accounts/import"));
+  });
+
+  it("hides export and import actions without account scopes", async () => {
+    auth.hasScope.mockReturnValue(false);
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    expect(screen.queryByRole("button", { name: "Export CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import CSV" })).not.toBeInTheDocument();
   });
 
   it("offers no saved-view controls without the saved_view scopes", async () => {

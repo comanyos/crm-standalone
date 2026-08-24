@@ -10,6 +10,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 import AccountsListPage from "./features/accounts/AccountsListPage";
 import AccountDetailPage from "./features/accounts/AccountDetailPage";
 import AccountFormPage from "./features/accounts/AccountFormPage";
+import ImportAccountsPage from "./features/accounts/ImportAccountsPage";
 import ContactsListPage from "./features/contacts/ContactsListPage";
 import ContactDetailPage from "./features/contacts/ContactDetailPage";
 import ContactFormPage from "./features/contacts/ContactFormPage";
@@ -60,6 +61,7 @@ export const router = createBrowserRouter(
 
         <Route path="/accounts" element={<AccountsListPage />} />
         <Route path="/accounts/new" element={<AccountFormPage mode="create" />} />
+        <Route path="/accounts/import" element={<ImportAccountsPage />} />
         <Route path="/accounts/:id" element={<AccountDetailPage />} />
         <Route path="/accounts/:id/edit" element={<AccountFormPage mode="edit" />} />
 

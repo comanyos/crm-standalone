@@ -201,14 +201,44 @@ export default function AccountsListPage() {
 
   const hasFilters = nameContains !== "" || tier !== "";
 
+  const exportCsv = useMutation({
+    mutationFn: () => crm.exportAccounts({}),
+    onSuccess: (res) => {
+      // A plain browser download, not a stored file: there is nowhere
+      // durable to put it — see docs/CSV_IMPORT_EXPORT.md's "No object
+      // storage" section.
+      const blob = new Blob([res.content], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "accounts.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.show({ tone: "success", message: `Exported ${res.job?.rowCount ?? 0} accounts.` });
+    },
+    onError: (err) => toast.show({ tone: "danger", message: mutationErrorMessage(err) }),
+  });
+
   return (
     <div>
       <PageHeader
         title="Accounts"
         actions={
-          hasScope("crm:account:write") && (
-            <Button onClick={() => navigate("/accounts/new")}>New account</Button>
-          )
+          <>
+            {hasScope("crm:account:read") && (
+              <Button variant="secondary" onClick={() => exportCsv.mutate()} loading={exportCsv.isPending}>
+                Export CSV
+              </Button>
+            )}
+            {hasScope("crm:account:write") && (
+              <Button variant="secondary" onClick={() => navigate("/accounts/import")}>
+                Import CSV
+              </Button>
+            )}
+            {hasScope("crm:account:write") && (
+              <Button onClick={() => navigate("/accounts/new")}>New account</Button>
+            )}
+          </>
         }
       />
 
