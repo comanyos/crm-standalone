@@ -308,6 +308,16 @@ type Store interface {
 	// field of their own.
 	ListTaggedRecords(ctx context.Context, scope Scope, tagID, objectType string, page Page) ([]*TagAssignment, string, error)
 
+	// Saved views (migrations/0025_saved_views.sql, saved_views.go).
+	// Private by construction: ownerID is required on every method, the same
+	// way ListNotifications' recipientID is, so no query shape can return,
+	// update or delete another user's view.
+	CreateSavedView(ctx context.Context, scope Scope, v *SavedView) (*SavedView, error)
+	GetSavedView(ctx context.Context, scope Scope, ownerID, id string) (*SavedView, error)
+	ListSavedViews(ctx context.Context, scope Scope, ownerID, objectType string) ([]*SavedView, error)
+	UpdateSavedView(ctx context.Context, scope Scope, ownerID string, v *SavedView) (*SavedView, error)
+	DeleteSavedView(ctx context.Context, scope Scope, ownerID, id string) error
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the

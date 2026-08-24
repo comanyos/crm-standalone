@@ -21,10 +21,10 @@ func scanTagDefinition(row pgx.Row) (*TagDefinition, error) {
 	return &v, nil
 }
 
-// tagUniqueViolation reports whether err is the PostgreSQL unique_violation
-// (23505) tag_definitions_name_key raises on a case-insensitive name
-// collision.
-func tagUniqueViolation(err error) bool {
+// isNameUniqueViolation reports whether err is the PostgreSQL
+// unique_violation (23505) a case-insensitive name-uniqueness index raises —
+// tag_definitions_name_key or saved_views_owner_name_key.
+func isNameUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
 }
@@ -53,7 +53,7 @@ func (s *PgStore) CreateTagDefinition(ctx context.Context, scope Scope, v *TagDe
 		 RETURNING `+tagDefinitionColumns,
 		scope.TenantID, record.ID, record.Name, record.Color, record.CreatedBy, now))
 	if err != nil {
-		if tagUniqueViolation(err) {
+		if isNameUniqueViolation(err) {
 			return nil, fmt.Errorf("%w: a tag named %q already exists", ErrConflict, record.Name)
 		}
 		return nil, fmt.Errorf("create tag: %w", err)
@@ -123,7 +123,7 @@ func (s *PgStore) UpdateTagDefinition(ctx context.Context, scope Scope, v *TagDe
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
-		if tagUniqueViolation(err) {
+		if isNameUniqueViolation(err) {
 			return nil, fmt.Errorf("%w: a tag named %q already exists", ErrConflict, record.Name)
 		}
 		return nil, fmt.Errorf("update tag: %w", err)

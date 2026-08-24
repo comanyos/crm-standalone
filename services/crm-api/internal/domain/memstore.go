@@ -215,6 +215,9 @@ type MemStore struct {
 	gmail *gmailTables
 	// tags holds tag definitions and assignments — see memstore_tags.go.
 	tags *tagTables
+	// savedViews holds per-owner saved list views — see
+	// memstore_saved_views.go.
+	savedViews *savedViewTables
 	// calendar holds the event mirror and its cursor — see
 	// memstore_calendar.go.
 	calendar *calendarTables
@@ -251,6 +254,7 @@ func NewMemStore() *MemStore {
 		suppressions:     make(map[string]map[string]*SyncSuppression),
 		workflow:         newWorkflowTables(),
 		tags:             newTagTables(),
+		savedViews:       newSavedViewTables(),
 	}
 }
 
