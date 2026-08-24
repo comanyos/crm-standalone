@@ -314,6 +314,12 @@ const (
 	// CRMServiceDeleteSavedViewProcedure is the fully-qualified name of the CRMService's
 	// DeleteSavedView RPC.
 	CRMServiceDeleteSavedViewProcedure = "/crm.v1.CRMService/DeleteSavedView"
+	// CRMServiceMergeAccountsProcedure is the fully-qualified name of the CRMService's MergeAccounts
+	// RPC.
+	CRMServiceMergeAccountsProcedure = "/crm.v1.CRMService/MergeAccounts"
+	// CRMServiceListAccountMergesProcedure is the fully-qualified name of the CRMService's
+	// ListAccountMerges RPC.
+	CRMServiceListAccountMergesProcedure = "/crm.v1.CRMService/ListAccountMerges"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -536,6 +542,13 @@ type CRMServiceClient interface {
 	ListSavedViews(context.Context, *connect.Request[v1.ListSavedViewsRequest]) (*connect.Response[v1.ListSavedViewsResponse], error)
 	UpdateSavedView(context.Context, *connect.Request[v1.UpdateSavedViewRequest]) (*connect.Response[v1.UpdateSavedViewResponse], error)
 	DeleteSavedView(context.Context, *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error)
+	// Account deduplication and merge (M4 — data productivity). There is no
+	// undo — see internal/domain/merge_accounts.go's package doc comment for
+	// why — so a client must confirm with the caller before sending this.
+	MergeAccounts(context.Context, *connect.Request[v1.MergeAccountsRequest]) (*connect.Response[v1.MergeAccountsResponse], error)
+	// ListAccountMerges is the immutable audit trail: every merge one account
+	// was ever part of, as the kept id or the retired one.
+	ListAccountMerges(context.Context, *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1173,6 +1186,18 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("DeleteSavedView")),
 			connect.WithClientOptions(opts...),
 		),
+		mergeAccounts: connect.NewClient[v1.MergeAccountsRequest, v1.MergeAccountsResponse](
+			httpClient,
+			baseURL+CRMServiceMergeAccountsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("MergeAccounts")),
+			connect.WithClientOptions(opts...),
+		),
+		listAccountMerges: connect.NewClient[v1.ListAccountMergesRequest, v1.ListAccountMergesResponse](
+			httpClient,
+			baseURL+CRMServiceListAccountMergesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListAccountMerges")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1282,6 +1307,8 @@ type cRMServiceClient struct {
 	listSavedViews                *connect.Client[v1.ListSavedViewsRequest, v1.ListSavedViewsResponse]
 	updateSavedView               *connect.Client[v1.UpdateSavedViewRequest, v1.UpdateSavedViewResponse]
 	deleteSavedView               *connect.Client[v1.DeleteSavedViewRequest, v1.DeleteSavedViewResponse]
+	mergeAccounts                 *connect.Client[v1.MergeAccountsRequest, v1.MergeAccountsResponse]
+	listAccountMerges             *connect.Client[v1.ListAccountMergesRequest, v1.ListAccountMergesResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1804,6 +1831,16 @@ func (c *cRMServiceClient) DeleteSavedView(ctx context.Context, req *connect.Req
 	return c.deleteSavedView.CallUnary(ctx, req)
 }
 
+// MergeAccounts calls crm.v1.CRMService.MergeAccounts.
+func (c *cRMServiceClient) MergeAccounts(ctx context.Context, req *connect.Request[v1.MergeAccountsRequest]) (*connect.Response[v1.MergeAccountsResponse], error) {
+	return c.mergeAccounts.CallUnary(ctx, req)
+}
+
+// ListAccountMerges calls crm.v1.CRMService.ListAccountMerges.
+func (c *cRMServiceClient) ListAccountMerges(ctx context.Context, req *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error) {
+	return c.listAccountMerges.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2024,6 +2061,13 @@ type CRMServiceHandler interface {
 	ListSavedViews(context.Context, *connect.Request[v1.ListSavedViewsRequest]) (*connect.Response[v1.ListSavedViewsResponse], error)
 	UpdateSavedView(context.Context, *connect.Request[v1.UpdateSavedViewRequest]) (*connect.Response[v1.UpdateSavedViewResponse], error)
 	DeleteSavedView(context.Context, *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error)
+	// Account deduplication and merge (M4 — data productivity). There is no
+	// undo — see internal/domain/merge_accounts.go's package doc comment for
+	// why — so a client must confirm with the caller before sending this.
+	MergeAccounts(context.Context, *connect.Request[v1.MergeAccountsRequest]) (*connect.Response[v1.MergeAccountsResponse], error)
+	// ListAccountMerges is the immutable audit trail: every merge one account
+	// was ever part of, as the kept id or the retired one.
+	ListAccountMerges(context.Context, *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2657,6 +2701,18 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("DeleteSavedView")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceMergeAccountsHandler := connect.NewUnaryHandler(
+		CRMServiceMergeAccountsProcedure,
+		svc.MergeAccounts,
+		connect.WithSchema(cRMServiceMethods.ByName("MergeAccounts")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListAccountMergesHandler := connect.NewUnaryHandler(
+		CRMServiceListAccountMergesProcedure,
+		svc.ListAccountMerges,
+		connect.WithSchema(cRMServiceMethods.ByName("ListAccountMerges")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -2867,6 +2923,10 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceUpdateSavedViewHandler.ServeHTTP(w, r)
 		case CRMServiceDeleteSavedViewProcedure:
 			cRMServiceDeleteSavedViewHandler.ServeHTTP(w, r)
+		case CRMServiceMergeAccountsProcedure:
+			cRMServiceMergeAccountsHandler.ServeHTTP(w, r)
+		case CRMServiceListAccountMergesProcedure:
+			cRMServiceListAccountMergesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3290,4 +3350,12 @@ func (UnimplementedCRMServiceHandler) UpdateSavedView(context.Context, *connect.
 
 func (UnimplementedCRMServiceHandler) DeleteSavedView(context.Context, *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteSavedView is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) MergeAccounts(context.Context, *connect.Request[v1.MergeAccountsRequest]) (*connect.Response[v1.MergeAccountsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.MergeAccounts is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListAccountMerges(context.Context, *connect.Request[v1.ListAccountMergesRequest]) (*connect.Response[v1.ListAccountMergesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListAccountMerges is not implemented"))
 }

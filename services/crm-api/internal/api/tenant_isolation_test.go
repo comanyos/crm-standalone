@@ -66,6 +66,10 @@ type apiFixture struct {
 	// principal (ctxAs always authenticates as "test-user" — see ctxAs in
 	// crm_test.go), so a saved-view probe has something to try to leak.
 	savedViewID string
+	// accountMergeID names the merge that folded a throwaway duplicate
+	// account into accountID, so a merge probe has an audit record and a
+	// (deleted) duplicate id to try to leak or resurrect.
+	accountMergeID string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -298,6 +302,20 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] seed saved view: %v", label, err)
 	}
 	f.savedViewID = view.Msg.GetView().GetId()
+
+	dup, err := s.CreateAccount(f.ctx, connect.NewRequest(&crmv1.CreateAccountRequest{
+		Account: &crmv1.Account{Name: label + " duplicate", OwnerId: "attacker"},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed duplicate account: %v", label, err)
+	}
+	merge, err := s.MergeAccounts(f.ctx, connect.NewRequest(&crmv1.MergeAccountsRequest{
+		SurvivorId: f.accountID, DuplicateId: dup.Msg.GetAccount().GetId(),
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed account merge: %v", label, err)
+	}
+	f.accountMergeID = merge.Msg.GetMerge().GetId()
 
 	return f
 }
@@ -1219,6 +1237,33 @@ var crossTenantProbes = map[string]isolationProbe{
 		}
 		if len(res.Msg.GetTags()) != 0 {
 			t.Error("ListTagsForRecord returned organization A's tags for a foreign account id")
+		}
+	},
+	"MergeAccounts": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Organization B's own account as the "survivor" and organization
+		// A's as the "duplicate" — the write-side leak: it would delete A's
+		// account and fold it into B's.
+		res, err := s.MergeAccounts(ctxB, connect.NewRequest(&crmv1.MergeAccountsRequest{
+			SurvivorId: "attacker-account", DuplicateId: a.accountID,
+		}))
+		if err == nil {
+			t.Errorf("MergeAccounts: organization B merged organization A's account: %+v", res.Msg)
+		}
+		// The reverse direction too: A's account as "survivor" must not let
+		// B delete one of its own accounts into it.
+		if _, err := s.MergeAccounts(ctxB, connect.NewRequest(&crmv1.MergeAccountsRequest{
+			SurvivorId: a.accountID, DuplicateId: "attacker-account",
+		})); err == nil {
+			t.Error("MergeAccounts: organization B merged into organization A's account")
+		}
+	},
+	"ListAccountMerges": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListAccountMerges(ctxB, connect.NewRequest(&crmv1.ListAccountMergesRequest{AccountId: a.accountID}))
+		if err != nil {
+			t.Fatalf("ListAccountMerges: %v", err)
+		}
+		if len(res.Msg.GetMerges()) != 0 {
+			t.Error("ListAccountMerges returned organization A's merge audit trail for a foreign account id")
 		}
 	},
 	"CreateSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {

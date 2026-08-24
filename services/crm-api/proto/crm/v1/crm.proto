@@ -244,6 +244,14 @@ service CRMService {
   rpc ListSavedViews(ListSavedViewsRequest) returns (ListSavedViewsResponse);
   rpc UpdateSavedView(UpdateSavedViewRequest) returns (UpdateSavedViewResponse);
   rpc DeleteSavedView(DeleteSavedViewRequest) returns (DeleteSavedViewResponse);
+
+  // Account deduplication and merge (M4 — data productivity). There is no
+  // undo — see internal/domain/merge_accounts.go's package doc comment for
+  // why — so a client must confirm with the caller before sending this.
+  rpc MergeAccounts(MergeAccountsRequest) returns (MergeAccountsResponse);
+  // ListAccountMerges is the immutable audit trail: every merge one account
+  // was ever part of, as the kept id or the retired one.
+  rpc ListAccountMerges(ListAccountMergesRequest) returns (ListAccountMergesResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -1375,3 +1383,31 @@ message UpdateSavedViewResponse { SavedView view = 1; }
 
 message DeleteSavedViewRequest { string id = 1; }
 message DeleteSavedViewResponse {}
+
+// Account deduplication and merge.
+message AccountMergeRecord {
+  string id = 1;
+  string survivor_account_id = 2;
+  string duplicate_account_id = 3;
+  string merged_by = 4;
+  map<string, string> field_resolutions = 5;
+  map<string, int32> relationships_migrated = 6;
+  google.protobuf.Timestamp merged_at = 7;
+}
+
+message MergeAccountsRequest {
+  string survivor_id = 1;
+  string duplicate_id = 2;
+  // field_resolutions maps a mergeable Account field name ("name",
+  // "industry", "tier", "owner_id", "website", "annual_revenue",
+  // "parent_id") to "survivor" or "duplicate". A field left unnamed keeps
+  // the survivor's existing value.
+  map<string, string> field_resolutions = 3;
+}
+message MergeAccountsResponse {
+  Account account = 1;
+  AccountMergeRecord merge = 2;
+}
+
+message ListAccountMergesRequest { string account_id = 1; }
+message ListAccountMergesResponse { repeated AccountMergeRecord merges = 1; }

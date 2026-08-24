@@ -174,8 +174,12 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // "Bulk" joined it for the same reason as all of the above: every BulkX RPC
 // loops a write (assign/remove a tag, complete/reopen a task, reassign an
 // owner), even though the response is a read-shaped list of per-item results.
+//
+// "Merge" joined it for MergeAccounts: it deletes the duplicate account and
+// writes the survivor, even though the response also carries a read-shaped
+// audit record.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

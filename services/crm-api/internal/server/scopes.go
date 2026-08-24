@@ -198,6 +198,12 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListSavedViews":  "crm:saved_view:read",
 	"/crm.v1.CRMService/UpdateSavedView": "crm:saved_view:write",
 	"/crm.v1.CRMService/DeleteSavedView": "crm:saved_view:write",
+
+	// Account deduplication and merge. Both carry the account scopes rather
+	// than a scope of their own: a merge is authorization-equivalent to an
+	// UpdateAccount plus a DeleteAccount on the two accounts it touches.
+	"/crm.v1.CRMService/MergeAccounts":     "crm:account:write",
+	"/crm.v1.CRMService/ListAccountMerges": "crm:account:read",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for
