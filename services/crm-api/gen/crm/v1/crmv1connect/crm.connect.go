@@ -230,6 +230,39 @@ const (
 	// CRMServiceReleaseSyncAddressProcedure is the fully-qualified name of the CRMService's
 	// ReleaseSyncAddress RPC.
 	CRMServiceReleaseSyncAddressProcedure = "/crm.v1.CRMService/ReleaseSyncAddress"
+	// CRMServiceDescribeWorkflowCatalogProcedure is the fully-qualified name of the CRMService's
+	// DescribeWorkflowCatalog RPC.
+	CRMServiceDescribeWorkflowCatalogProcedure = "/crm.v1.CRMService/DescribeWorkflowCatalog"
+	// CRMServiceCreateWorkflowRuleProcedure is the fully-qualified name of the CRMService's
+	// CreateWorkflowRule RPC.
+	CRMServiceCreateWorkflowRuleProcedure = "/crm.v1.CRMService/CreateWorkflowRule"
+	// CRMServiceGetWorkflowRuleProcedure is the fully-qualified name of the CRMService's
+	// GetWorkflowRule RPC.
+	CRMServiceGetWorkflowRuleProcedure = "/crm.v1.CRMService/GetWorkflowRule"
+	// CRMServiceListWorkflowRulesProcedure is the fully-qualified name of the CRMService's
+	// ListWorkflowRules RPC.
+	CRMServiceListWorkflowRulesProcedure = "/crm.v1.CRMService/ListWorkflowRules"
+	// CRMServiceUpdateWorkflowRuleProcedure is the fully-qualified name of the CRMService's
+	// UpdateWorkflowRule RPC.
+	CRMServiceUpdateWorkflowRuleProcedure = "/crm.v1.CRMService/UpdateWorkflowRule"
+	// CRMServicePublishWorkflowRuleVersionProcedure is the fully-qualified name of the CRMService's
+	// PublishWorkflowRuleVersion RPC.
+	CRMServicePublishWorkflowRuleVersionProcedure = "/crm.v1.CRMService/PublishWorkflowRuleVersion"
+	// CRMServiceListWorkflowRuleVersionsProcedure is the fully-qualified name of the CRMService's
+	// ListWorkflowRuleVersions RPC.
+	CRMServiceListWorkflowRuleVersionsProcedure = "/crm.v1.CRMService/ListWorkflowRuleVersions"
+	// CRMServiceSetWorkflowRuleStatusProcedure is the fully-qualified name of the CRMService's
+	// SetWorkflowRuleStatus RPC.
+	CRMServiceSetWorkflowRuleStatusProcedure = "/crm.v1.CRMService/SetWorkflowRuleStatus"
+	// CRMServiceListWorkflowExecutionsProcedure is the fully-qualified name of the CRMService's
+	// ListWorkflowExecutions RPC.
+	CRMServiceListWorkflowExecutionsProcedure = "/crm.v1.CRMService/ListWorkflowExecutions"
+	// CRMServiceListNotificationsProcedure is the fully-qualified name of the CRMService's
+	// ListNotifications RPC.
+	CRMServiceListNotificationsProcedure = "/crm.v1.CRMService/ListNotifications"
+	// CRMServiceMarkNotificationReadProcedure is the fully-qualified name of the CRMService's
+	// MarkNotificationRead RPC.
+	CRMServiceMarkNotificationReadProcedure = "/crm.v1.CRMService/MarkNotificationRead"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -372,6 +405,39 @@ type CRMServiceClient interface {
 	ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error)
 	SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error)
 	ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error)
+	// Workflow automation (docs/WORKFLOW_AUTOMATION.md).
+	//
+	// A rule is authored as a draft, published as an immutable version, and
+	// then activated. Editing never mutates what is running: PublishWorkflow-
+	// RuleVersion writes a new version, and the rule keeps executing the one it
+	// points at until somebody activates the new one. That is what makes an
+	// execution's ledger row meaningful — it names the exact text of the rule
+	// that ran, months later, after the rule has been edited four times.
+	//
+	// DescribeWorkflowCatalog exists so the editor offers exactly what the
+	// server accepts. Triggers, comparable fields, operators and action types
+	// are allowlists; a UI that guessed at them would let an author compose a
+	// rule that cannot be saved, or worse, one that saves and never matches.
+	DescribeWorkflowCatalog(context.Context, *connect.Request[v1.DescribeWorkflowCatalogRequest]) (*connect.Response[v1.DescribeWorkflowCatalogResponse], error)
+	CreateWorkflowRule(context.Context, *connect.Request[v1.CreateWorkflowRuleRequest]) (*connect.Response[v1.CreateWorkflowRuleResponse], error)
+	GetWorkflowRule(context.Context, *connect.Request[v1.GetWorkflowRuleRequest]) (*connect.Response[v1.GetWorkflowRuleResponse], error)
+	ListWorkflowRules(context.Context, *connect.Request[v1.ListWorkflowRulesRequest]) (*connect.Response[v1.ListWorkflowRulesResponse], error)
+	UpdateWorkflowRule(context.Context, *connect.Request[v1.UpdateWorkflowRuleRequest]) (*connect.Response[v1.UpdateWorkflowRuleResponse], error)
+	PublishWorkflowRuleVersion(context.Context, *connect.Request[v1.PublishWorkflowRuleVersionRequest]) (*connect.Response[v1.PublishWorkflowRuleVersionResponse], error)
+	ListWorkflowRuleVersions(context.Context, *connect.Request[v1.ListWorkflowRuleVersionsRequest]) (*connect.Response[v1.ListWorkflowRuleVersionsResponse], error)
+	SetWorkflowRuleStatus(context.Context, *connect.Request[v1.SetWorkflowRuleStatusRequest]) (*connect.Response[v1.SetWorkflowRuleStatusResponse], error)
+	// ListWorkflowExecutions is the answer to "why didn't my rule fire": every
+	// event the rule was considered for, including the ones whose conditions
+	// did not hold, and the bounded reason for each failure.
+	ListWorkflowExecutions(context.Context, *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error)
+	// In-app notifications.
+	//
+	// Both RPCs act on the calling principal's own notifications and take no
+	// recipient, for the same reason the Google RPCs take no owner: letting a
+	// request name whose inbox to read would be an authorization bug no scope
+	// could fix.
+	ListNotifications(context.Context, *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error)
+	MarkNotificationRead(context.Context, *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -829,6 +895,72 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ReleaseSyncAddress")),
 			connect.WithClientOptions(opts...),
 		),
+		describeWorkflowCatalog: connect.NewClient[v1.DescribeWorkflowCatalogRequest, v1.DescribeWorkflowCatalogResponse](
+			httpClient,
+			baseURL+CRMServiceDescribeWorkflowCatalogProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DescribeWorkflowCatalog")),
+			connect.WithClientOptions(opts...),
+		),
+		createWorkflowRule: connect.NewClient[v1.CreateWorkflowRuleRequest, v1.CreateWorkflowRuleResponse](
+			httpClient,
+			baseURL+CRMServiceCreateWorkflowRuleProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateWorkflowRule")),
+			connect.WithClientOptions(opts...),
+		),
+		getWorkflowRule: connect.NewClient[v1.GetWorkflowRuleRequest, v1.GetWorkflowRuleResponse](
+			httpClient,
+			baseURL+CRMServiceGetWorkflowRuleProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetWorkflowRule")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkflowRules: connect.NewClient[v1.ListWorkflowRulesRequest, v1.ListWorkflowRulesResponse](
+			httpClient,
+			baseURL+CRMServiceListWorkflowRulesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowRules")),
+			connect.WithClientOptions(opts...),
+		),
+		updateWorkflowRule: connect.NewClient[v1.UpdateWorkflowRuleRequest, v1.UpdateWorkflowRuleResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateWorkflowRuleProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateWorkflowRule")),
+			connect.WithClientOptions(opts...),
+		),
+		publishWorkflowRuleVersion: connect.NewClient[v1.PublishWorkflowRuleVersionRequest, v1.PublishWorkflowRuleVersionResponse](
+			httpClient,
+			baseURL+CRMServicePublishWorkflowRuleVersionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("PublishWorkflowRuleVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkflowRuleVersions: connect.NewClient[v1.ListWorkflowRuleVersionsRequest, v1.ListWorkflowRuleVersionsResponse](
+			httpClient,
+			baseURL+CRMServiceListWorkflowRuleVersionsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowRuleVersions")),
+			connect.WithClientOptions(opts...),
+		),
+		setWorkflowRuleStatus: connect.NewClient[v1.SetWorkflowRuleStatusRequest, v1.SetWorkflowRuleStatusResponse](
+			httpClient,
+			baseURL+CRMServiceSetWorkflowRuleStatusProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SetWorkflowRuleStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkflowExecutions: connect.NewClient[v1.ListWorkflowExecutionsRequest, v1.ListWorkflowExecutionsResponse](
+			httpClient,
+			baseURL+CRMServiceListWorkflowExecutionsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowExecutions")),
+			connect.WithClientOptions(opts...),
+		),
+		listNotifications: connect.NewClient[v1.ListNotificationsRequest, v1.ListNotificationsResponse](
+			httpClient,
+			baseURL+CRMServiceListNotificationsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListNotifications")),
+			connect.WithClientOptions(opts...),
+		),
+		markNotificationRead: connect.NewClient[v1.MarkNotificationReadRequest, v1.MarkNotificationReadResponse](
+			httpClient,
+			baseURL+CRMServiceMarkNotificationReadProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("MarkNotificationRead")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -908,6 +1040,17 @@ type cRMServiceClient struct {
 	listSyncSuppressions          *connect.Client[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse]
 	suppressSyncAddress           *connect.Client[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse]
 	releaseSyncAddress            *connect.Client[v1.ReleaseSyncAddressRequest, v1.ReleaseSyncAddressResponse]
+	describeWorkflowCatalog       *connect.Client[v1.DescribeWorkflowCatalogRequest, v1.DescribeWorkflowCatalogResponse]
+	createWorkflowRule            *connect.Client[v1.CreateWorkflowRuleRequest, v1.CreateWorkflowRuleResponse]
+	getWorkflowRule               *connect.Client[v1.GetWorkflowRuleRequest, v1.GetWorkflowRuleResponse]
+	listWorkflowRules             *connect.Client[v1.ListWorkflowRulesRequest, v1.ListWorkflowRulesResponse]
+	updateWorkflowRule            *connect.Client[v1.UpdateWorkflowRuleRequest, v1.UpdateWorkflowRuleResponse]
+	publishWorkflowRuleVersion    *connect.Client[v1.PublishWorkflowRuleVersionRequest, v1.PublishWorkflowRuleVersionResponse]
+	listWorkflowRuleVersions      *connect.Client[v1.ListWorkflowRuleVersionsRequest, v1.ListWorkflowRuleVersionsResponse]
+	setWorkflowRuleStatus         *connect.Client[v1.SetWorkflowRuleStatusRequest, v1.SetWorkflowRuleStatusResponse]
+	listWorkflowExecutions        *connect.Client[v1.ListWorkflowExecutionsRequest, v1.ListWorkflowExecutionsResponse]
+	listNotifications             *connect.Client[v1.ListNotificationsRequest, v1.ListNotificationsResponse]
+	markNotificationRead          *connect.Client[v1.MarkNotificationReadRequest, v1.MarkNotificationReadResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1280,6 +1423,61 @@ func (c *cRMServiceClient) ReleaseSyncAddress(ctx context.Context, req *connect.
 	return c.releaseSyncAddress.CallUnary(ctx, req)
 }
 
+// DescribeWorkflowCatalog calls crm.v1.CRMService.DescribeWorkflowCatalog.
+func (c *cRMServiceClient) DescribeWorkflowCatalog(ctx context.Context, req *connect.Request[v1.DescribeWorkflowCatalogRequest]) (*connect.Response[v1.DescribeWorkflowCatalogResponse], error) {
+	return c.describeWorkflowCatalog.CallUnary(ctx, req)
+}
+
+// CreateWorkflowRule calls crm.v1.CRMService.CreateWorkflowRule.
+func (c *cRMServiceClient) CreateWorkflowRule(ctx context.Context, req *connect.Request[v1.CreateWorkflowRuleRequest]) (*connect.Response[v1.CreateWorkflowRuleResponse], error) {
+	return c.createWorkflowRule.CallUnary(ctx, req)
+}
+
+// GetWorkflowRule calls crm.v1.CRMService.GetWorkflowRule.
+func (c *cRMServiceClient) GetWorkflowRule(ctx context.Context, req *connect.Request[v1.GetWorkflowRuleRequest]) (*connect.Response[v1.GetWorkflowRuleResponse], error) {
+	return c.getWorkflowRule.CallUnary(ctx, req)
+}
+
+// ListWorkflowRules calls crm.v1.CRMService.ListWorkflowRules.
+func (c *cRMServiceClient) ListWorkflowRules(ctx context.Context, req *connect.Request[v1.ListWorkflowRulesRequest]) (*connect.Response[v1.ListWorkflowRulesResponse], error) {
+	return c.listWorkflowRules.CallUnary(ctx, req)
+}
+
+// UpdateWorkflowRule calls crm.v1.CRMService.UpdateWorkflowRule.
+func (c *cRMServiceClient) UpdateWorkflowRule(ctx context.Context, req *connect.Request[v1.UpdateWorkflowRuleRequest]) (*connect.Response[v1.UpdateWorkflowRuleResponse], error) {
+	return c.updateWorkflowRule.CallUnary(ctx, req)
+}
+
+// PublishWorkflowRuleVersion calls crm.v1.CRMService.PublishWorkflowRuleVersion.
+func (c *cRMServiceClient) PublishWorkflowRuleVersion(ctx context.Context, req *connect.Request[v1.PublishWorkflowRuleVersionRequest]) (*connect.Response[v1.PublishWorkflowRuleVersionResponse], error) {
+	return c.publishWorkflowRuleVersion.CallUnary(ctx, req)
+}
+
+// ListWorkflowRuleVersions calls crm.v1.CRMService.ListWorkflowRuleVersions.
+func (c *cRMServiceClient) ListWorkflowRuleVersions(ctx context.Context, req *connect.Request[v1.ListWorkflowRuleVersionsRequest]) (*connect.Response[v1.ListWorkflowRuleVersionsResponse], error) {
+	return c.listWorkflowRuleVersions.CallUnary(ctx, req)
+}
+
+// SetWorkflowRuleStatus calls crm.v1.CRMService.SetWorkflowRuleStatus.
+func (c *cRMServiceClient) SetWorkflowRuleStatus(ctx context.Context, req *connect.Request[v1.SetWorkflowRuleStatusRequest]) (*connect.Response[v1.SetWorkflowRuleStatusResponse], error) {
+	return c.setWorkflowRuleStatus.CallUnary(ctx, req)
+}
+
+// ListWorkflowExecutions calls crm.v1.CRMService.ListWorkflowExecutions.
+func (c *cRMServiceClient) ListWorkflowExecutions(ctx context.Context, req *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error) {
+	return c.listWorkflowExecutions.CallUnary(ctx, req)
+}
+
+// ListNotifications calls crm.v1.CRMService.ListNotifications.
+func (c *cRMServiceClient) ListNotifications(ctx context.Context, req *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error) {
+	return c.listNotifications.CallUnary(ctx, req)
+}
+
+// MarkNotificationRead calls crm.v1.CRMService.MarkNotificationRead.
+func (c *cRMServiceClient) MarkNotificationRead(ctx context.Context, req *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error) {
+	return c.markNotificationRead.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1420,6 +1618,39 @@ type CRMServiceHandler interface {
 	ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error)
 	SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error)
 	ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error)
+	// Workflow automation (docs/WORKFLOW_AUTOMATION.md).
+	//
+	// A rule is authored as a draft, published as an immutable version, and
+	// then activated. Editing never mutates what is running: PublishWorkflow-
+	// RuleVersion writes a new version, and the rule keeps executing the one it
+	// points at until somebody activates the new one. That is what makes an
+	// execution's ledger row meaningful — it names the exact text of the rule
+	// that ran, months later, after the rule has been edited four times.
+	//
+	// DescribeWorkflowCatalog exists so the editor offers exactly what the
+	// server accepts. Triggers, comparable fields, operators and action types
+	// are allowlists; a UI that guessed at them would let an author compose a
+	// rule that cannot be saved, or worse, one that saves and never matches.
+	DescribeWorkflowCatalog(context.Context, *connect.Request[v1.DescribeWorkflowCatalogRequest]) (*connect.Response[v1.DescribeWorkflowCatalogResponse], error)
+	CreateWorkflowRule(context.Context, *connect.Request[v1.CreateWorkflowRuleRequest]) (*connect.Response[v1.CreateWorkflowRuleResponse], error)
+	GetWorkflowRule(context.Context, *connect.Request[v1.GetWorkflowRuleRequest]) (*connect.Response[v1.GetWorkflowRuleResponse], error)
+	ListWorkflowRules(context.Context, *connect.Request[v1.ListWorkflowRulesRequest]) (*connect.Response[v1.ListWorkflowRulesResponse], error)
+	UpdateWorkflowRule(context.Context, *connect.Request[v1.UpdateWorkflowRuleRequest]) (*connect.Response[v1.UpdateWorkflowRuleResponse], error)
+	PublishWorkflowRuleVersion(context.Context, *connect.Request[v1.PublishWorkflowRuleVersionRequest]) (*connect.Response[v1.PublishWorkflowRuleVersionResponse], error)
+	ListWorkflowRuleVersions(context.Context, *connect.Request[v1.ListWorkflowRuleVersionsRequest]) (*connect.Response[v1.ListWorkflowRuleVersionsResponse], error)
+	SetWorkflowRuleStatus(context.Context, *connect.Request[v1.SetWorkflowRuleStatusRequest]) (*connect.Response[v1.SetWorkflowRuleStatusResponse], error)
+	// ListWorkflowExecutions is the answer to "why didn't my rule fire": every
+	// event the rule was considered for, including the ones whose conditions
+	// did not hold, and the bounded reason for each failure.
+	ListWorkflowExecutions(context.Context, *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error)
+	// In-app notifications.
+	//
+	// Both RPCs act on the calling principal's own notifications and take no
+	// recipient, for the same reason the Google RPCs take no owner: letting a
+	// request name whose inbox to read would be an authorization bug no scope
+	// could fix.
+	ListNotifications(context.Context, *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error)
+	MarkNotificationRead(context.Context, *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -1873,6 +2104,72 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ReleaseSyncAddress")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceDescribeWorkflowCatalogHandler := connect.NewUnaryHandler(
+		CRMServiceDescribeWorkflowCatalogProcedure,
+		svc.DescribeWorkflowCatalog,
+		connect.WithSchema(cRMServiceMethods.ByName("DescribeWorkflowCatalog")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCreateWorkflowRuleHandler := connect.NewUnaryHandler(
+		CRMServiceCreateWorkflowRuleProcedure,
+		svc.CreateWorkflowRule,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateWorkflowRule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetWorkflowRuleHandler := connect.NewUnaryHandler(
+		CRMServiceGetWorkflowRuleProcedure,
+		svc.GetWorkflowRule,
+		connect.WithSchema(cRMServiceMethods.ByName("GetWorkflowRule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListWorkflowRulesHandler := connect.NewUnaryHandler(
+		CRMServiceListWorkflowRulesProcedure,
+		svc.ListWorkflowRules,
+		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowRules")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateWorkflowRuleHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateWorkflowRuleProcedure,
+		svc.UpdateWorkflowRule,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateWorkflowRule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServicePublishWorkflowRuleVersionHandler := connect.NewUnaryHandler(
+		CRMServicePublishWorkflowRuleVersionProcedure,
+		svc.PublishWorkflowRuleVersion,
+		connect.WithSchema(cRMServiceMethods.ByName("PublishWorkflowRuleVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListWorkflowRuleVersionsHandler := connect.NewUnaryHandler(
+		CRMServiceListWorkflowRuleVersionsProcedure,
+		svc.ListWorkflowRuleVersions,
+		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowRuleVersions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceSetWorkflowRuleStatusHandler := connect.NewUnaryHandler(
+		CRMServiceSetWorkflowRuleStatusProcedure,
+		svc.SetWorkflowRuleStatus,
+		connect.WithSchema(cRMServiceMethods.ByName("SetWorkflowRuleStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListWorkflowExecutionsHandler := connect.NewUnaryHandler(
+		CRMServiceListWorkflowExecutionsProcedure,
+		svc.ListWorkflowExecutions,
+		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowExecutions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListNotificationsHandler := connect.NewUnaryHandler(
+		CRMServiceListNotificationsProcedure,
+		svc.ListNotifications,
+		connect.WithSchema(cRMServiceMethods.ByName("ListNotifications")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceMarkNotificationReadHandler := connect.NewUnaryHandler(
+		CRMServiceMarkNotificationReadProcedure,
+		svc.MarkNotificationRead,
+		connect.WithSchema(cRMServiceMethods.ByName("MarkNotificationRead")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -2023,6 +2320,28 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceSuppressSyncAddressHandler.ServeHTTP(w, r)
 		case CRMServiceReleaseSyncAddressProcedure:
 			cRMServiceReleaseSyncAddressHandler.ServeHTTP(w, r)
+		case CRMServiceDescribeWorkflowCatalogProcedure:
+			cRMServiceDescribeWorkflowCatalogHandler.ServeHTTP(w, r)
+		case CRMServiceCreateWorkflowRuleProcedure:
+			cRMServiceCreateWorkflowRuleHandler.ServeHTTP(w, r)
+		case CRMServiceGetWorkflowRuleProcedure:
+			cRMServiceGetWorkflowRuleHandler.ServeHTTP(w, r)
+		case CRMServiceListWorkflowRulesProcedure:
+			cRMServiceListWorkflowRulesHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateWorkflowRuleProcedure:
+			cRMServiceUpdateWorkflowRuleHandler.ServeHTTP(w, r)
+		case CRMServicePublishWorkflowRuleVersionProcedure:
+			cRMServicePublishWorkflowRuleVersionHandler.ServeHTTP(w, r)
+		case CRMServiceListWorkflowRuleVersionsProcedure:
+			cRMServiceListWorkflowRuleVersionsHandler.ServeHTTP(w, r)
+		case CRMServiceSetWorkflowRuleStatusProcedure:
+			cRMServiceSetWorkflowRuleStatusHandler.ServeHTTP(w, r)
+		case CRMServiceListWorkflowExecutionsProcedure:
+			cRMServiceListWorkflowExecutionsHandler.ServeHTTP(w, r)
+		case CRMServiceListNotificationsProcedure:
+			cRMServiceListNotificationsHandler.ServeHTTP(w, r)
+		case CRMServiceMarkNotificationReadProcedure:
+			cRMServiceMarkNotificationReadHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -2326,4 +2645,48 @@ func (UnimplementedCRMServiceHandler) SuppressSyncAddress(context.Context, *conn
 
 func (UnimplementedCRMServiceHandler) ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ReleaseSyncAddress is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DescribeWorkflowCatalog(context.Context, *connect.Request[v1.DescribeWorkflowCatalogRequest]) (*connect.Response[v1.DescribeWorkflowCatalogResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DescribeWorkflowCatalog is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateWorkflowRule(context.Context, *connect.Request[v1.CreateWorkflowRuleRequest]) (*connect.Response[v1.CreateWorkflowRuleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateWorkflowRule is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetWorkflowRule(context.Context, *connect.Request[v1.GetWorkflowRuleRequest]) (*connect.Response[v1.GetWorkflowRuleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetWorkflowRule is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListWorkflowRules(context.Context, *connect.Request[v1.ListWorkflowRulesRequest]) (*connect.Response[v1.ListWorkflowRulesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowRules is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateWorkflowRule(context.Context, *connect.Request[v1.UpdateWorkflowRuleRequest]) (*connect.Response[v1.UpdateWorkflowRuleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateWorkflowRule is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) PublishWorkflowRuleVersion(context.Context, *connect.Request[v1.PublishWorkflowRuleVersionRequest]) (*connect.Response[v1.PublishWorkflowRuleVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.PublishWorkflowRuleVersion is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListWorkflowRuleVersions(context.Context, *connect.Request[v1.ListWorkflowRuleVersionsRequest]) (*connect.Response[v1.ListWorkflowRuleVersionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowRuleVersions is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SetWorkflowRuleStatus(context.Context, *connect.Request[v1.SetWorkflowRuleStatusRequest]) (*connect.Response[v1.SetWorkflowRuleStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SetWorkflowRuleStatus is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListWorkflowExecutions(context.Context, *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowExecutions is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListNotifications(context.Context, *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListNotifications is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) MarkNotificationRead(context.Context, *connect.Request[v1.MarkNotificationReadRequest]) (*connect.Response[v1.MarkNotificationReadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.MarkNotificationRead is not implemented"))
 }

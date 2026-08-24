@@ -159,6 +159,41 @@ service CRMService {
   rpc ListSyncSuppressions(ListSyncSuppressionsRequest) returns (ListSyncSuppressionsResponse);
   rpc SuppressSyncAddress(SuppressSyncAddressRequest) returns (SuppressSyncAddressResponse);
   rpc ReleaseSyncAddress(ReleaseSyncAddressRequest) returns (ReleaseSyncAddressResponse);
+
+  // Workflow automation (docs/WORKFLOW_AUTOMATION.md).
+  //
+  // A rule is authored as a draft, published as an immutable version, and
+  // then activated. Editing never mutates what is running: PublishWorkflow-
+  // RuleVersion writes a new version, and the rule keeps executing the one it
+  // points at until somebody activates the new one. That is what makes an
+  // execution's ledger row meaningful — it names the exact text of the rule
+  // that ran, months later, after the rule has been edited four times.
+  //
+  // DescribeWorkflowCatalog exists so the editor offers exactly what the
+  // server accepts. Triggers, comparable fields, operators and action types
+  // are allowlists; a UI that guessed at them would let an author compose a
+  // rule that cannot be saved, or worse, one that saves and never matches.
+  rpc DescribeWorkflowCatalog(DescribeWorkflowCatalogRequest) returns (DescribeWorkflowCatalogResponse);
+  rpc CreateWorkflowRule(CreateWorkflowRuleRequest) returns (CreateWorkflowRuleResponse);
+  rpc GetWorkflowRule(GetWorkflowRuleRequest) returns (GetWorkflowRuleResponse);
+  rpc ListWorkflowRules(ListWorkflowRulesRequest) returns (ListWorkflowRulesResponse);
+  rpc UpdateWorkflowRule(UpdateWorkflowRuleRequest) returns (UpdateWorkflowRuleResponse);
+  rpc PublishWorkflowRuleVersion(PublishWorkflowRuleVersionRequest) returns (PublishWorkflowRuleVersionResponse);
+  rpc ListWorkflowRuleVersions(ListWorkflowRuleVersionsRequest) returns (ListWorkflowRuleVersionsResponse);
+  rpc SetWorkflowRuleStatus(SetWorkflowRuleStatusRequest) returns (SetWorkflowRuleStatusResponse);
+  // ListWorkflowExecutions is the answer to "why didn't my rule fire": every
+  // event the rule was considered for, including the ones whose conditions
+  // did not hold, and the bounded reason for each failure.
+  rpc ListWorkflowExecutions(ListWorkflowExecutionsRequest) returns (ListWorkflowExecutionsResponse);
+
+  // In-app notifications.
+  //
+  // Both RPCs act on the calling principal's own notifications and take no
+  // recipient, for the same reason the Google RPCs take no owner: letting a
+  // request name whose inbox to read would be an authorization bug no scope
+  // could fix.
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (MarkNotificationReadResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -910,3 +945,228 @@ message UpdateNoteRequest { Note note = 1; }
 message UpdateNoteResponse { Note note = 1; }
 message DeleteNoteRequest { string id = 1; }
 message DeleteNoteResponse {}
+
+// ---------------------------------------------------------------------------
+// Workflow automation
+// ---------------------------------------------------------------------------
+
+// WorkflowCondition is one typed comparison. Conditions combine with AND
+// only; see docs/WORKFLOW_AUTOMATION.md for why v1 has no expression tree.
+message WorkflowCondition {
+  // field must be one the catalog names for the trigger's object type.
+  string field = 1;
+  // operator is one of eq, neq, gt, lt, contains, in — and which of those are
+  // legal depends on the field's kind, which is why the catalog reports them
+  // per field rather than as one global list.
+  string operator = 2;
+  // value is compared as text or as a number according to the field's kind.
+  // For the "in" operator it is a comma-separated list.
+  string value = 3;
+}
+
+// WorkflowAction is one thing a rule does. The fields each action type uses
+// are enforced server-side; the others are ignored.
+message WorkflowAction {
+  // type is create_task, add_activity or notify.
+  string type = 1;
+  // title is the task title or the notification title.
+  string title = 2;
+  // body is the task description, the activity note or the notification body.
+  // It is literal text: v1 expands no templates, because a template that can
+  // read the record can read fields the rule author may not see.
+  string body = 3;
+  // assignee is record_owner or fixed_user, and decides who a task is for or
+  // who is notified. record_owner is resolved when the action runs, against
+  // the record as it is then — not as the event found it.
+  string assignee = 4;
+  // assignee_id names the principal when assignee is fixed_user.
+  string assignee_id = 5;
+  // priority applies to create_task and must be a task priority.
+  string priority = 6;
+  // due_in_days offsets a created task's due date from execution. Zero means
+  // the task has no due date.
+  int32 due_in_days = 7;
+  // activity_kind applies to add_activity.
+  string activity_kind = 8;
+}
+
+// WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer
+// at the version that runs.
+message WorkflowRule {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  // status is draft, active, paused or archived. Archived is terminal.
+  string status = 4;
+  // active_version_id is the version executions use. Empty for a rule that
+  // has never been published.
+  string active_version_id = 5;
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// WorkflowRuleVersion is an immutable snapshot of what a rule said. Nothing
+// edits one; publishing writes another.
+message WorkflowRuleVersion {
+  string id = 1;
+  string rule_id = 2;
+  // version counts from 1 per rule.
+  int32 version = 3;
+  string trigger_event_type = 4;
+  // trigger_object_type is derived from the trigger rather than supplied.
+  string trigger_object_type = 5;
+  repeated WorkflowCondition conditions = 6;
+  repeated WorkflowAction actions = 7;
+  string created_by = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// WorkflowExecution is one rule version's encounter with one event.
+message WorkflowExecution {
+  string id = 1;
+  string rule_id = 2;
+  string rule_version_id = 3;
+  string source_event_id = 4;
+  string source_event_type = 5;
+  string subject_type = 6;
+  string subject_id = 7;
+  // status is pending, running, succeeded, failed or skipped. Skipped means
+  // the rule saw the event and its conditions did not hold — recorded rather
+  // than discarded, because that is the question authors actually ask.
+  string status = 8;
+  int32 attempts = 9;
+  // error_category is a bounded code — record_gone, no_assignee,
+  // action_failed, rule_version_gone, invalid_action — never a message. The
+  // failing action may have been holding a customer's data.
+  string error_category = 10;
+  // actions_completed is how far the execution got, so a retry resumes rather
+  // than repeating an action that already succeeded.
+  int32 actions_completed = 11;
+  google.protobuf.Timestamp next_attempt_at = 12;
+  google.protobuf.Timestamp started_at = 13;
+  google.protobuf.Timestamp finished_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+}
+
+// Notification is one in-app message for one principal.
+message Notification {
+  string id = 1;
+  string kind = 2;
+  string title = 3;
+  string body = 4;
+  // subject_type + subject_id link to the record, so the reader can go there.
+  string subject_type = 5;
+  string subject_id = 6;
+  // rule_id names the rule that raised it, when a rule did.
+  string rule_id = 7;
+  google.protobuf.Timestamp read_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// WorkflowField is one comparable field and the operators it accepts.
+message WorkflowField {
+  string name = 1;
+  // kind is "text" or "number", and decides the operators.
+  string kind = 2;
+  repeated string operators = 3;
+}
+
+// WorkflowTriggerDescriptor is one event a rule may fire on, with the fields
+// its conditions may compare.
+message WorkflowTriggerDescriptor {
+  string event_type = 1;
+  string object_type = 2;
+  repeated WorkflowField fields = 3;
+}
+
+message DescribeWorkflowCatalogRequest {}
+message DescribeWorkflowCatalogResponse {
+  repeated WorkflowTriggerDescriptor triggers = 1;
+  // action_types and assignee_selectors are the remaining allowlists.
+  repeated string action_types = 2;
+  repeated string assignee_selectors = 3;
+  // The authoring bounds the server enforces, reported so the editor can
+  // enforce the same ones rather than guessing at them.
+  int32 max_conditions = 4;
+  int32 max_actions = 5;
+  int32 max_text_length = 6;
+}
+
+// CreateWorkflowRuleRequest starts a rule. It is always created as a draft:
+// a rule cannot be active before it has a published version to run.
+message CreateWorkflowRuleRequest {
+  string name = 1;
+  string description = 2;
+}
+message CreateWorkflowRuleResponse { WorkflowRule rule = 1; }
+
+message GetWorkflowRuleRequest { string id = 1; }
+message GetWorkflowRuleResponse {
+  WorkflowRule rule = 1;
+  // active_version is the version this rule runs, when it has one.
+  WorkflowRuleVersion active_version = 2;
+}
+
+message ListWorkflowRulesRequest {
+  // include_archived brings back retired rules, which are hidden by default.
+  bool include_archived = 1;
+}
+message ListWorkflowRulesResponse { repeated WorkflowRule rules = 1; }
+
+// UpdateWorkflowRuleRequest changes a rule's label only. What the rule *does*
+// is versioned, and changing it goes through PublishWorkflowRuleVersion.
+message UpdateWorkflowRuleRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+}
+message UpdateWorkflowRuleResponse { WorkflowRule rule = 1; }
+
+message PublishWorkflowRuleVersionRequest {
+  string rule_id = 1;
+  string trigger_event_type = 2;
+  repeated WorkflowCondition conditions = 3;
+  repeated WorkflowAction actions = 4;
+  // activate points the rule at this new version and makes it active. Without
+  // it publishing changes nothing about what is running: an author editing a
+  // live rule gets to review the new version before it starts acting.
+  bool activate = 5;
+}
+message PublishWorkflowRuleVersionResponse {
+  WorkflowRuleVersion version = 1;
+  WorkflowRule rule = 2;
+}
+
+message ListWorkflowRuleVersionsRequest { string rule_id = 1; }
+message ListWorkflowRuleVersionsResponse { repeated WorkflowRuleVersion versions = 1; }
+
+message SetWorkflowRuleStatusRequest {
+  string id = 1;
+  // status is draft, active, paused or archived. Archived is terminal:
+  // a retired rule that could be switched back on is one that can start
+  // acting on records long after everyone stopped thinking about it.
+  string status = 2;
+}
+message SetWorkflowRuleStatusResponse { WorkflowRule rule = 1; }
+
+message ListWorkflowExecutionsRequest {
+  string rule_id = 1;
+  // limit bounds the page. Zero means the server default.
+  int32 limit = 2;
+}
+message ListWorkflowExecutionsResponse { repeated WorkflowExecution executions = 1; }
+
+message ListNotificationsRequest {
+  bool unread_only = 1;
+  int32 limit = 2;
+}
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  // unread_count is the badge, and counts the caller's unread notifications
+  // rather than the ones this page happened to return.
+  int32 unread_count = 2;
+}
+
+message MarkNotificationReadRequest { string id = 1; }
+message MarkNotificationReadResponse { Notification notification = 1; }

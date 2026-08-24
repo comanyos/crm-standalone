@@ -243,7 +243,9 @@ func (s *MemStore) ActiveWorkflowVersionsFor(
 			continue
 		}
 		version, ok := s.workflow.versions[scope.TenantID][rule.ActiveVersionID]
-		if !ok || version.TriggerEventType != eventType {
+		// version.RuleID is checked as well: a rule runs its own versions,
+		// and the pointer between them is not a foreign key.
+		if !ok || version.RuleID != rule.ID || version.TriggerEventType != eventType {
 			continue
 		}
 		out = append(out, cloneWorkflowRuleVersion(version))

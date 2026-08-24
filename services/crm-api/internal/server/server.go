@@ -55,6 +55,15 @@ func New(
 	if err := assertPolicyIsTotal(scopePolicy); err != nil {
 		return nil, err
 	}
+	// Loop prevention in workflow automation is structural: no event a rule
+	// may trigger on is one a workflow action produces. There is no depth
+	// counter behind that, so the structure is checked here rather than
+	// trusted — a rule that could fire on its own output is an unbounded loop
+	// against a customer's records, and a deployment should stop rather than
+	// discover it from a support ticket.
+	if err := domain.AssertTriggersCannotLoop(); err != nil {
+		return nil, err
+	}
 	googleSvc, err := newGoogleService(cfg, store)
 	if err != nil {
 		return nil, err

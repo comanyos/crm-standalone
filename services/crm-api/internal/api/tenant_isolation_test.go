@@ -53,6 +53,12 @@ type apiFixture struct {
 	// seeded. It matches ctxAs's subject, because every Google RPC acts on
 	// the caller's own connection.
 	googleOwner string
+	// The automation fixtures. Both organizations seed an active rule, a
+	// published version, an execution and a notification, so no workflow
+	// probe can pass for want of anything to leak.
+	workflowRuleID    string
+	workflowVersionID string
+	notificationID    string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -216,6 +222,55 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		}); err != nil {
 		t.Fatalf("[%s] seed synced message: %v", label, err)
 	}
+
+	// An active automation rule with a published version, an execution
+	// against it, and a notification for this fixture's own principal.
+	rule, err := s.CreateWorkflowRule(f.ctx, connect.NewRequest(&crmv1.CreateWorkflowRuleRequest{
+		Name: label + " follow-up", Description: label + " confidential playbook",
+	}))
+	if err != nil {
+		t.Fatalf("[%s] create workflow rule: %v", label, err)
+	}
+	f.workflowRuleID = rule.Msg.GetRule().GetId()
+
+	version, err := s.PublishWorkflowRuleVersion(f.ctx, connect.NewRequest(
+		&crmv1.PublishWorkflowRuleVersionRequest{
+			RuleId:           f.workflowRuleID,
+			TriggerEventType: domain.EventLeadCreated,
+			Conditions: []*crmv1.WorkflowCondition{
+				{Field: "source", Operator: domain.OpEquals, Value: "referral"},
+			},
+			Actions: []*crmv1.WorkflowAction{{
+				Type: domain.ActionCreateTask, Title: label + " call the referral",
+				Assignee: domain.AssigneeRecordOwner,
+			}},
+			Activate: true,
+		}))
+	if err != nil {
+		t.Fatalf("[%s] publish workflow version: %v", label, err)
+	}
+	f.workflowVersionID = version.Msg.GetVersion().GetId()
+
+	// The execution and the notification are seeded through the store: the
+	// engine writes both, and there is no RPC that creates either.
+	scope := domain.Scope{TenantID: tenantID, OrgID: orgID}
+	if _, _, err := s.store.ClaimWorkflowExecution(f.ctx, scope, &domain.WorkflowExecution{
+		RuleID: f.workflowRuleID, RuleVersionID: f.workflowVersionID,
+		SourceEventID: "event-" + label, SourceEventType: domain.EventLeadCreated,
+		SubjectType: domain.SubjectLead, SubjectID: f.leadID,
+		Status: domain.ExecutionSucceeded,
+	}); err != nil {
+		t.Fatalf("[%s] seed workflow execution: %v", label, err)
+	}
+	notification, err := s.store.CreateNotification(f.ctx, scope, &domain.Notification{
+		RecipientID: f.googleOwner, Kind: "workflow",
+		Title: label + " confidential alert", Body: label + " internal note",
+		SubjectType: domain.SubjectLead, SubjectID: f.leadID, RuleID: f.workflowRuleID,
+	})
+	if err != nil {
+		t.Fatalf("[%s] seed notification: %v", label, err)
+	}
+	f.notificationID = notification.ID
 
 	return f
 }
@@ -944,6 +999,125 @@ var crossTenantProbes = map[string]isolationProbe{
 			}
 		}
 	},
+	// Workflow automation. Both fixtures seed an active rule, a version, an
+	// execution and a notification, so each of these runs against a tenant
+	// that really does have automation to leak.
+	//
+	// The notification probes are sharper than they look: both fixtures share
+	// a subject ("test-user", from ctxAs), and neither RPC takes a recipient,
+	// so only the tenant separates B's inbox from A's.
+	"GetWorkflowRule": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetWorkflowRule(ctxB, connect.NewRequest(
+			&crmv1.GetWorkflowRuleRequest{Id: a.workflowRuleID}))
+		wantNotFound(t, "GetWorkflowRule", err)
+	},
+	"ListWorkflowRules": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		for _, includeArchived := range []bool{false, true} {
+			res, err := s.ListWorkflowRules(ctxB, connect.NewRequest(
+				&crmv1.ListWorkflowRulesRequest{IncludeArchived: includeArchived}))
+			if err != nil {
+				t.Fatalf("ListWorkflowRules(archived=%v): %v", includeArchived, err)
+			}
+			for _, rule := range res.Msg.GetRules() {
+				if rule.GetId() == a.workflowRuleID {
+					t.Errorf("ListWorkflowRules(archived=%v) returned organization A's rule",
+						includeArchived)
+				}
+			}
+		}
+	},
+	"CreateWorkflowRule": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// A rule takes no foreign id, so what is checked is the other
+		// direction: creating one in B must not appear in A's list.
+		created, err := s.CreateWorkflowRule(ctxB, connect.NewRequest(
+			&crmv1.CreateWorkflowRuleRequest{Name: "B's rule"}))
+		if err != nil {
+			t.Fatalf("CreateWorkflowRule as another tenant: %v", err)
+		}
+		res, err := s.ListWorkflowRules(a.ctx, connect.NewRequest(&crmv1.ListWorkflowRulesRequest{}))
+		if err != nil {
+			t.Fatalf("ListWorkflowRules as the victim: %v", err)
+		}
+		for _, rule := range res.Msg.GetRules() {
+			if rule.GetId() == created.Msg.GetRule().GetId() {
+				t.Error("CreateWorkflowRule: organization B's rule landed in organization A")
+			}
+		}
+	},
+	"UpdateWorkflowRule": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateWorkflowRule(ctxB, connect.NewRequest(&crmv1.UpdateWorkflowRuleRequest{
+			Id: a.workflowRuleID, Name: "Seized",
+		}))
+		wantNotFound(t, "UpdateWorkflowRule", err)
+	},
+	"SetWorkflowRuleStatus": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Pausing somebody else's automation is a denial of service that
+		// leaves no trace in their records.
+		_, err := s.SetWorkflowRuleStatus(ctxB, connect.NewRequest(
+			&crmv1.SetWorkflowRuleStatusRequest{Id: a.workflowRuleID, Status: domain.WorkflowPaused}))
+		wantNotFound(t, "SetWorkflowRuleStatus", err)
+	},
+	"PublishWorkflowRuleVersion": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Publishing into A's rule would make B the author of what runs
+		// against A's records.
+		_, err := s.PublishWorkflowRuleVersion(ctxB, connect.NewRequest(
+			&crmv1.PublishWorkflowRuleVersionRequest{
+				RuleId:           a.workflowRuleID,
+				TriggerEventType: domain.EventLeadCreated,
+				Actions: []*crmv1.WorkflowAction{{
+					Type: domain.ActionCreateTask, Title: "Seized",
+					Assignee: domain.AssigneeFixedUser, AssigneeId: "attacker",
+				}},
+				Activate: true,
+			}))
+		wantNotFound(t, "PublishWorkflowRuleVersion", err)
+	},
+	"ListWorkflowRuleVersions": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListWorkflowRuleVersions(ctxB, connect.NewRequest(
+			&crmv1.ListWorkflowRuleVersionsRequest{RuleId: a.workflowRuleID}))
+		if err != nil {
+			wantNotFound(t, "ListWorkflowRuleVersions", err)
+			return
+		}
+		for _, version := range res.Msg.GetVersions() {
+			if version.GetId() == a.workflowVersionID {
+				t.Error("ListWorkflowRuleVersions returned organization A's rule text")
+			}
+		}
+	},
+	"ListWorkflowExecutions": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListWorkflowExecutions(ctxB, connect.NewRequest(
+			&crmv1.ListWorkflowExecutionsRequest{RuleId: a.workflowRuleID}))
+		if err != nil {
+			wantNotFound(t, "ListWorkflowExecutions", err)
+			return
+		}
+		for _, execution := range res.Msg.GetExecutions() {
+			if execution.GetRuleId() == a.workflowRuleID {
+				t.Error("ListWorkflowExecutions returned organization A's ledger")
+			}
+		}
+	},
+	"ListNotifications": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		for _, unreadOnly := range []bool{false, true} {
+			res, err := s.ListNotifications(ctxB, connect.NewRequest(
+				&crmv1.ListNotificationsRequest{UnreadOnly: unreadOnly}))
+			if err != nil {
+				t.Fatalf("ListNotifications(unread=%v): %v", unreadOnly, err)
+			}
+			for _, row := range res.Msg.GetNotifications() {
+				if row.GetId() == a.notificationID {
+					t.Errorf("ListNotifications(unread=%v) returned organization A's notification",
+						unreadOnly)
+				}
+			}
+		}
+	},
+	"MarkNotificationRead": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.MarkNotificationRead(ctxB, connect.NewRequest(
+			&crmv1.MarkNotificationReadRequest{Id: a.notificationID}))
+		wantNotFound(t, "MarkNotificationRead", err)
+	},
 }
 
 // TestCrossOrganizationRPCAccessIsDenied runs every probe against a live
@@ -1035,7 +1209,11 @@ func TestEveryTenantSensitiveRPCHasAnIsolationProbe(t *testing.T) {
 	// Nothing yet: every CRMService RPC today reads or writes tenant data.
 	// An entry here is a claim that an RPC touches no tenant-owned record,
 	// and needs a reason next to it.
-	rpcsWithoutTenantData := map[string]string{}
+	rpcsWithoutTenantData := map[string]string{
+		"DescribeWorkflowCatalog": "Returns the authoring allowlists — triggers, comparable " +
+			"fields, operators, action types — which are compiled into the binary and " +
+			"identical for every organization. It reads no store at all.",
+	}
 
 	typ := reflect.TypeOf(&CRMService{})
 	var missing []string

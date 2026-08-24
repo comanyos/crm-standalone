@@ -130,6 +130,32 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListCustomRecords":             "crm:custom_object:read",
 	"/crm.v1.CRMService/UpdateCustomRecord":            "crm:custom_object:write",
 	"/crm.v1.CRMService/DeleteCustomRecord":            "crm:custom_object:write",
+
+	// Workflow automation. Authoring a rule is a privileged act that reading
+	// the CRM is not: a rule acts on every record its trigger matches, on
+	// behalf of whoever wrote it, indefinitely. So it gets its own pair
+	// rather than sharing any entity's — a role that may edit opportunities
+	// is not thereby a role that may make every new opportunity create work
+	// for somebody.
+	//
+	// The catalog is a read even though it returns no tenant data: it
+	// describes the authoring surface, and there is no one who needs it who
+	// does not also need to read the rules.
+	"/crm.v1.CRMService/DescribeWorkflowCatalog":    "crm:workflow:read",
+	"/crm.v1.CRMService/CreateWorkflowRule":         "crm:workflow:write",
+	"/crm.v1.CRMService/GetWorkflowRule":            "crm:workflow:read",
+	"/crm.v1.CRMService/ListWorkflowRules":          "crm:workflow:read",
+	"/crm.v1.CRMService/UpdateWorkflowRule":         "crm:workflow:write",
+	"/crm.v1.CRMService/PublishWorkflowRuleVersion": "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowRuleVersions":   "crm:workflow:read",
+	"/crm.v1.CRMService/SetWorkflowRuleStatus":      "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowExecutions":     "crm:workflow:read",
+
+	// Notifications are the caller's own and nobody else's — neither RPC
+	// takes a recipient — so the scope is about whether this principal
+	// participates in the in-app inbox at all, and every CRM user does.
+	"/crm.v1.CRMService/ListNotifications":    "crm:notification:read",
+	"/crm.v1.CRMService/MarkNotificationRead": "crm:notification:write",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

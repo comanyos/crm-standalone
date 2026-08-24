@@ -294,7 +294,14 @@ func (s *PgStore) ActiveWorkflowVersionsFor(
 		`SELECT `+prefixed(workflowVersionColumns, "v")+`
 		   FROM workflow_rule_versions v
 		   JOIN workflow_rules r
-		     ON r.tenant_id = v.tenant_id AND r.active_version_id = v.id
+		     ON r.tenant_id = v.tenant_id
+		    AND r.active_version_id = v.id
+		    -- A rule runs its own versions. There is no foreign key to say
+		    -- so (the reference is circular), so the join says it: a rule
+		    -- pointed at another rule's version would run behaviour its
+		    -- author never wrote, and attribute the execution to whichever
+		    -- of the two the reader happened to look at.
+		    AND r.id = v.rule_id
 		  WHERE v.tenant_id = $1
 		    AND r.status = 'active'
 		    AND v.trigger_event_type = $2

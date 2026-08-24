@@ -266,6 +266,20 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 				&crmv1.EraseSyncedContentForContactRequest{ContactId: "x"}, tok))
 			return err
 		},
+		"crm:workflow:write": func(tok string) error {
+			// SetWorkflowRuleStatus rather than CreateWorkflowRule:
+			// activating a rule is the call that starts it acting on every
+			// record its trigger matches, so it is the one that must not be
+			// reachable without authoring authority.
+			_, err := client.SetWorkflowRuleStatus(ctx, withToken(
+				&crmv1.SetWorkflowRuleStatusRequest{Id: "x", Status: "active"}, tok))
+			return err
+		},
+		"crm:notification:write": func(tok string) error {
+			_, err := client.MarkNotificationRead(ctx, withToken(
+				&crmv1.MarkNotificationReadRequest{Id: "x"}, tok))
+			return err
+		},
 		"crm:integration:write": func(tok string) error {
 			// StartGoogleConnection rather than Disconnect: beginning an
 			// authorization is the call that would hand a token to a

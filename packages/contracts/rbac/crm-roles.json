@@ -49,7 +49,9 @@
     "crm:integration:read",
     "crm:integration:write",
     "crm:integration_admin:read",
-    "crm:integration_admin:write"
+    "crm:integration_admin:write",
+    "crm:workflow:read", "crm:workflow:write",
+    "crm:notification:read", "crm:notification:write"
   ],
   "roles": [
     {
@@ -73,9 +75,11 @@
         "crm:summary:read",
         "crm:search:read",
         "crm:integration:read",
-        "crm:integration:write"
+        "crm:integration:write",
+        "crm:workflow:read", "crm:workflow:write",
+        "crm:notification:read", "crm:notification:write"
       ],
-      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role."
+      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role. Authoring automation belongs to this role rather than to every member: a rule acts on every record its trigger matches, on behalf of whoever wrote it, until somebody retires it."
     },
     {
       "key": "crm_member",
@@ -92,9 +96,11 @@
         "crm:summary:read",
         "crm:search:read",
         "crm:integration:read",
-        "crm:integration:write"
+        "crm:integration:write",
+        "crm:workflow:read",
+        "crm:notification:read", "crm:notification:write"
       ],
-      "rationale": "An individual contributor works their own contacts, leads, opportunities and activities, but does not create or rename the accounts they hang off, and does not configure pipelines. Tasks and notes are the bulk of an individual contributor's day, so both are read/write here. crm:pipeline:read is not optional despite pipelines being manager-owned: an opportunity is meaningless without its stage names, ordering and close-reason rules, so the opportunity form and board cannot render without it."
+      "rationale": "An individual contributor works their own contacts, leads, opportunities and activities, but does not create or rename the accounts they hang off, and does not configure pipelines. Tasks and notes are the bulk of an individual contributor's day, so both are read/write here. crm:pipeline:read is not optional despite pipelines being manager-owned: an opportunity is meaningless without its stage names, ordering and close-reason rules, so the opportunity form and board cannot render without it. It reads automation rules without authoring them, so a rep can see which rule created the task in front of them."
     },
     {
       "key": "crm_viewer",
@@ -109,9 +115,10 @@
         "crm:task:read",
         "crm:note:read",
         "crm:summary:read",
-        "crm:search:read"
+        "crm:search:read",
+        "crm:notification:read"
       ],
-      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list. It holds no crm:integration scope either: linking a Google mailbox is consent this role has no CRM records to sync into."
+      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list. It holds no crm:integration scope either: linking a Google mailbox is consent this role has no CRM records to sync into. It reads its notifications but cannot mark them read: acknowledging one is still a write, and holding no write authority is this role's defining property rather than an approximation of it."
     }
   ]
 }

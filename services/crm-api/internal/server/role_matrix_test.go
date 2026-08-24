@@ -167,6 +167,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// Google account; connecting one's own is separate authority.
 			"crm:integration:read": true, "crm:integration:write": true,
 			"crm:integration_admin:read": true, "crm:integration_admin:write": true,
+			"crm:workflow:read": true, "crm:workflow:write": true,
+			"crm:notification:read": true, "crm:notification:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -183,6 +185,11 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:search:read":      true,
 			"crm:integration:read": true, "crm:integration:write": true,
 			"crm:integration_admin:read": false, "crm:integration_admin:write": false,
+			// Automation is manager authority: a rule acts on every record
+			// its trigger matches, on behalf of whoever wrote it, until
+			// somebody retires it.
+			"crm:workflow:read": true, "crm:workflow:write": true,
+			"crm:notification:read": true, "crm:notification:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -206,6 +213,12 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// get to see whose else is linked.
 			"crm:integration:read": true, "crm:integration:write": true,
 			"crm:integration_admin:read": false, "crm:integration_admin:write": false,
+			// A member reads the automation rules so they can see which rule
+			// created the task in front of them, and authors none: a rule
+			// acts on every record its trigger matches, for as long as it is
+			// active, which is manager authority.
+			"crm:workflow:read": true, "crm:workflow:write": false,
+			"crm:notification:read": true, "crm:notification:write": true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -224,6 +237,12 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// it holds no integration authority at all.
 			"crm:integration:read": false, "crm:integration:write": false,
 			"crm:integration_admin:read": false, "crm:integration_admin:write": false,
+			"crm:workflow:read": false, "crm:workflow:write": false,
+			// A viewer reads its notifications and cannot mark them read.
+			// Acknowledging one is a write, and holding no write authority is
+			// this role's defining property rather than an approximation of
+			// it — see TestViewerHoldsNoWriteAuthority.
+			"crm:notification:read": true, "crm:notification:write": false,
 		},
 	}
 

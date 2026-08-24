@@ -169,6 +169,65 @@ var workflowFields = map[string]map[string]fieldKind{
 	},
 }
 
+// WorkflowFieldSpec describes one comparable field for the authoring UI.
+//
+// It carries the operators as well as the name because which comparisons are
+// legal depends on the field's kind, and a UI that offered "contains" on an
+// amount would produce rules the server refuses to save. The list here and
+// the switch in validateCondition are the same decision, so they are written
+// once: operatorsFor is what both use.
+type WorkflowFieldSpec struct {
+	Name      string
+	Kind      string
+	Operators []string
+}
+
+// WorkflowFieldSpecsFor returns the comparable fields of one object type with
+// the operators each accepts, sorted by name.
+func WorkflowFieldSpecsFor(objectType string) []WorkflowFieldSpec {
+	names := WorkflowFieldsFor(objectType)
+	out := make([]WorkflowFieldSpec, 0, len(names))
+	for _, name := range names {
+		kind := workflowFields[objectType][name]
+		out = append(out, WorkflowFieldSpec{
+			Name: name, Kind: kind.String(), Operators: operatorsFor(kind),
+		})
+	}
+	return out
+}
+
+func (k fieldKind) String() string {
+	if k == kindNumber {
+		return "number"
+	}
+	return "text"
+}
+
+// operatorsFor is the single statement of which operators a kind allows.
+func operatorsFor(kind fieldKind) []string {
+	if kind == kindNumber {
+		return []string{OpEquals, OpNotEquals, OpGreaterThan, OpLessThan}
+	}
+	return []string{OpEquals, OpNotEquals, OpContains, OpIn}
+}
+
+// WorkflowActionTypes and WorkflowAssigneeSelectors are the remaining halves
+// of the authoring catalog.
+func WorkflowActionTypes() []string {
+	return []string{ActionCreateTask, ActionAddActivity, ActionNotify}
+}
+
+// WorkflowAssigneeSelectors returns the ways an action may name a principal.
+func WorkflowAssigneeSelectors() []string {
+	return []string{AssigneeRecordOwner, AssigneeFixedUser}
+}
+
+// WorkflowLimits reports the authoring bounds, so the editor can enforce what
+// the server enforces rather than guessing at it.
+func WorkflowLimits() (maxConditions, maxActions, maxTextLength int) {
+	return maxWorkflowConditions, maxWorkflowActions, maxWorkflowTextLength
+}
+
 // WorkflowFieldsFor returns the comparable fields of one object type, sorted,
 // so the authoring UI offers exactly what the engine accepts.
 func WorkflowFieldsFor(objectType string) []string {
@@ -342,6 +401,40 @@ func (r *WorkflowRule) Validate() error {
 	return nil
 }
 
+// workflowRuleTransitions is the lifecycle: what a rule may become next.
+//
+// Archived is terminal on purpose. Archiving is how a tenant retires a rule
+// without losing its execution history, and a retired rule that can be
+// switched back on is a rule that can start acting on a customer's records
+// long after everyone stopped thinking about it. Reinstating means authoring
+// a new rule, which is a decision somebody makes rather than a checkbox.
+var workflowRuleTransitions = map[string]map[string]bool{
+	WorkflowDraft:    {WorkflowActive: true, WorkflowArchived: true},
+	WorkflowActive:   {WorkflowPaused: true, WorkflowArchived: true},
+	WorkflowPaused:   {WorkflowActive: true, WorkflowArchived: true},
+	WorkflowArchived: {},
+}
+
+// TransitionTo moves a rule to a new lifecycle state, or explains why not.
+func (r *WorkflowRule) TransitionTo(status string) error {
+	if !workflowStatuses[status] {
+		return fmt.Errorf("%w: %q is not a workflow rule status", ErrInvalid, status)
+	}
+	if r.Status == status {
+		return nil
+	}
+	if !workflowRuleTransitions[r.Status][status] {
+		return fmt.Errorf("%w: a %s rule cannot become %s", ErrInvalidTransition, r.Status, status)
+	}
+	if status == WorkflowActive && strings.TrimSpace(r.ActiveVersionID) == "" {
+		return fmt.Errorf(
+			"%w: this rule has no published version, so activating it would match events and do nothing",
+			ErrInvalid)
+	}
+	r.Status = status
+	return nil
+}
+
 // WorkflowRuleVersion is an immutable snapshot of what a rule said.
 type WorkflowRuleVersion struct {
 	ID                string              `json:"id"`
@@ -401,21 +494,18 @@ func validateCondition(objectType string, condition WorkflowCondition) error {
 			ErrInvalid, condition.Field, objectType,
 			strings.Join(WorkflowFieldsFor(objectType), ", "))
 	}
-	switch kind {
-	case kindString:
-		switch condition.Operator {
-		case OpEquals, OpNotEquals, OpContains, OpIn:
-		default:
-			return fmt.Errorf("%w: %s is text and cannot be compared with %q",
-				ErrInvalid, condition.Field, condition.Operator)
+	allowed := false
+	for _, operator := range operatorsFor(kind) {
+		if operator == condition.Operator {
+			allowed = true
 		}
-	case kindNumber:
-		switch condition.Operator {
-		case OpEquals, OpNotEquals, OpGreaterThan, OpLessThan:
-		default:
-			return fmt.Errorf("%w: %s is a number and cannot be compared with %q",
-				ErrInvalid, condition.Field, condition.Operator)
-		}
+	}
+	if !allowed {
+		return fmt.Errorf("%w: %s is %s and cannot be compared with %q (allowed: %s)",
+			ErrInvalid, condition.Field, kind, condition.Operator,
+			strings.Join(operatorsFor(kind), ", "))
+	}
+	if kind == kindNumber {
 		if _, err := strconv.ParseFloat(strings.TrimSpace(condition.Value), 64); err != nil {
 			return fmt.Errorf("%w: %s is a number, and %q is not one",
 				ErrInvalid, condition.Field, condition.Value)

@@ -526,3 +526,43 @@ func TestTheCursorLeaseAdmitsOneRunner(t *testing.T) {
 		}
 	})
 }
+
+// TestARuleRunsOnlyItsOwnVersions. The pointer from a rule to the version it
+// runs is not a foreign key — the reference between the two tables is
+// circular — so a rule made to point at another rule's version would run
+// behaviour its author never wrote, and the execution would be attributed to
+// whichever of the two the reader happened to look at.
+func TestARuleRunsOnlyItsOwnVersions(t *testing.T) {
+	eachWorkflowStore(t, func(t *testing.T, name string, s Store) {
+		ctx := context.Background()
+		scope := workflowScope("cross-version-" + name)
+
+		_, borrowed := activeRule(t, s, scope)
+
+		// A second rule, active, pointed at the first rule's version.
+		thief, err := s.CreateWorkflowRule(ctx, scope, &WorkflowRule{
+			Name: "Thief", CreatedBy: "author-2",
+		})
+		if err != nil {
+			t.Fatalf("create second rule: %v", err)
+		}
+		thief.Status, thief.ActiveVersionID = WorkflowActive, borrowed.ID
+		if _, err := s.UpdateWorkflowRule(ctx, scope, thief); err != nil {
+			t.Fatalf("activate the second rule: %v", err)
+		}
+
+		versions, err := s.ActiveWorkflowVersionsFor(ctx, scope, EventLeadCreated)
+		if err != nil {
+			t.Fatalf("active versions: %v", err)
+		}
+		// The borrowed version is returned once, for the rule that owns it —
+		// not twice, once per rule pointing at it.
+		if len(versions) != 1 {
+			t.Fatalf("%d active versions, want 1: a rule ran a version belonging to "+
+				"another rule", len(versions))
+		}
+		if versions[0].RuleID == thief.ID {
+			t.Error("the version came back attributed to the rule that borrowed it")
+		}
+	})
+}

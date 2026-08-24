@@ -9396,6 +9396,1928 @@ func (*DeleteNoteResponse) Descriptor() ([]byte, []int) {
 	return file_crm_v1_crm_proto_rawDescGZIP(), []int{169}
 }
 
+// WorkflowCondition is one typed comparison. Conditions combine with AND
+// only; see docs/WORKFLOW_AUTOMATION.md for why v1 has no expression tree.
+type WorkflowCondition struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// field must be one the catalog names for the trigger's object type.
+	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	// operator is one of eq, neq, gt, lt, contains, in — and which of those are
+	// legal depends on the field's kind, which is why the catalog reports them
+	// per field rather than as one global list.
+	Operator string `protobuf:"bytes,2,opt,name=operator,proto3" json:"operator,omitempty"`
+	// value is compared as text or as a number according to the field's kind.
+	// For the "in" operator it is a comma-separated list.
+	Value         string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowCondition) Reset() {
+	*x = WorkflowCondition{}
+	mi := &file_crm_v1_crm_proto_msgTypes[170]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowCondition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowCondition) ProtoMessage() {}
+
+func (x *WorkflowCondition) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[170]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowCondition.ProtoReflect.Descriptor instead.
+func (*WorkflowCondition) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{170}
+}
+
+func (x *WorkflowCondition) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *WorkflowCondition) GetOperator() string {
+	if x != nil {
+		return x.Operator
+	}
+	return ""
+}
+
+func (x *WorkflowCondition) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// WorkflowAction is one thing a rule does. The fields each action type uses
+// are enforced server-side; the others are ignored.
+type WorkflowAction struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is create_task, add_activity or notify.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// title is the task title or the notification title.
+	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	// body is the task description, the activity note or the notification body.
+	// It is literal text: v1 expands no templates, because a template that can
+	// read the record can read fields the rule author may not see.
+	Body string `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	// assignee is record_owner or fixed_user, and decides who a task is for or
+	// who is notified. record_owner is resolved when the action runs, against
+	// the record as it is then — not as the event found it.
+	Assignee string `protobuf:"bytes,4,opt,name=assignee,proto3" json:"assignee,omitempty"`
+	// assignee_id names the principal when assignee is fixed_user.
+	AssigneeId string `protobuf:"bytes,5,opt,name=assignee_id,json=assigneeId,proto3" json:"assignee_id,omitempty"`
+	// priority applies to create_task and must be a task priority.
+	Priority string `protobuf:"bytes,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	// due_in_days offsets a created task's due date from execution. Zero means
+	// the task has no due date.
+	DueInDays int32 `protobuf:"varint,7,opt,name=due_in_days,json=dueInDays,proto3" json:"due_in_days,omitempty"`
+	// activity_kind applies to add_activity.
+	ActivityKind  string `protobuf:"bytes,8,opt,name=activity_kind,json=activityKind,proto3" json:"activity_kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowAction) Reset() {
+	*x = WorkflowAction{}
+	mi := &file_crm_v1_crm_proto_msgTypes[171]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowAction) ProtoMessage() {}
+
+func (x *WorkflowAction) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[171]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowAction.ProtoReflect.Descriptor instead.
+func (*WorkflowAction) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{171}
+}
+
+func (x *WorkflowAction) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *WorkflowAction) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *WorkflowAction) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *WorkflowAction) GetAssignee() string {
+	if x != nil {
+		return x.Assignee
+	}
+	return ""
+}
+
+func (x *WorkflowAction) GetAssigneeId() string {
+	if x != nil {
+		return x.AssigneeId
+	}
+	return ""
+}
+
+func (x *WorkflowAction) GetPriority() string {
+	if x != nil {
+		return x.Priority
+	}
+	return ""
+}
+
+func (x *WorkflowAction) GetDueInDays() int32 {
+	if x != nil {
+		return x.DueInDays
+	}
+	return 0
+}
+
+func (x *WorkflowAction) GetActivityKind() string {
+	if x != nil {
+		return x.ActivityKind
+	}
+	return ""
+}
+
+// WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer
+// at the version that runs.
+type WorkflowRule struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// status is draft, active, paused or archived. Archived is terminal.
+	Status string `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	// active_version_id is the version executions use. Empty for a rule that
+	// has never been published.
+	ActiveVersionId string                 `protobuf:"bytes,5,opt,name=active_version_id,json=activeVersionId,proto3" json:"active_version_id,omitempty"`
+	CreatedBy       string                 `protobuf:"bytes,6,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *WorkflowRule) Reset() {
+	*x = WorkflowRule{}
+	mi := &file_crm_v1_crm_proto_msgTypes[172]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowRule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowRule) ProtoMessage() {}
+
+func (x *WorkflowRule) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[172]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowRule.ProtoReflect.Descriptor instead.
+func (*WorkflowRule) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{172}
+}
+
+func (x *WorkflowRule) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WorkflowRule) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkflowRule) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *WorkflowRule) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WorkflowRule) GetActiveVersionId() string {
+	if x != nil {
+		return x.ActiveVersionId
+	}
+	return ""
+}
+
+func (x *WorkflowRule) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *WorkflowRule) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *WorkflowRule) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+// WorkflowRuleVersion is an immutable snapshot of what a rule said. Nothing
+// edits one; publishing writes another.
+type WorkflowRuleVersion struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RuleId string                 `protobuf:"bytes,2,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	// version counts from 1 per rule.
+	Version          int32  `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	TriggerEventType string `protobuf:"bytes,4,opt,name=trigger_event_type,json=triggerEventType,proto3" json:"trigger_event_type,omitempty"`
+	// trigger_object_type is derived from the trigger rather than supplied.
+	TriggerObjectType string                 `protobuf:"bytes,5,opt,name=trigger_object_type,json=triggerObjectType,proto3" json:"trigger_object_type,omitempty"`
+	Conditions        []*WorkflowCondition   `protobuf:"bytes,6,rep,name=conditions,proto3" json:"conditions,omitempty"`
+	Actions           []*WorkflowAction      `protobuf:"bytes,7,rep,name=actions,proto3" json:"actions,omitempty"`
+	CreatedBy         string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *WorkflowRuleVersion) Reset() {
+	*x = WorkflowRuleVersion{}
+	mi := &file_crm_v1_crm_proto_msgTypes[173]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowRuleVersion) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowRuleVersion) ProtoMessage() {}
+
+func (x *WorkflowRuleVersion) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[173]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowRuleVersion.ProtoReflect.Descriptor instead.
+func (*WorkflowRuleVersion) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{173}
+}
+
+func (x *WorkflowRuleVersion) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WorkflowRuleVersion) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *WorkflowRuleVersion) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *WorkflowRuleVersion) GetTriggerEventType() string {
+	if x != nil {
+		return x.TriggerEventType
+	}
+	return ""
+}
+
+func (x *WorkflowRuleVersion) GetTriggerObjectType() string {
+	if x != nil {
+		return x.TriggerObjectType
+	}
+	return ""
+}
+
+func (x *WorkflowRuleVersion) GetConditions() []*WorkflowCondition {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+func (x *WorkflowRuleVersion) GetActions() []*WorkflowAction {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *WorkflowRuleVersion) GetCreatedBy() string {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *WorkflowRuleVersion) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+// WorkflowExecution is one rule version's encounter with one event.
+type WorkflowExecution struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	RuleId          string                 `protobuf:"bytes,2,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	RuleVersionId   string                 `protobuf:"bytes,3,opt,name=rule_version_id,json=ruleVersionId,proto3" json:"rule_version_id,omitempty"`
+	SourceEventId   string                 `protobuf:"bytes,4,opt,name=source_event_id,json=sourceEventId,proto3" json:"source_event_id,omitempty"`
+	SourceEventType string                 `protobuf:"bytes,5,opt,name=source_event_type,json=sourceEventType,proto3" json:"source_event_type,omitempty"`
+	SubjectType     string                 `protobuf:"bytes,6,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
+	SubjectId       string                 `protobuf:"bytes,7,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
+	// status is pending, running, succeeded, failed or skipped. Skipped means
+	// the rule saw the event and its conditions did not hold — recorded rather
+	// than discarded, because that is the question authors actually ask.
+	Status   string `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
+	Attempts int32  `protobuf:"varint,9,opt,name=attempts,proto3" json:"attempts,omitempty"`
+	// error_category is a bounded code — record_gone, no_assignee,
+	// action_failed, rule_version_gone, invalid_action — never a message. The
+	// failing action may have been holding a customer's data.
+	ErrorCategory string `protobuf:"bytes,10,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`
+	// actions_completed is how far the execution got, so a retry resumes rather
+	// than repeating an action that already succeeded.
+	ActionsCompleted int32                  `protobuf:"varint,11,opt,name=actions_completed,json=actionsCompleted,proto3" json:"actions_completed,omitempty"`
+	NextAttemptAt    *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=next_attempt_at,json=nextAttemptAt,proto3" json:"next_attempt_at,omitempty"`
+	StartedAt        *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	FinishedAt       *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *WorkflowExecution) Reset() {
+	*x = WorkflowExecution{}
+	mi := &file_crm_v1_crm_proto_msgTypes[174]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowExecution) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowExecution) ProtoMessage() {}
+
+func (x *WorkflowExecution) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[174]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowExecution.ProtoReflect.Descriptor instead.
+func (*WorkflowExecution) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{174}
+}
+
+func (x *WorkflowExecution) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetRuleVersionId() string {
+	if x != nil {
+		return x.RuleVersionId
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetSourceEventId() string {
+	if x != nil {
+		return x.SourceEventId
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetSourceEventType() string {
+	if x != nil {
+		return x.SourceEventType
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetSubjectType() string {
+	if x != nil {
+		return x.SubjectType
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetSubjectId() string {
+	if x != nil {
+		return x.SubjectId
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetAttempts() int32 {
+	if x != nil {
+		return x.Attempts
+	}
+	return 0
+}
+
+func (x *WorkflowExecution) GetErrorCategory() string {
+	if x != nil {
+		return x.ErrorCategory
+	}
+	return ""
+}
+
+func (x *WorkflowExecution) GetActionsCompleted() int32 {
+	if x != nil {
+		return x.ActionsCompleted
+	}
+	return 0
+}
+
+func (x *WorkflowExecution) GetNextAttemptAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NextAttemptAt
+	}
+	return nil
+}
+
+func (x *WorkflowExecution) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *WorkflowExecution) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
+func (x *WorkflowExecution) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+// Notification is one in-app message for one principal.
+type Notification struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Kind  string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Title string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Body  string                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
+	// subject_type + subject_id link to the record, so the reader can go there.
+	SubjectType string `protobuf:"bytes,5,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
+	SubjectId   string `protobuf:"bytes,6,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"`
+	// rule_id names the rule that raised it, when a rule did.
+	RuleId        string                 `protobuf:"bytes,7,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	ReadAt        *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Notification) Reset() {
+	*x = Notification{}
+	mi := &file_crm_v1_crm_proto_msgTypes[175]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Notification) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Notification) ProtoMessage() {}
+
+func (x *Notification) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[175]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Notification.ProtoReflect.Descriptor instead.
+func (*Notification) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{175}
+}
+
+func (x *Notification) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Notification) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *Notification) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Notification) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *Notification) GetSubjectType() string {
+	if x != nil {
+		return x.SubjectType
+	}
+	return ""
+}
+
+func (x *Notification) GetSubjectId() string {
+	if x != nil {
+		return x.SubjectId
+	}
+	return ""
+}
+
+func (x *Notification) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *Notification) GetReadAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ReadAt
+	}
+	return nil
+}
+
+func (x *Notification) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+// WorkflowField is one comparable field and the operators it accepts.
+type WorkflowField struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// kind is "text" or "number", and decides the operators.
+	Kind          string   `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Operators     []string `protobuf:"bytes,3,rep,name=operators,proto3" json:"operators,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowField) Reset() {
+	*x = WorkflowField{}
+	mi := &file_crm_v1_crm_proto_msgTypes[176]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowField) ProtoMessage() {}
+
+func (x *WorkflowField) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[176]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowField.ProtoReflect.Descriptor instead.
+func (*WorkflowField) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{176}
+}
+
+func (x *WorkflowField) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkflowField) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *WorkflowField) GetOperators() []string {
+	if x != nil {
+		return x.Operators
+	}
+	return nil
+}
+
+// WorkflowTriggerDescriptor is one event a rule may fire on, with the fields
+// its conditions may compare.
+type WorkflowTriggerDescriptor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventType     string                 `protobuf:"bytes,1,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	ObjectType    string                 `protobuf:"bytes,2,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	Fields        []*WorkflowField       `protobuf:"bytes,3,rep,name=fields,proto3" json:"fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkflowTriggerDescriptor) Reset() {
+	*x = WorkflowTriggerDescriptor{}
+	mi := &file_crm_v1_crm_proto_msgTypes[177]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkflowTriggerDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkflowTriggerDescriptor) ProtoMessage() {}
+
+func (x *WorkflowTriggerDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[177]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkflowTriggerDescriptor.ProtoReflect.Descriptor instead.
+func (*WorkflowTriggerDescriptor) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{177}
+}
+
+func (x *WorkflowTriggerDescriptor) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *WorkflowTriggerDescriptor) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *WorkflowTriggerDescriptor) GetFields() []*WorkflowField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+type DescribeWorkflowCatalogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeWorkflowCatalogRequest) Reset() {
+	*x = DescribeWorkflowCatalogRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[178]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeWorkflowCatalogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeWorkflowCatalogRequest) ProtoMessage() {}
+
+func (x *DescribeWorkflowCatalogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[178]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeWorkflowCatalogRequest.ProtoReflect.Descriptor instead.
+func (*DescribeWorkflowCatalogRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{178}
+}
+
+type DescribeWorkflowCatalogResponse struct {
+	state    protoimpl.MessageState       `protogen:"open.v1"`
+	Triggers []*WorkflowTriggerDescriptor `protobuf:"bytes,1,rep,name=triggers,proto3" json:"triggers,omitempty"`
+	// action_types and assignee_selectors are the remaining allowlists.
+	ActionTypes       []string `protobuf:"bytes,2,rep,name=action_types,json=actionTypes,proto3" json:"action_types,omitempty"`
+	AssigneeSelectors []string `protobuf:"bytes,3,rep,name=assignee_selectors,json=assigneeSelectors,proto3" json:"assignee_selectors,omitempty"`
+	// The authoring bounds the server enforces, reported so the editor can
+	// enforce the same ones rather than guessing at them.
+	MaxConditions int32 `protobuf:"varint,4,opt,name=max_conditions,json=maxConditions,proto3" json:"max_conditions,omitempty"`
+	MaxActions    int32 `protobuf:"varint,5,opt,name=max_actions,json=maxActions,proto3" json:"max_actions,omitempty"`
+	MaxTextLength int32 `protobuf:"varint,6,opt,name=max_text_length,json=maxTextLength,proto3" json:"max_text_length,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DescribeWorkflowCatalogResponse) Reset() {
+	*x = DescribeWorkflowCatalogResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[179]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DescribeWorkflowCatalogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DescribeWorkflowCatalogResponse) ProtoMessage() {}
+
+func (x *DescribeWorkflowCatalogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[179]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DescribeWorkflowCatalogResponse.ProtoReflect.Descriptor instead.
+func (*DescribeWorkflowCatalogResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{179}
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetTriggers() []*WorkflowTriggerDescriptor {
+	if x != nil {
+		return x.Triggers
+	}
+	return nil
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetActionTypes() []string {
+	if x != nil {
+		return x.ActionTypes
+	}
+	return nil
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetAssigneeSelectors() []string {
+	if x != nil {
+		return x.AssigneeSelectors
+	}
+	return nil
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetMaxConditions() int32 {
+	if x != nil {
+		return x.MaxConditions
+	}
+	return 0
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetMaxActions() int32 {
+	if x != nil {
+		return x.MaxActions
+	}
+	return 0
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetMaxTextLength() int32 {
+	if x != nil {
+		return x.MaxTextLength
+	}
+	return 0
+}
+
+// CreateWorkflowRuleRequest starts a rule. It is always created as a draft:
+// a rule cannot be active before it has a published version to run.
+type CreateWorkflowRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateWorkflowRuleRequest) Reset() {
+	*x = CreateWorkflowRuleRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[180]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWorkflowRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWorkflowRuleRequest) ProtoMessage() {}
+
+func (x *CreateWorkflowRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[180]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWorkflowRuleRequest.ProtoReflect.Descriptor instead.
+func (*CreateWorkflowRuleRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{180}
+}
+
+func (x *CreateWorkflowRuleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateWorkflowRuleRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type CreateWorkflowRuleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *WorkflowRule          `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateWorkflowRuleResponse) Reset() {
+	*x = CreateWorkflowRuleResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[181]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWorkflowRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWorkflowRuleResponse) ProtoMessage() {}
+
+func (x *CreateWorkflowRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[181]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWorkflowRuleResponse.ProtoReflect.Descriptor instead.
+func (*CreateWorkflowRuleResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{181}
+}
+
+func (x *CreateWorkflowRuleResponse) GetRule() *WorkflowRule {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+type GetWorkflowRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkflowRuleRequest) Reset() {
+	*x = GetWorkflowRuleRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[182]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkflowRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkflowRuleRequest) ProtoMessage() {}
+
+func (x *GetWorkflowRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[182]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkflowRuleRequest.ProtoReflect.Descriptor instead.
+func (*GetWorkflowRuleRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{182}
+}
+
+func (x *GetWorkflowRuleRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetWorkflowRuleResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Rule  *WorkflowRule          `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	// active_version is the version this rule runs, when it has one.
+	ActiveVersion *WorkflowRuleVersion `protobuf:"bytes,2,opt,name=active_version,json=activeVersion,proto3" json:"active_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWorkflowRuleResponse) Reset() {
+	*x = GetWorkflowRuleResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[183]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWorkflowRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWorkflowRuleResponse) ProtoMessage() {}
+
+func (x *GetWorkflowRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[183]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWorkflowRuleResponse.ProtoReflect.Descriptor instead.
+func (*GetWorkflowRuleResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{183}
+}
+
+func (x *GetWorkflowRuleResponse) GetRule() *WorkflowRule {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+func (x *GetWorkflowRuleResponse) GetActiveVersion() *WorkflowRuleVersion {
+	if x != nil {
+		return x.ActiveVersion
+	}
+	return nil
+}
+
+type ListWorkflowRulesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// include_archived brings back retired rules, which are hidden by default.
+	IncludeArchived bool `protobuf:"varint,1,opt,name=include_archived,json=includeArchived,proto3" json:"include_archived,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListWorkflowRulesRequest) Reset() {
+	*x = ListWorkflowRulesRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[184]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowRulesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowRulesRequest) ProtoMessage() {}
+
+func (x *ListWorkflowRulesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[184]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowRulesRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkflowRulesRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{184}
+}
+
+func (x *ListWorkflowRulesRequest) GetIncludeArchived() bool {
+	if x != nil {
+		return x.IncludeArchived
+	}
+	return false
+}
+
+type ListWorkflowRulesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rules         []*WorkflowRule        `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkflowRulesResponse) Reset() {
+	*x = ListWorkflowRulesResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[185]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowRulesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowRulesResponse) ProtoMessage() {}
+
+func (x *ListWorkflowRulesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[185]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowRulesResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkflowRulesResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{185}
+}
+
+func (x *ListWorkflowRulesResponse) GetRules() []*WorkflowRule {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+// UpdateWorkflowRuleRequest changes a rule's label only. What the rule *does*
+// is versioned, and changing it goes through PublishWorkflowRuleVersion.
+type UpdateWorkflowRuleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWorkflowRuleRequest) Reset() {
+	*x = UpdateWorkflowRuleRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[186]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkflowRuleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkflowRuleRequest) ProtoMessage() {}
+
+func (x *UpdateWorkflowRuleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[186]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkflowRuleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateWorkflowRuleRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{186}
+}
+
+func (x *UpdateWorkflowRuleRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateWorkflowRuleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateWorkflowRuleRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+type UpdateWorkflowRuleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *WorkflowRule          `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWorkflowRuleResponse) Reset() {
+	*x = UpdateWorkflowRuleResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[187]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWorkflowRuleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWorkflowRuleResponse) ProtoMessage() {}
+
+func (x *UpdateWorkflowRuleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[187]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWorkflowRuleResponse.ProtoReflect.Descriptor instead.
+func (*UpdateWorkflowRuleResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{187}
+}
+
+func (x *UpdateWorkflowRuleResponse) GetRule() *WorkflowRule {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+type PublishWorkflowRuleVersionRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RuleId           string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	TriggerEventType string                 `protobuf:"bytes,2,opt,name=trigger_event_type,json=triggerEventType,proto3" json:"trigger_event_type,omitempty"`
+	Conditions       []*WorkflowCondition   `protobuf:"bytes,3,rep,name=conditions,proto3" json:"conditions,omitempty"`
+	Actions          []*WorkflowAction      `protobuf:"bytes,4,rep,name=actions,proto3" json:"actions,omitempty"`
+	// activate points the rule at this new version and makes it active. Without
+	// it publishing changes nothing about what is running: an author editing a
+	// live rule gets to review the new version before it starts acting.
+	Activate      bool `protobuf:"varint,5,opt,name=activate,proto3" json:"activate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishWorkflowRuleVersionRequest) Reset() {
+	*x = PublishWorkflowRuleVersionRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[188]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishWorkflowRuleVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishWorkflowRuleVersionRequest) ProtoMessage() {}
+
+func (x *PublishWorkflowRuleVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[188]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishWorkflowRuleVersionRequest.ProtoReflect.Descriptor instead.
+func (*PublishWorkflowRuleVersionRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{188}
+}
+
+func (x *PublishWorkflowRuleVersionRequest) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *PublishWorkflowRuleVersionRequest) GetTriggerEventType() string {
+	if x != nil {
+		return x.TriggerEventType
+	}
+	return ""
+}
+
+func (x *PublishWorkflowRuleVersionRequest) GetConditions() []*WorkflowCondition {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+func (x *PublishWorkflowRuleVersionRequest) GetActions() []*WorkflowAction {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *PublishWorkflowRuleVersionRequest) GetActivate() bool {
+	if x != nil {
+		return x.Activate
+	}
+	return false
+}
+
+type PublishWorkflowRuleVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Version       *WorkflowRuleVersion   `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	Rule          *WorkflowRule          `protobuf:"bytes,2,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishWorkflowRuleVersionResponse) Reset() {
+	*x = PublishWorkflowRuleVersionResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[189]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishWorkflowRuleVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishWorkflowRuleVersionResponse) ProtoMessage() {}
+
+func (x *PublishWorkflowRuleVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[189]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishWorkflowRuleVersionResponse.ProtoReflect.Descriptor instead.
+func (*PublishWorkflowRuleVersionResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{189}
+}
+
+func (x *PublishWorkflowRuleVersionResponse) GetVersion() *WorkflowRuleVersion {
+	if x != nil {
+		return x.Version
+	}
+	return nil
+}
+
+func (x *PublishWorkflowRuleVersionResponse) GetRule() *WorkflowRule {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+type ListWorkflowRuleVersionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RuleId        string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkflowRuleVersionsRequest) Reset() {
+	*x = ListWorkflowRuleVersionsRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[190]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowRuleVersionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowRuleVersionsRequest) ProtoMessage() {}
+
+func (x *ListWorkflowRuleVersionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[190]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowRuleVersionsRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkflowRuleVersionsRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{190}
+}
+
+func (x *ListWorkflowRuleVersionsRequest) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+type ListWorkflowRuleVersionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Versions      []*WorkflowRuleVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkflowRuleVersionsResponse) Reset() {
+	*x = ListWorkflowRuleVersionsResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[191]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowRuleVersionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowRuleVersionsResponse) ProtoMessage() {}
+
+func (x *ListWorkflowRuleVersionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[191]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowRuleVersionsResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkflowRuleVersionsResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{191}
+}
+
+func (x *ListWorkflowRuleVersionsResponse) GetVersions() []*WorkflowRuleVersion {
+	if x != nil {
+		return x.Versions
+	}
+	return nil
+}
+
+type SetWorkflowRuleStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// status is draft, active, paused or archived. Archived is terminal:
+	// a retired rule that could be switched back on is one that can start
+	// acting on records long after everyone stopped thinking about it.
+	Status        string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetWorkflowRuleStatusRequest) Reset() {
+	*x = SetWorkflowRuleStatusRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[192]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetWorkflowRuleStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetWorkflowRuleStatusRequest) ProtoMessage() {}
+
+func (x *SetWorkflowRuleStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[192]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetWorkflowRuleStatusRequest.ProtoReflect.Descriptor instead.
+func (*SetWorkflowRuleStatusRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{192}
+}
+
+func (x *SetWorkflowRuleStatusRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SetWorkflowRuleStatusRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type SetWorkflowRuleStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rule          *WorkflowRule          `protobuf:"bytes,1,opt,name=rule,proto3" json:"rule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetWorkflowRuleStatusResponse) Reset() {
+	*x = SetWorkflowRuleStatusResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[193]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetWorkflowRuleStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetWorkflowRuleStatusResponse) ProtoMessage() {}
+
+func (x *SetWorkflowRuleStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[193]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetWorkflowRuleStatusResponse.ProtoReflect.Descriptor instead.
+func (*SetWorkflowRuleStatusResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{193}
+}
+
+func (x *SetWorkflowRuleStatusResponse) GetRule() *WorkflowRule {
+	if x != nil {
+		return x.Rule
+	}
+	return nil
+}
+
+type ListWorkflowExecutionsRequest struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RuleId string                 `protobuf:"bytes,1,opt,name=rule_id,json=ruleId,proto3" json:"rule_id,omitempty"`
+	// limit bounds the page. Zero means the server default.
+	Limit         int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkflowExecutionsRequest) Reset() {
+	*x = ListWorkflowExecutionsRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[194]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowExecutionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowExecutionsRequest) ProtoMessage() {}
+
+func (x *ListWorkflowExecutionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[194]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowExecutionsRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkflowExecutionsRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{194}
+}
+
+func (x *ListWorkflowExecutionsRequest) GetRuleId() string {
+	if x != nil {
+		return x.RuleId
+	}
+	return ""
+}
+
+func (x *ListWorkflowExecutionsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListWorkflowExecutionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Executions    []*WorkflowExecution   `protobuf:"bytes,1,rep,name=executions,proto3" json:"executions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkflowExecutionsResponse) Reset() {
+	*x = ListWorkflowExecutionsResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[195]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkflowExecutionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkflowExecutionsResponse) ProtoMessage() {}
+
+func (x *ListWorkflowExecutionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[195]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkflowExecutionsResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkflowExecutionsResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{195}
+}
+
+func (x *ListWorkflowExecutionsResponse) GetExecutions() []*WorkflowExecution {
+	if x != nil {
+		return x.Executions
+	}
+	return nil
+}
+
+type ListNotificationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UnreadOnly    bool                   `protobuf:"varint,1,opt,name=unread_only,json=unreadOnly,proto3" json:"unread_only,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsRequest) Reset() {
+	*x = ListNotificationsRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[196]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsRequest) ProtoMessage() {}
+
+func (x *ListNotificationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[196]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsRequest.ProtoReflect.Descriptor instead.
+func (*ListNotificationsRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{196}
+}
+
+func (x *ListNotificationsRequest) GetUnreadOnly() bool {
+	if x != nil {
+		return x.UnreadOnly
+	}
+	return false
+}
+
+func (x *ListNotificationsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListNotificationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notifications []*Notification        `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
+	// unread_count is the badge, and counts the caller's unread notifications
+	// rather than the ones this page happened to return.
+	UnreadCount   int32 `protobuf:"varint,2,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsResponse) Reset() {
+	*x = ListNotificationsResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[197]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsResponse) ProtoMessage() {}
+
+func (x *ListNotificationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[197]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsResponse.ProtoReflect.Descriptor instead.
+func (*ListNotificationsResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{197}
+}
+
+func (x *ListNotificationsResponse) GetNotifications() []*Notification {
+	if x != nil {
+		return x.Notifications
+	}
+	return nil
+}
+
+func (x *ListNotificationsResponse) GetUnreadCount() int32 {
+	if x != nil {
+		return x.UnreadCount
+	}
+	return 0
+}
+
+type MarkNotificationReadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkNotificationReadRequest) Reset() {
+	*x = MarkNotificationReadRequest{}
+	mi := &file_crm_v1_crm_proto_msgTypes[198]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkNotificationReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkNotificationReadRequest) ProtoMessage() {}
+
+func (x *MarkNotificationReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[198]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkNotificationReadRequest.ProtoReflect.Descriptor instead.
+func (*MarkNotificationReadRequest) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{198}
+}
+
+func (x *MarkNotificationReadRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type MarkNotificationReadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notification  *Notification          `protobuf:"bytes,1,opt,name=notification,proto3" json:"notification,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MarkNotificationReadResponse) Reset() {
+	*x = MarkNotificationReadResponse{}
+	mi := &file_crm_v1_crm_proto_msgTypes[199]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MarkNotificationReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MarkNotificationReadResponse) ProtoMessage() {}
+
+func (x *MarkNotificationReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_crm_v1_crm_proto_msgTypes[199]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MarkNotificationReadResponse.ProtoReflect.Descriptor instead.
+func (*MarkNotificationReadResponse) Descriptor() ([]byte, []int) {
+	return file_crm_v1_crm_proto_rawDescGZIP(), []int{199}
+}
+
+func (x *MarkNotificationReadResponse) GetNotification() *Notification {
+	if x != nil {
+		return x.Notification
+	}
+	return nil
+}
+
 var File_crm_v1_crm_proto protoreflect.FileDescriptor
 
 const file_crm_v1_crm_proto_rawDesc = "" +
@@ -10092,7 +12014,157 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x04note\x18\x01 \x01(\v2\f.crm.v1.NoteR\x04note\"#\n" +
 	"\x11DeleteNoteRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x14\n" +
-	"\x12DeleteNoteResponse2\xa52\n" +
+	"\x12DeleteNoteResponse\"[\n" +
+	"\x11WorkflowCondition\x12\x14\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x12\x1a\n" +
+	"\boperator\x18\x02 \x01(\tR\boperator\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\"\xec\x01\n" +
+	"\x0eWorkflowAction\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
+	"\x04body\x18\x03 \x01(\tR\x04body\x12\x1a\n" +
+	"\bassignee\x18\x04 \x01(\tR\bassignee\x12\x1f\n" +
+	"\vassignee_id\x18\x05 \x01(\tR\n" +
+	"assigneeId\x12\x1a\n" +
+	"\bpriority\x18\x06 \x01(\tR\bpriority\x12\x1e\n" +
+	"\vdue_in_days\x18\a \x01(\x05R\tdueInDays\x12#\n" +
+	"\ractivity_kind\x18\b \x01(\tR\factivityKind\"\xad\x02\n" +
+	"\fWorkflowRule\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12*\n" +
+	"\x11active_version_id\x18\x05 \x01(\tR\x0factiveVersionId\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x06 \x01(\tR\tcreatedBy\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xfd\x02\n" +
+	"\x13WorkflowRuleVersion\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\arule_id\x18\x02 \x01(\tR\x06ruleId\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\x05R\aversion\x12,\n" +
+	"\x12trigger_event_type\x18\x04 \x01(\tR\x10triggerEventType\x12.\n" +
+	"\x13trigger_object_type\x18\x05 \x01(\tR\x11triggerObjectType\x129\n" +
+	"\n" +
+	"conditions\x18\x06 \x03(\v2\x19.crm.v1.WorkflowConditionR\n" +
+	"conditions\x120\n" +
+	"\aactions\x18\a \x03(\v2\x16.crm.v1.WorkflowActionR\aactions\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\b \x01(\tR\tcreatedBy\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xf9\x04\n" +
+	"\x11WorkflowExecution\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\arule_id\x18\x02 \x01(\tR\x06ruleId\x12&\n" +
+	"\x0frule_version_id\x18\x03 \x01(\tR\rruleVersionId\x12&\n" +
+	"\x0fsource_event_id\x18\x04 \x01(\tR\rsourceEventId\x12*\n" +
+	"\x11source_event_type\x18\x05 \x01(\tR\x0fsourceEventType\x12!\n" +
+	"\fsubject_type\x18\x06 \x01(\tR\vsubjectType\x12\x1d\n" +
+	"\n" +
+	"subject_id\x18\a \x01(\tR\tsubjectId\x12\x16\n" +
+	"\x06status\x18\b \x01(\tR\x06status\x12\x1a\n" +
+	"\battempts\x18\t \x01(\x05R\battempts\x12%\n" +
+	"\x0eerror_category\x18\n" +
+	" \x01(\tR\rerrorCategory\x12+\n" +
+	"\x11actions_completed\x18\v \x01(\x05R\x10actionsCompleted\x12B\n" +
+	"\x0fnext_attempt_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\rnextAttemptAt\x129\n" +
+	"\n" +
+	"started_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12;\n" +
+	"\vfinished_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt\x129\n" +
+	"\n" +
+	"created_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xa7\x02\n" +
+	"\fNotification\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x12\n" +
+	"\x04body\x18\x04 \x01(\tR\x04body\x12!\n" +
+	"\fsubject_type\x18\x05 \x01(\tR\vsubjectType\x12\x1d\n" +
+	"\n" +
+	"subject_id\x18\x06 \x01(\tR\tsubjectId\x12\x17\n" +
+	"\arule_id\x18\a \x01(\tR\x06ruleId\x123\n" +
+	"\aread_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x06readAt\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"U\n" +
+	"\rWorkflowField\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x1c\n" +
+	"\toperators\x18\x03 \x03(\tR\toperators\"\x8a\x01\n" +
+	"\x19WorkflowTriggerDescriptor\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x01 \x01(\tR\teventType\x12\x1f\n" +
+	"\vobject_type\x18\x02 \x01(\tR\n" +
+	"objectType\x12-\n" +
+	"\x06fields\x18\x03 \x03(\v2\x15.crm.v1.WorkflowFieldR\x06fields\" \n" +
+	"\x1eDescribeWorkflowCatalogRequest\"\xa2\x02\n" +
+	"\x1fDescribeWorkflowCatalogResponse\x12=\n" +
+	"\btriggers\x18\x01 \x03(\v2!.crm.v1.WorkflowTriggerDescriptorR\btriggers\x12!\n" +
+	"\faction_types\x18\x02 \x03(\tR\vactionTypes\x12-\n" +
+	"\x12assignee_selectors\x18\x03 \x03(\tR\x11assigneeSelectors\x12%\n" +
+	"\x0emax_conditions\x18\x04 \x01(\x05R\rmaxConditions\x12\x1f\n" +
+	"\vmax_actions\x18\x05 \x01(\x05R\n" +
+	"maxActions\x12&\n" +
+	"\x0fmax_text_length\x18\x06 \x01(\x05R\rmaxTextLength\"Q\n" +
+	"\x19CreateWorkflowRuleRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"F\n" +
+	"\x1aCreateWorkflowRuleResponse\x12(\n" +
+	"\x04rule\x18\x01 \x01(\v2\x14.crm.v1.WorkflowRuleR\x04rule\"(\n" +
+	"\x16GetWorkflowRuleRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x87\x01\n" +
+	"\x17GetWorkflowRuleResponse\x12(\n" +
+	"\x04rule\x18\x01 \x01(\v2\x14.crm.v1.WorkflowRuleR\x04rule\x12B\n" +
+	"\x0eactive_version\x18\x02 \x01(\v2\x1b.crm.v1.WorkflowRuleVersionR\ractiveVersion\"E\n" +
+	"\x18ListWorkflowRulesRequest\x12)\n" +
+	"\x10include_archived\x18\x01 \x01(\bR\x0fincludeArchived\"G\n" +
+	"\x19ListWorkflowRulesResponse\x12*\n" +
+	"\x05rules\x18\x01 \x03(\v2\x14.crm.v1.WorkflowRuleR\x05rules\"a\n" +
+	"\x19UpdateWorkflowRuleRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\"F\n" +
+	"\x1aUpdateWorkflowRuleResponse\x12(\n" +
+	"\x04rule\x18\x01 \x01(\v2\x14.crm.v1.WorkflowRuleR\x04rule\"\xf3\x01\n" +
+	"!PublishWorkflowRuleVersionRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12,\n" +
+	"\x12trigger_event_type\x18\x02 \x01(\tR\x10triggerEventType\x129\n" +
+	"\n" +
+	"conditions\x18\x03 \x03(\v2\x19.crm.v1.WorkflowConditionR\n" +
+	"conditions\x120\n" +
+	"\aactions\x18\x04 \x03(\v2\x16.crm.v1.WorkflowActionR\aactions\x12\x1a\n" +
+	"\bactivate\x18\x05 \x01(\bR\bactivate\"\x85\x01\n" +
+	"\"PublishWorkflowRuleVersionResponse\x125\n" +
+	"\aversion\x18\x01 \x01(\v2\x1b.crm.v1.WorkflowRuleVersionR\aversion\x12(\n" +
+	"\x04rule\x18\x02 \x01(\v2\x14.crm.v1.WorkflowRuleR\x04rule\":\n" +
+	"\x1fListWorkflowRuleVersionsRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\"[\n" +
+	" ListWorkflowRuleVersionsResponse\x127\n" +
+	"\bversions\x18\x01 \x03(\v2\x1b.crm.v1.WorkflowRuleVersionR\bversions\"F\n" +
+	"\x1cSetWorkflowRuleStatusRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\"I\n" +
+	"\x1dSetWorkflowRuleStatusResponse\x12(\n" +
+	"\x04rule\x18\x01 \x01(\v2\x14.crm.v1.WorkflowRuleR\x04rule\"N\n" +
+	"\x1dListWorkflowExecutionsRequest\x12\x17\n" +
+	"\arule_id\x18\x01 \x01(\tR\x06ruleId\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"[\n" +
+	"\x1eListWorkflowExecutionsResponse\x129\n" +
+	"\n" +
+	"executions\x18\x01 \x03(\v2\x19.crm.v1.WorkflowExecutionR\n" +
+	"executions\"Q\n" +
+	"\x18ListNotificationsRequest\x12\x1f\n" +
+	"\vunread_only\x18\x01 \x01(\bR\n" +
+	"unreadOnly\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"z\n" +
+	"\x19ListNotificationsResponse\x12:\n" +
+	"\rnotifications\x18\x01 \x03(\v2\x14.crm.v1.NotificationR\rnotifications\x12!\n" +
+	"\funread_count\x18\x02 \x01(\x05R\vunreadCount\"-\n" +
+	"\x1bMarkNotificationReadRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"X\n" +
+	"\x1cMarkNotificationReadResponse\x128\n" +
+	"\fnotification\x18\x01 \x01(\v2\x14.crm.v1.NotificationR\fnotification2\xe9:\n" +
 	"\n" +
 	"CRMService\x12L\n" +
 	"\rCreateAccount\x12\x1c.crm.v1.CreateAccountRequest\x1a\x1d.crm.v1.CreateAccountResponse\x12C\n" +
@@ -10181,7 +12253,18 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x1cEraseSyncedContentForContact\x12+.crm.v1.EraseSyncedContentForContactRequest\x1a\".crm.v1.EraseSyncedContentResponse\x12a\n" +
 	"\x14ListSyncSuppressions\x12#.crm.v1.ListSyncSuppressionsRequest\x1a$.crm.v1.ListSyncSuppressionsResponse\x12^\n" +
 	"\x13SuppressSyncAddress\x12\".crm.v1.SuppressSyncAddressRequest\x1a#.crm.v1.SuppressSyncAddressResponse\x12[\n" +
-	"\x12ReleaseSyncAddress\x12!.crm.v1.ReleaseSyncAddressRequest\x1a\".crm.v1.ReleaseSyncAddressResponseB|\n" +
+	"\x12ReleaseSyncAddress\x12!.crm.v1.ReleaseSyncAddressRequest\x1a\".crm.v1.ReleaseSyncAddressResponse\x12j\n" +
+	"\x17DescribeWorkflowCatalog\x12&.crm.v1.DescribeWorkflowCatalogRequest\x1a'.crm.v1.DescribeWorkflowCatalogResponse\x12[\n" +
+	"\x12CreateWorkflowRule\x12!.crm.v1.CreateWorkflowRuleRequest\x1a\".crm.v1.CreateWorkflowRuleResponse\x12R\n" +
+	"\x0fGetWorkflowRule\x12\x1e.crm.v1.GetWorkflowRuleRequest\x1a\x1f.crm.v1.GetWorkflowRuleResponse\x12X\n" +
+	"\x11ListWorkflowRules\x12 .crm.v1.ListWorkflowRulesRequest\x1a!.crm.v1.ListWorkflowRulesResponse\x12[\n" +
+	"\x12UpdateWorkflowRule\x12!.crm.v1.UpdateWorkflowRuleRequest\x1a\".crm.v1.UpdateWorkflowRuleResponse\x12s\n" +
+	"\x1aPublishWorkflowRuleVersion\x12).crm.v1.PublishWorkflowRuleVersionRequest\x1a*.crm.v1.PublishWorkflowRuleVersionResponse\x12m\n" +
+	"\x18ListWorkflowRuleVersions\x12'.crm.v1.ListWorkflowRuleVersionsRequest\x1a(.crm.v1.ListWorkflowRuleVersionsResponse\x12d\n" +
+	"\x15SetWorkflowRuleStatus\x12$.crm.v1.SetWorkflowRuleStatusRequest\x1a%.crm.v1.SetWorkflowRuleStatusResponse\x12g\n" +
+	"\x16ListWorkflowExecutions\x12%.crm.v1.ListWorkflowExecutionsRequest\x1a&.crm.v1.ListWorkflowExecutionsResponse\x12X\n" +
+	"\x11ListNotifications\x12 .crm.v1.ListNotificationsRequest\x1a!.crm.v1.ListNotificationsResponse\x12a\n" +
+	"\x14MarkNotificationRead\x12#.crm.v1.MarkNotificationReadRequest\x1a$.crm.v1.MarkNotificationReadResponseB|\n" +
 	"\n" +
 	"com.crm.v1B\bCrmProtoP\x01Z+github.com/santoshguru/crm/gen/crm/v1;crmv1\xa2\x02\x03CXX\xaa\x02\x06Crm.V1\xca\x02\x06Crm\\V1\xe2\x02\x12Crm\\V1\\GPBMetadata\xea\x02\aCrm::V1b\x06proto3"
 
@@ -10197,7 +12280,7 @@ func file_crm_v1_crm_proto_rawDescGZIP() []byte {
 	return file_crm_v1_crm_proto_rawDescData
 }
 
-var file_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 180)
+var file_crm_v1_crm_proto_msgTypes = make([]protoimpl.MessageInfo, 210)
 var file_crm_v1_crm_proto_goTypes = []any{
 	(*CustomValue)(nil),                           // 0: crm.v1.CustomValue
 	(*StringList)(nil),                            // 1: crm.v1.StringList
@@ -10369,25 +12452,55 @@ var file_crm_v1_crm_proto_goTypes = []any{
 	(*UpdateNoteResponse)(nil),                    // 167: crm.v1.UpdateNoteResponse
 	(*DeleteNoteRequest)(nil),                     // 168: crm.v1.DeleteNoteRequest
 	(*DeleteNoteResponse)(nil),                    // 169: crm.v1.DeleteNoteResponse
-	nil,                                           // 170: crm.v1.CustomRecord.FieldsEntry
-	nil,                                           // 171: crm.v1.CustomRecord.RelationsEntry
-	nil,                                           // 172: crm.v1.Account.CustomFieldsEntry
-	nil,                                           // 173: crm.v1.Contact.CustomFieldsEntry
-	nil,                                           // 174: crm.v1.Lead.CustomFieldsEntry
-	nil,                                           // 175: crm.v1.Opportunity.CustomFieldsEntry
-	nil,                                           // 176: crm.v1.Activity.CustomFieldsEntry
-	nil,                                           // 177: crm.v1.GetSummaryResponse.CountsEntry
-	nil,                                           // 178: crm.v1.Task.CustomFieldsEntry
-	nil,                                           // 179: crm.v1.Note.CustomFieldsEntry
-	(*timestamppb.Timestamp)(nil),                 // 180: google.protobuf.Timestamp
+	(*WorkflowCondition)(nil),                     // 170: crm.v1.WorkflowCondition
+	(*WorkflowAction)(nil),                        // 171: crm.v1.WorkflowAction
+	(*WorkflowRule)(nil),                          // 172: crm.v1.WorkflowRule
+	(*WorkflowRuleVersion)(nil),                   // 173: crm.v1.WorkflowRuleVersion
+	(*WorkflowExecution)(nil),                     // 174: crm.v1.WorkflowExecution
+	(*Notification)(nil),                          // 175: crm.v1.Notification
+	(*WorkflowField)(nil),                         // 176: crm.v1.WorkflowField
+	(*WorkflowTriggerDescriptor)(nil),             // 177: crm.v1.WorkflowTriggerDescriptor
+	(*DescribeWorkflowCatalogRequest)(nil),        // 178: crm.v1.DescribeWorkflowCatalogRequest
+	(*DescribeWorkflowCatalogResponse)(nil),       // 179: crm.v1.DescribeWorkflowCatalogResponse
+	(*CreateWorkflowRuleRequest)(nil),             // 180: crm.v1.CreateWorkflowRuleRequest
+	(*CreateWorkflowRuleResponse)(nil),            // 181: crm.v1.CreateWorkflowRuleResponse
+	(*GetWorkflowRuleRequest)(nil),                // 182: crm.v1.GetWorkflowRuleRequest
+	(*GetWorkflowRuleResponse)(nil),               // 183: crm.v1.GetWorkflowRuleResponse
+	(*ListWorkflowRulesRequest)(nil),              // 184: crm.v1.ListWorkflowRulesRequest
+	(*ListWorkflowRulesResponse)(nil),             // 185: crm.v1.ListWorkflowRulesResponse
+	(*UpdateWorkflowRuleRequest)(nil),             // 186: crm.v1.UpdateWorkflowRuleRequest
+	(*UpdateWorkflowRuleResponse)(nil),            // 187: crm.v1.UpdateWorkflowRuleResponse
+	(*PublishWorkflowRuleVersionRequest)(nil),     // 188: crm.v1.PublishWorkflowRuleVersionRequest
+	(*PublishWorkflowRuleVersionResponse)(nil),    // 189: crm.v1.PublishWorkflowRuleVersionResponse
+	(*ListWorkflowRuleVersionsRequest)(nil),       // 190: crm.v1.ListWorkflowRuleVersionsRequest
+	(*ListWorkflowRuleVersionsResponse)(nil),      // 191: crm.v1.ListWorkflowRuleVersionsResponse
+	(*SetWorkflowRuleStatusRequest)(nil),          // 192: crm.v1.SetWorkflowRuleStatusRequest
+	(*SetWorkflowRuleStatusResponse)(nil),         // 193: crm.v1.SetWorkflowRuleStatusResponse
+	(*ListWorkflowExecutionsRequest)(nil),         // 194: crm.v1.ListWorkflowExecutionsRequest
+	(*ListWorkflowExecutionsResponse)(nil),        // 195: crm.v1.ListWorkflowExecutionsResponse
+	(*ListNotificationsRequest)(nil),              // 196: crm.v1.ListNotificationsRequest
+	(*ListNotificationsResponse)(nil),             // 197: crm.v1.ListNotificationsResponse
+	(*MarkNotificationReadRequest)(nil),           // 198: crm.v1.MarkNotificationReadRequest
+	(*MarkNotificationReadResponse)(nil),          // 199: crm.v1.MarkNotificationReadResponse
+	nil,                                           // 200: crm.v1.CustomRecord.FieldsEntry
+	nil,                                           // 201: crm.v1.CustomRecord.RelationsEntry
+	nil,                                           // 202: crm.v1.Account.CustomFieldsEntry
+	nil,                                           // 203: crm.v1.Contact.CustomFieldsEntry
+	nil,                                           // 204: crm.v1.Lead.CustomFieldsEntry
+	nil,                                           // 205: crm.v1.Opportunity.CustomFieldsEntry
+	nil,                                           // 206: crm.v1.Activity.CustomFieldsEntry
+	nil,                                           // 207: crm.v1.GetSummaryResponse.CountsEntry
+	nil,                                           // 208: crm.v1.Task.CustomFieldsEntry
+	nil,                                           // 209: crm.v1.Note.CustomFieldsEntry
+	(*timestamppb.Timestamp)(nil),                 // 210: google.protobuf.Timestamp
 }
 var file_crm_v1_crm_proto_depIdxs = []int32{
-	180, // 0: crm.v1.CustomValue.timestamp:type_name -> google.protobuf.Timestamp
+	210, // 0: crm.v1.CustomValue.timestamp:type_name -> google.protobuf.Timestamp
 	1,   // 1: crm.v1.CustomValue.text_list:type_name -> crm.v1.StringList
 	2,   // 2: crm.v1.CustomFieldDefinition.config:type_name -> crm.v1.CustomFieldConfig
-	180, // 3: crm.v1.CustomFieldDefinition.archived_at:type_name -> google.protobuf.Timestamp
-	180, // 4: crm.v1.CustomFieldDefinition.created_at:type_name -> google.protobuf.Timestamp
-	180, // 5: crm.v1.CustomFieldDefinition.updated_at:type_name -> google.protobuf.Timestamp
+	210, // 3: crm.v1.CustomFieldDefinition.archived_at:type_name -> google.protobuf.Timestamp
+	210, // 4: crm.v1.CustomFieldDefinition.created_at:type_name -> google.protobuf.Timestamp
+	210, // 5: crm.v1.CustomFieldDefinition.updated_at:type_name -> google.protobuf.Timestamp
 	3,   // 6: crm.v1.CreateCustomFieldDefinitionRequest.definition:type_name -> crm.v1.CustomFieldDefinition
 	3,   // 7: crm.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
 	3,   // 8: crm.v1.GetCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
@@ -10395,13 +12508,13 @@ var file_crm_v1_crm_proto_depIdxs = []int32{
 	3,   // 10: crm.v1.UpdateCustomFieldDefinitionRequest.definition:type_name -> crm.v1.CustomFieldDefinition
 	3,   // 11: crm.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
 	3,   // 12: crm.v1.ArchiveCustomFieldDefinitionResponse.definition:type_name -> crm.v1.CustomFieldDefinition
-	180, // 13: crm.v1.CustomObjectDefinition.archived_at:type_name -> google.protobuf.Timestamp
-	180, // 14: crm.v1.CustomObjectDefinition.created_at:type_name -> google.protobuf.Timestamp
-	180, // 15: crm.v1.CustomObjectDefinition.updated_at:type_name -> google.protobuf.Timestamp
-	170, // 16: crm.v1.CustomRecord.fields:type_name -> crm.v1.CustomRecord.FieldsEntry
-	171, // 17: crm.v1.CustomRecord.relations:type_name -> crm.v1.CustomRecord.RelationsEntry
-	180, // 18: crm.v1.CustomRecord.created_at:type_name -> google.protobuf.Timestamp
-	180, // 19: crm.v1.CustomRecord.updated_at:type_name -> google.protobuf.Timestamp
+	210, // 13: crm.v1.CustomObjectDefinition.archived_at:type_name -> google.protobuf.Timestamp
+	210, // 14: crm.v1.CustomObjectDefinition.created_at:type_name -> google.protobuf.Timestamp
+	210, // 15: crm.v1.CustomObjectDefinition.updated_at:type_name -> google.protobuf.Timestamp
+	200, // 16: crm.v1.CustomRecord.fields:type_name -> crm.v1.CustomRecord.FieldsEntry
+	201, // 17: crm.v1.CustomRecord.relations:type_name -> crm.v1.CustomRecord.RelationsEntry
+	210, // 18: crm.v1.CustomRecord.created_at:type_name -> google.protobuf.Timestamp
+	210, // 19: crm.v1.CustomRecord.updated_at:type_name -> google.protobuf.Timestamp
 	14,  // 20: crm.v1.CreateCustomObjectDefinitionRequest.definition:type_name -> crm.v1.CustomObjectDefinition
 	14,  // 21: crm.v1.CreateCustomObjectDefinitionResponse.definition:type_name -> crm.v1.CustomObjectDefinition
 	14,  // 22: crm.v1.GetCustomObjectDefinitionResponse.definition:type_name -> crm.v1.CustomObjectDefinition
@@ -10414,45 +12527,45 @@ var file_crm_v1_crm_proto_depIdxs = []int32{
 	15,  // 29: crm.v1.UpdateCustomRecordRequest.record:type_name -> crm.v1.CustomRecord
 	15,  // 30: crm.v1.UpdateCustomRecordResponse.record:type_name -> crm.v1.CustomRecord
 	35,  // 31: crm.v1.SearchRecordsResponse.records:type_name -> crm.v1.SearchRecord
-	180, // 32: crm.v1.GoogleConnection.access_token_expires_at:type_name -> google.protobuf.Timestamp
-	180, // 33: crm.v1.GoogleConnection.connected_at:type_name -> google.protobuf.Timestamp
-	180, // 34: crm.v1.GoogleConnection.last_refreshed_at:type_name -> google.protobuf.Timestamp
-	180, // 35: crm.v1.GoogleConnection.disconnected_at:type_name -> google.protobuf.Timestamp
-	180, // 36: crm.v1.GmailSyncStatus.last_synced_at:type_name -> google.protobuf.Timestamp
-	180, // 37: crm.v1.GmailSyncStatus.last_message_at:type_name -> google.protobuf.Timestamp
+	210, // 32: crm.v1.GoogleConnection.access_token_expires_at:type_name -> google.protobuf.Timestamp
+	210, // 33: crm.v1.GoogleConnection.connected_at:type_name -> google.protobuf.Timestamp
+	210, // 34: crm.v1.GoogleConnection.last_refreshed_at:type_name -> google.protobuf.Timestamp
+	210, // 35: crm.v1.GoogleConnection.disconnected_at:type_name -> google.protobuf.Timestamp
+	210, // 36: crm.v1.GmailSyncStatus.last_synced_at:type_name -> google.protobuf.Timestamp
+	210, // 37: crm.v1.GmailSyncStatus.last_message_at:type_name -> google.protobuf.Timestamp
 	37,  // 38: crm.v1.GetGoogleConnectionResponse.connection:type_name -> crm.v1.GoogleConnection
 	40,  // 39: crm.v1.GetGoogleConnectionResponse.gmail_sync:type_name -> crm.v1.GmailSyncStatus
 	47,  // 40: crm.v1.GetGoogleConnectionResponse.calendar_sync:type_name -> crm.v1.CalendarSyncStatus
 	37,  // 41: crm.v1.ListGoogleConnectionsResponse.connections:type_name -> crm.v1.GoogleConnection
 	37,  // 42: crm.v1.DisconnectGoogleConnectionResponse.connection:type_name -> crm.v1.GoogleConnection
-	180, // 43: crm.v1.CalendarSyncStatus.last_synced_at:type_name -> google.protobuf.Timestamp
-	180, // 44: crm.v1.CalendarSyncStatus.last_event_at:type_name -> google.protobuf.Timestamp
+	210, // 43: crm.v1.CalendarSyncStatus.last_synced_at:type_name -> google.protobuf.Timestamp
+	210, // 44: crm.v1.CalendarSyncStatus.last_event_at:type_name -> google.protobuf.Timestamp
 	47,  // 45: crm.v1.SyncGoogleCalendarResponse.calendar_sync:type_name -> crm.v1.CalendarSyncStatus
 	50,  // 46: crm.v1.EraseSyncedContentResponse.result:type_name -> crm.v1.ErasureResult
-	180, // 47: crm.v1.SyncSuppression.created_at:type_name -> google.protobuf.Timestamp
+	210, // 47: crm.v1.SyncSuppression.created_at:type_name -> google.protobuf.Timestamp
 	53,  // 48: crm.v1.ListSyncSuppressionsResponse.suppressions:type_name -> crm.v1.SyncSuppression
 	40,  // 49: crm.v1.SyncGoogleMailboxResponse.gmail_sync:type_name -> crm.v1.GmailSyncStatus
-	180, // 50: crm.v1.Account.created_at:type_name -> google.protobuf.Timestamp
-	180, // 51: crm.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
-	172, // 52: crm.v1.Account.custom_fields:type_name -> crm.v1.Account.CustomFieldsEntry
+	210, // 50: crm.v1.Account.created_at:type_name -> google.protobuf.Timestamp
+	210, // 51: crm.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
+	202, // 52: crm.v1.Account.custom_fields:type_name -> crm.v1.Account.CustomFieldsEntry
 	62,  // 53: crm.v1.CreateAccountRequest.account:type_name -> crm.v1.Account
 	62,  // 54: crm.v1.CreateAccountResponse.account:type_name -> crm.v1.Account
 	62,  // 55: crm.v1.GetAccountResponse.account:type_name -> crm.v1.Account
 	62,  // 56: crm.v1.ListAccountsResponse.accounts:type_name -> crm.v1.Account
 	62,  // 57: crm.v1.UpdateAccountRequest.account:type_name -> crm.v1.Account
 	62,  // 58: crm.v1.UpdateAccountResponse.account:type_name -> crm.v1.Account
-	180, // 59: crm.v1.Contact.created_at:type_name -> google.protobuf.Timestamp
-	180, // 60: crm.v1.Contact.updated_at:type_name -> google.protobuf.Timestamp
-	173, // 61: crm.v1.Contact.custom_fields:type_name -> crm.v1.Contact.CustomFieldsEntry
+	210, // 59: crm.v1.Contact.created_at:type_name -> google.protobuf.Timestamp
+	210, // 60: crm.v1.Contact.updated_at:type_name -> google.protobuf.Timestamp
+	203, // 61: crm.v1.Contact.custom_fields:type_name -> crm.v1.Contact.CustomFieldsEntry
 	73,  // 62: crm.v1.CreateContactRequest.contact:type_name -> crm.v1.Contact
 	73,  // 63: crm.v1.CreateContactResponse.contact:type_name -> crm.v1.Contact
 	73,  // 64: crm.v1.GetContactResponse.contact:type_name -> crm.v1.Contact
 	73,  // 65: crm.v1.ListContactsResponse.contacts:type_name -> crm.v1.Contact
 	73,  // 66: crm.v1.UpdateContactRequest.contact:type_name -> crm.v1.Contact
 	73,  // 67: crm.v1.UpdateContactResponse.contact:type_name -> crm.v1.Contact
-	180, // 68: crm.v1.Lead.created_at:type_name -> google.protobuf.Timestamp
-	180, // 69: crm.v1.Lead.updated_at:type_name -> google.protobuf.Timestamp
-	174, // 70: crm.v1.Lead.custom_fields:type_name -> crm.v1.Lead.CustomFieldsEntry
+	210, // 68: crm.v1.Lead.created_at:type_name -> google.protobuf.Timestamp
+	210, // 69: crm.v1.Lead.updated_at:type_name -> google.protobuf.Timestamp
+	204, // 70: crm.v1.Lead.custom_fields:type_name -> crm.v1.Lead.CustomFieldsEntry
 	84,  // 71: crm.v1.CreateLeadRequest.lead:type_name -> crm.v1.Lead
 	84,  // 72: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.Lead
 	84,  // 73: crm.v1.GetLeadResponse.lead:type_name -> crm.v1.Lead
@@ -10463,41 +12576,41 @@ var file_crm_v1_crm_proto_depIdxs = []int32{
 	73,  // 78: crm.v1.ConvertLeadResponse.contact:type_name -> crm.v1.Contact
 	62,  // 79: crm.v1.ConvertLeadResponse.account:type_name -> crm.v1.Account
 	97,  // 80: crm.v1.ConvertLeadResponse.opportunity:type_name -> crm.v1.Opportunity
-	180, // 81: crm.v1.Opportunity.close_date:type_name -> google.protobuf.Timestamp
-	180, // 82: crm.v1.Opportunity.created_at:type_name -> google.protobuf.Timestamp
-	180, // 83: crm.v1.Opportunity.updated_at:type_name -> google.protobuf.Timestamp
-	175, // 84: crm.v1.Opportunity.custom_fields:type_name -> crm.v1.Opportunity.CustomFieldsEntry
+	210, // 81: crm.v1.Opportunity.close_date:type_name -> google.protobuf.Timestamp
+	210, // 82: crm.v1.Opportunity.created_at:type_name -> google.protobuf.Timestamp
+	210, // 83: crm.v1.Opportunity.updated_at:type_name -> google.protobuf.Timestamp
+	205, // 84: crm.v1.Opportunity.custom_fields:type_name -> crm.v1.Opportunity.CustomFieldsEntry
 	97,  // 85: crm.v1.CreateOpportunityRequest.opportunity:type_name -> crm.v1.Opportunity
 	97,  // 86: crm.v1.CreateOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
 	97,  // 87: crm.v1.GetOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
 	97,  // 88: crm.v1.ListOpportunitiesResponse.opportunities:type_name -> crm.v1.Opportunity
 	97,  // 89: crm.v1.UpdateOpportunityRequest.opportunity:type_name -> crm.v1.Opportunity
 	97,  // 90: crm.v1.UpdateOpportunityResponse.opportunity:type_name -> crm.v1.Opportunity
-	180, // 91: crm.v1.MoveOpportunityToPipelineRequest.updated_at:type_name -> google.protobuf.Timestamp
+	210, // 91: crm.v1.MoveOpportunityToPipelineRequest.updated_at:type_name -> google.protobuf.Timestamp
 	97,  // 92: crm.v1.MoveOpportunityToPipelineResponse.opportunity:type_name -> crm.v1.Opportunity
-	180, // 93: crm.v1.OpportunityStageChange.changed_at:type_name -> google.protobuf.Timestamp
+	210, // 93: crm.v1.OpportunityStageChange.changed_at:type_name -> google.protobuf.Timestamp
 	110, // 94: crm.v1.ListOpportunityStageHistoryResponse.changes:type_name -> crm.v1.OpportunityStageChange
-	180, // 95: crm.v1.Pipeline.archived_at:type_name -> google.protobuf.Timestamp
-	180, // 96: crm.v1.Pipeline.created_at:type_name -> google.protobuf.Timestamp
-	180, // 97: crm.v1.Pipeline.updated_at:type_name -> google.protobuf.Timestamp
+	210, // 95: crm.v1.Pipeline.archived_at:type_name -> google.protobuf.Timestamp
+	210, // 96: crm.v1.Pipeline.created_at:type_name -> google.protobuf.Timestamp
+	210, // 97: crm.v1.Pipeline.updated_at:type_name -> google.protobuf.Timestamp
 	113, // 98: crm.v1.CreatePipelineRequest.pipeline:type_name -> crm.v1.Pipeline
 	113, // 99: crm.v1.CreatePipelineResponse.pipeline:type_name -> crm.v1.Pipeline
 	113, // 100: crm.v1.GetPipelineResponse.pipeline:type_name -> crm.v1.Pipeline
 	113, // 101: crm.v1.ListPipelinesResponse.pipelines:type_name -> crm.v1.Pipeline
 	113, // 102: crm.v1.UpdatePipelineRequest.pipeline:type_name -> crm.v1.Pipeline
 	113, // 103: crm.v1.UpdatePipelineResponse.pipeline:type_name -> crm.v1.Pipeline
-	180, // 104: crm.v1.PipelineStage.archived_at:type_name -> google.protobuf.Timestamp
-	180, // 105: crm.v1.PipelineStage.created_at:type_name -> google.protobuf.Timestamp
-	180, // 106: crm.v1.PipelineStage.updated_at:type_name -> google.protobuf.Timestamp
+	210, // 104: crm.v1.PipelineStage.archived_at:type_name -> google.protobuf.Timestamp
+	210, // 105: crm.v1.PipelineStage.created_at:type_name -> google.protobuf.Timestamp
+	210, // 106: crm.v1.PipelineStage.updated_at:type_name -> google.protobuf.Timestamp
 	122, // 107: crm.v1.CreatePipelineStageRequest.stage:type_name -> crm.v1.PipelineStage
 	122, // 108: crm.v1.CreatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStage
 	122, // 109: crm.v1.ListPipelineStagesResponse.stages:type_name -> crm.v1.PipelineStage
 	122, // 110: crm.v1.UpdatePipelineStageRequest.stage:type_name -> crm.v1.PipelineStage
 	122, // 111: crm.v1.UpdatePipelineStageResponse.stage:type_name -> crm.v1.PipelineStage
-	180, // 112: crm.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
-	180, // 113: crm.v1.Activity.created_at:type_name -> google.protobuf.Timestamp
-	180, // 114: crm.v1.Activity.updated_at:type_name -> google.protobuf.Timestamp
-	176, // 115: crm.v1.Activity.custom_fields:type_name -> crm.v1.Activity.CustomFieldsEntry
+	210, // 112: crm.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
+	210, // 113: crm.v1.Activity.created_at:type_name -> google.protobuf.Timestamp
+	210, // 114: crm.v1.Activity.updated_at:type_name -> google.protobuf.Timestamp
+	206, // 115: crm.v1.Activity.custom_fields:type_name -> crm.v1.Activity.CustomFieldsEntry
 	129, // 116: crm.v1.CreateActivityRequest.activity:type_name -> crm.v1.Activity
 	129, // 117: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.Activity
 	129, // 118: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.Activity
@@ -10505,192 +12618,241 @@ var file_crm_v1_crm_proto_depIdxs = []int32{
 	129, // 120: crm.v1.UpdateActivityRequest.activity:type_name -> crm.v1.Activity
 	129, // 121: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.Activity
 	129, // 122: crm.v1.ListActivitiesForSubjectResponse.activities:type_name -> crm.v1.Activity
-	177, // 123: crm.v1.GetSummaryResponse.counts:type_name -> crm.v1.GetSummaryResponse.CountsEntry
-	180, // 124: crm.v1.Task.due_at:type_name -> google.protobuf.Timestamp
-	180, // 125: crm.v1.Task.completed_at:type_name -> google.protobuf.Timestamp
-	180, // 126: crm.v1.Task.created_at:type_name -> google.protobuf.Timestamp
-	180, // 127: crm.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
-	178, // 128: crm.v1.Task.custom_fields:type_name -> crm.v1.Task.CustomFieldsEntry
+	207, // 123: crm.v1.GetSummaryResponse.counts:type_name -> crm.v1.GetSummaryResponse.CountsEntry
+	210, // 124: crm.v1.Task.due_at:type_name -> google.protobuf.Timestamp
+	210, // 125: crm.v1.Task.completed_at:type_name -> google.protobuf.Timestamp
+	210, // 126: crm.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	210, // 127: crm.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
+	208, // 128: crm.v1.Task.custom_fields:type_name -> crm.v1.Task.CustomFieldsEntry
 	144, // 129: crm.v1.CreateTaskRequest.task:type_name -> crm.v1.Task
 	144, // 130: crm.v1.CreateTaskResponse.task:type_name -> crm.v1.Task
 	144, // 131: crm.v1.GetTaskResponse.task:type_name -> crm.v1.Task
-	180, // 132: crm.v1.ListTasksRequest.due_before:type_name -> google.protobuf.Timestamp
+	210, // 132: crm.v1.ListTasksRequest.due_before:type_name -> google.protobuf.Timestamp
 	144, // 133: crm.v1.ListTasksResponse.tasks:type_name -> crm.v1.Task
 	144, // 134: crm.v1.UpdateTaskRequest.task:type_name -> crm.v1.Task
 	144, // 135: crm.v1.UpdateTaskResponse.task:type_name -> crm.v1.Task
 	144, // 136: crm.v1.CompleteTaskResponse.task:type_name -> crm.v1.Task
 	144, // 137: crm.v1.ReopenTaskResponse.task:type_name -> crm.v1.Task
-	180, // 138: crm.v1.Note.created_at:type_name -> google.protobuf.Timestamp
-	180, // 139: crm.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
-	180, // 140: crm.v1.Note.edited_at:type_name -> google.protobuf.Timestamp
-	179, // 141: crm.v1.Note.custom_fields:type_name -> crm.v1.Note.CustomFieldsEntry
+	210, // 138: crm.v1.Note.created_at:type_name -> google.protobuf.Timestamp
+	210, // 139: crm.v1.Note.updated_at:type_name -> google.protobuf.Timestamp
+	210, // 140: crm.v1.Note.edited_at:type_name -> google.protobuf.Timestamp
+	209, // 141: crm.v1.Note.custom_fields:type_name -> crm.v1.Note.CustomFieldsEntry
 	159, // 142: crm.v1.CreateNoteRequest.note:type_name -> crm.v1.Note
 	159, // 143: crm.v1.CreateNoteResponse.note:type_name -> crm.v1.Note
 	159, // 144: crm.v1.GetNoteResponse.note:type_name -> crm.v1.Note
 	159, // 145: crm.v1.ListNotesResponse.notes:type_name -> crm.v1.Note
 	159, // 146: crm.v1.UpdateNoteRequest.note:type_name -> crm.v1.Note
 	159, // 147: crm.v1.UpdateNoteResponse.note:type_name -> crm.v1.Note
-	0,   // 148: crm.v1.CustomRecord.FieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 149: crm.v1.Account.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 150: crm.v1.Contact.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 151: crm.v1.Lead.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 152: crm.v1.Opportunity.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 153: crm.v1.Activity.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 154: crm.v1.Task.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	0,   // 155: crm.v1.Note.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
-	63,  // 156: crm.v1.CRMService.CreateAccount:input_type -> crm.v1.CreateAccountRequest
-	65,  // 157: crm.v1.CRMService.GetAccount:input_type -> crm.v1.GetAccountRequest
-	67,  // 158: crm.v1.CRMService.ListAccounts:input_type -> crm.v1.ListAccountsRequest
-	69,  // 159: crm.v1.CRMService.UpdateAccount:input_type -> crm.v1.UpdateAccountRequest
-	71,  // 160: crm.v1.CRMService.DeleteAccount:input_type -> crm.v1.DeleteAccountRequest
-	74,  // 161: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
-	76,  // 162: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
-	78,  // 163: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
-	80,  // 164: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
-	82,  // 165: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
-	85,  // 166: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
-	87,  // 167: crm.v1.CRMService.GetLead:input_type -> crm.v1.GetLeadRequest
-	89,  // 168: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
-	91,  // 169: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
-	93,  // 170: crm.v1.CRMService.DeleteLead:input_type -> crm.v1.DeleteLeadRequest
-	95,  // 171: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
-	98,  // 172: crm.v1.CRMService.CreateOpportunity:input_type -> crm.v1.CreateOpportunityRequest
-	100, // 173: crm.v1.CRMService.GetOpportunity:input_type -> crm.v1.GetOpportunityRequest
-	102, // 174: crm.v1.CRMService.ListOpportunities:input_type -> crm.v1.ListOpportunitiesRequest
-	104, // 175: crm.v1.CRMService.UpdateOpportunity:input_type -> crm.v1.UpdateOpportunityRequest
-	106, // 176: crm.v1.CRMService.MoveOpportunityToPipeline:input_type -> crm.v1.MoveOpportunityToPipelineRequest
-	108, // 177: crm.v1.CRMService.DeleteOpportunity:input_type -> crm.v1.DeleteOpportunityRequest
-	111, // 178: crm.v1.CRMService.ListOpportunityStageHistory:input_type -> crm.v1.ListOpportunityStageHistoryRequest
-	114, // 179: crm.v1.CRMService.CreatePipeline:input_type -> crm.v1.CreatePipelineRequest
-	116, // 180: crm.v1.CRMService.GetPipeline:input_type -> crm.v1.GetPipelineRequest
-	118, // 181: crm.v1.CRMService.ListPipelines:input_type -> crm.v1.ListPipelinesRequest
-	120, // 182: crm.v1.CRMService.UpdatePipeline:input_type -> crm.v1.UpdatePipelineRequest
-	123, // 183: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
-	125, // 184: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
-	127, // 185: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
-	130, // 186: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
-	132, // 187: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
-	134, // 188: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
-	136, // 189: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
-	138, // 190: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
-	140, // 191: crm.v1.CRMService.ListActivitiesForSubject:input_type -> crm.v1.ListActivitiesForSubjectRequest
-	145, // 192: crm.v1.CRMService.CreateTask:input_type -> crm.v1.CreateTaskRequest
-	147, // 193: crm.v1.CRMService.GetTask:input_type -> crm.v1.GetTaskRequest
-	149, // 194: crm.v1.CRMService.ListTasks:input_type -> crm.v1.ListTasksRequest
-	151, // 195: crm.v1.CRMService.UpdateTask:input_type -> crm.v1.UpdateTaskRequest
-	153, // 196: crm.v1.CRMService.DeleteTask:input_type -> crm.v1.DeleteTaskRequest
-	155, // 197: crm.v1.CRMService.CompleteTask:input_type -> crm.v1.CompleteTaskRequest
-	157, // 198: crm.v1.CRMService.ReopenTask:input_type -> crm.v1.ReopenTaskRequest
-	160, // 199: crm.v1.CRMService.CreateNote:input_type -> crm.v1.CreateNoteRequest
-	162, // 200: crm.v1.CRMService.GetNote:input_type -> crm.v1.GetNoteRequest
-	164, // 201: crm.v1.CRMService.ListNotes:input_type -> crm.v1.ListNotesRequest
-	166, // 202: crm.v1.CRMService.UpdateNote:input_type -> crm.v1.UpdateNoteRequest
-	168, // 203: crm.v1.CRMService.DeleteNote:input_type -> crm.v1.DeleteNoteRequest
-	4,   // 204: crm.v1.CRMService.CreateCustomFieldDefinition:input_type -> crm.v1.CreateCustomFieldDefinitionRequest
-	6,   // 205: crm.v1.CRMService.GetCustomFieldDefinition:input_type -> crm.v1.GetCustomFieldDefinitionRequest
-	8,   // 206: crm.v1.CRMService.ListCustomFieldDefinitions:input_type -> crm.v1.ListCustomFieldDefinitionsRequest
-	10,  // 207: crm.v1.CRMService.UpdateCustomFieldDefinition:input_type -> crm.v1.UpdateCustomFieldDefinitionRequest
-	12,  // 208: crm.v1.CRMService.ArchiveCustomFieldDefinition:input_type -> crm.v1.ArchiveCustomFieldDefinitionRequest
-	16,  // 209: crm.v1.CRMService.CreateCustomObjectDefinition:input_type -> crm.v1.CreateCustomObjectDefinitionRequest
-	18,  // 210: crm.v1.CRMService.GetCustomObjectDefinition:input_type -> crm.v1.GetCustomObjectDefinitionRequest
-	20,  // 211: crm.v1.CRMService.ListCustomObjectDefinitions:input_type -> crm.v1.ListCustomObjectDefinitionsRequest
-	22,  // 212: crm.v1.CRMService.ArchiveCustomObjectDefinition:input_type -> crm.v1.ArchiveCustomObjectDefinitionRequest
-	24,  // 213: crm.v1.CRMService.CreateCustomRecord:input_type -> crm.v1.CreateCustomRecordRequest
-	26,  // 214: crm.v1.CRMService.GetCustomRecord:input_type -> crm.v1.GetCustomRecordRequest
-	28,  // 215: crm.v1.CRMService.ListCustomRecords:input_type -> crm.v1.ListCustomRecordsRequest
-	30,  // 216: crm.v1.CRMService.UpdateCustomRecord:input_type -> crm.v1.UpdateCustomRecordRequest
-	32,  // 217: crm.v1.CRMService.DeleteCustomRecord:input_type -> crm.v1.DeleteCustomRecordRequest
-	142, // 218: crm.v1.CRMService.GetSummary:input_type -> crm.v1.GetSummaryRequest
-	34,  // 219: crm.v1.CRMService.SearchRecords:input_type -> crm.v1.SearchRecordsRequest
-	38,  // 220: crm.v1.CRMService.StartGoogleConnection:input_type -> crm.v1.StartGoogleConnectionRequest
-	41,  // 221: crm.v1.CRMService.GetGoogleConnection:input_type -> crm.v1.GetGoogleConnectionRequest
-	43,  // 222: crm.v1.CRMService.ListGoogleConnections:input_type -> crm.v1.ListGoogleConnectionsRequest
-	45,  // 223: crm.v1.CRMService.DisconnectGoogleConnection:input_type -> crm.v1.DisconnectGoogleConnectionRequest
-	60,  // 224: crm.v1.CRMService.SyncGoogleMailbox:input_type -> crm.v1.SyncGoogleMailboxRequest
-	48,  // 225: crm.v1.CRMService.SyncGoogleCalendar:input_type -> crm.v1.SyncGoogleCalendarRequest
-	51,  // 226: crm.v1.CRMService.EraseSyncedContentForContact:input_type -> crm.v1.EraseSyncedContentForContactRequest
-	54,  // 227: crm.v1.CRMService.ListSyncSuppressions:input_type -> crm.v1.ListSyncSuppressionsRequest
-	56,  // 228: crm.v1.CRMService.SuppressSyncAddress:input_type -> crm.v1.SuppressSyncAddressRequest
-	58,  // 229: crm.v1.CRMService.ReleaseSyncAddress:input_type -> crm.v1.ReleaseSyncAddressRequest
-	64,  // 230: crm.v1.CRMService.CreateAccount:output_type -> crm.v1.CreateAccountResponse
-	66,  // 231: crm.v1.CRMService.GetAccount:output_type -> crm.v1.GetAccountResponse
-	68,  // 232: crm.v1.CRMService.ListAccounts:output_type -> crm.v1.ListAccountsResponse
-	70,  // 233: crm.v1.CRMService.UpdateAccount:output_type -> crm.v1.UpdateAccountResponse
-	72,  // 234: crm.v1.CRMService.DeleteAccount:output_type -> crm.v1.DeleteAccountResponse
-	75,  // 235: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
-	77,  // 236: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
-	79,  // 237: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
-	81,  // 238: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
-	83,  // 239: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
-	86,  // 240: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
-	88,  // 241: crm.v1.CRMService.GetLead:output_type -> crm.v1.GetLeadResponse
-	90,  // 242: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
-	92,  // 243: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
-	94,  // 244: crm.v1.CRMService.DeleteLead:output_type -> crm.v1.DeleteLeadResponse
-	96,  // 245: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
-	99,  // 246: crm.v1.CRMService.CreateOpportunity:output_type -> crm.v1.CreateOpportunityResponse
-	101, // 247: crm.v1.CRMService.GetOpportunity:output_type -> crm.v1.GetOpportunityResponse
-	103, // 248: crm.v1.CRMService.ListOpportunities:output_type -> crm.v1.ListOpportunitiesResponse
-	105, // 249: crm.v1.CRMService.UpdateOpportunity:output_type -> crm.v1.UpdateOpportunityResponse
-	107, // 250: crm.v1.CRMService.MoveOpportunityToPipeline:output_type -> crm.v1.MoveOpportunityToPipelineResponse
-	109, // 251: crm.v1.CRMService.DeleteOpportunity:output_type -> crm.v1.DeleteOpportunityResponse
-	112, // 252: crm.v1.CRMService.ListOpportunityStageHistory:output_type -> crm.v1.ListOpportunityStageHistoryResponse
-	115, // 253: crm.v1.CRMService.CreatePipeline:output_type -> crm.v1.CreatePipelineResponse
-	117, // 254: crm.v1.CRMService.GetPipeline:output_type -> crm.v1.GetPipelineResponse
-	119, // 255: crm.v1.CRMService.ListPipelines:output_type -> crm.v1.ListPipelinesResponse
-	121, // 256: crm.v1.CRMService.UpdatePipeline:output_type -> crm.v1.UpdatePipelineResponse
-	124, // 257: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
-	126, // 258: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
-	128, // 259: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
-	131, // 260: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
-	133, // 261: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
-	135, // 262: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
-	137, // 263: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
-	139, // 264: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
-	141, // 265: crm.v1.CRMService.ListActivitiesForSubject:output_type -> crm.v1.ListActivitiesForSubjectResponse
-	146, // 266: crm.v1.CRMService.CreateTask:output_type -> crm.v1.CreateTaskResponse
-	148, // 267: crm.v1.CRMService.GetTask:output_type -> crm.v1.GetTaskResponse
-	150, // 268: crm.v1.CRMService.ListTasks:output_type -> crm.v1.ListTasksResponse
-	152, // 269: crm.v1.CRMService.UpdateTask:output_type -> crm.v1.UpdateTaskResponse
-	154, // 270: crm.v1.CRMService.DeleteTask:output_type -> crm.v1.DeleteTaskResponse
-	156, // 271: crm.v1.CRMService.CompleteTask:output_type -> crm.v1.CompleteTaskResponse
-	158, // 272: crm.v1.CRMService.ReopenTask:output_type -> crm.v1.ReopenTaskResponse
-	161, // 273: crm.v1.CRMService.CreateNote:output_type -> crm.v1.CreateNoteResponse
-	163, // 274: crm.v1.CRMService.GetNote:output_type -> crm.v1.GetNoteResponse
-	165, // 275: crm.v1.CRMService.ListNotes:output_type -> crm.v1.ListNotesResponse
-	167, // 276: crm.v1.CRMService.UpdateNote:output_type -> crm.v1.UpdateNoteResponse
-	169, // 277: crm.v1.CRMService.DeleteNote:output_type -> crm.v1.DeleteNoteResponse
-	5,   // 278: crm.v1.CRMService.CreateCustomFieldDefinition:output_type -> crm.v1.CreateCustomFieldDefinitionResponse
-	7,   // 279: crm.v1.CRMService.GetCustomFieldDefinition:output_type -> crm.v1.GetCustomFieldDefinitionResponse
-	9,   // 280: crm.v1.CRMService.ListCustomFieldDefinitions:output_type -> crm.v1.ListCustomFieldDefinitionsResponse
-	11,  // 281: crm.v1.CRMService.UpdateCustomFieldDefinition:output_type -> crm.v1.UpdateCustomFieldDefinitionResponse
-	13,  // 282: crm.v1.CRMService.ArchiveCustomFieldDefinition:output_type -> crm.v1.ArchiveCustomFieldDefinitionResponse
-	17,  // 283: crm.v1.CRMService.CreateCustomObjectDefinition:output_type -> crm.v1.CreateCustomObjectDefinitionResponse
-	19,  // 284: crm.v1.CRMService.GetCustomObjectDefinition:output_type -> crm.v1.GetCustomObjectDefinitionResponse
-	21,  // 285: crm.v1.CRMService.ListCustomObjectDefinitions:output_type -> crm.v1.ListCustomObjectDefinitionsResponse
-	23,  // 286: crm.v1.CRMService.ArchiveCustomObjectDefinition:output_type -> crm.v1.ArchiveCustomObjectDefinitionResponse
-	25,  // 287: crm.v1.CRMService.CreateCustomRecord:output_type -> crm.v1.CreateCustomRecordResponse
-	27,  // 288: crm.v1.CRMService.GetCustomRecord:output_type -> crm.v1.GetCustomRecordResponse
-	29,  // 289: crm.v1.CRMService.ListCustomRecords:output_type -> crm.v1.ListCustomRecordsResponse
-	31,  // 290: crm.v1.CRMService.UpdateCustomRecord:output_type -> crm.v1.UpdateCustomRecordResponse
-	33,  // 291: crm.v1.CRMService.DeleteCustomRecord:output_type -> crm.v1.DeleteCustomRecordResponse
-	143, // 292: crm.v1.CRMService.GetSummary:output_type -> crm.v1.GetSummaryResponse
-	36,  // 293: crm.v1.CRMService.SearchRecords:output_type -> crm.v1.SearchRecordsResponse
-	39,  // 294: crm.v1.CRMService.StartGoogleConnection:output_type -> crm.v1.StartGoogleConnectionResponse
-	42,  // 295: crm.v1.CRMService.GetGoogleConnection:output_type -> crm.v1.GetGoogleConnectionResponse
-	44,  // 296: crm.v1.CRMService.ListGoogleConnections:output_type -> crm.v1.ListGoogleConnectionsResponse
-	46,  // 297: crm.v1.CRMService.DisconnectGoogleConnection:output_type -> crm.v1.DisconnectGoogleConnectionResponse
-	61,  // 298: crm.v1.CRMService.SyncGoogleMailbox:output_type -> crm.v1.SyncGoogleMailboxResponse
-	49,  // 299: crm.v1.CRMService.SyncGoogleCalendar:output_type -> crm.v1.SyncGoogleCalendarResponse
-	52,  // 300: crm.v1.CRMService.EraseSyncedContentForContact:output_type -> crm.v1.EraseSyncedContentResponse
-	55,  // 301: crm.v1.CRMService.ListSyncSuppressions:output_type -> crm.v1.ListSyncSuppressionsResponse
-	57,  // 302: crm.v1.CRMService.SuppressSyncAddress:output_type -> crm.v1.SuppressSyncAddressResponse
-	59,  // 303: crm.v1.CRMService.ReleaseSyncAddress:output_type -> crm.v1.ReleaseSyncAddressResponse
-	230, // [230:304] is the sub-list for method output_type
-	156, // [156:230] is the sub-list for method input_type
-	156, // [156:156] is the sub-list for extension type_name
-	156, // [156:156] is the sub-list for extension extendee
-	0,   // [0:156] is the sub-list for field type_name
+	210, // 148: crm.v1.WorkflowRule.created_at:type_name -> google.protobuf.Timestamp
+	210, // 149: crm.v1.WorkflowRule.updated_at:type_name -> google.protobuf.Timestamp
+	170, // 150: crm.v1.WorkflowRuleVersion.conditions:type_name -> crm.v1.WorkflowCondition
+	171, // 151: crm.v1.WorkflowRuleVersion.actions:type_name -> crm.v1.WorkflowAction
+	210, // 152: crm.v1.WorkflowRuleVersion.created_at:type_name -> google.protobuf.Timestamp
+	210, // 153: crm.v1.WorkflowExecution.next_attempt_at:type_name -> google.protobuf.Timestamp
+	210, // 154: crm.v1.WorkflowExecution.started_at:type_name -> google.protobuf.Timestamp
+	210, // 155: crm.v1.WorkflowExecution.finished_at:type_name -> google.protobuf.Timestamp
+	210, // 156: crm.v1.WorkflowExecution.created_at:type_name -> google.protobuf.Timestamp
+	210, // 157: crm.v1.Notification.read_at:type_name -> google.protobuf.Timestamp
+	210, // 158: crm.v1.Notification.created_at:type_name -> google.protobuf.Timestamp
+	176, // 159: crm.v1.WorkflowTriggerDescriptor.fields:type_name -> crm.v1.WorkflowField
+	177, // 160: crm.v1.DescribeWorkflowCatalogResponse.triggers:type_name -> crm.v1.WorkflowTriggerDescriptor
+	172, // 161: crm.v1.CreateWorkflowRuleResponse.rule:type_name -> crm.v1.WorkflowRule
+	172, // 162: crm.v1.GetWorkflowRuleResponse.rule:type_name -> crm.v1.WorkflowRule
+	173, // 163: crm.v1.GetWorkflowRuleResponse.active_version:type_name -> crm.v1.WorkflowRuleVersion
+	172, // 164: crm.v1.ListWorkflowRulesResponse.rules:type_name -> crm.v1.WorkflowRule
+	172, // 165: crm.v1.UpdateWorkflowRuleResponse.rule:type_name -> crm.v1.WorkflowRule
+	170, // 166: crm.v1.PublishWorkflowRuleVersionRequest.conditions:type_name -> crm.v1.WorkflowCondition
+	171, // 167: crm.v1.PublishWorkflowRuleVersionRequest.actions:type_name -> crm.v1.WorkflowAction
+	173, // 168: crm.v1.PublishWorkflowRuleVersionResponse.version:type_name -> crm.v1.WorkflowRuleVersion
+	172, // 169: crm.v1.PublishWorkflowRuleVersionResponse.rule:type_name -> crm.v1.WorkflowRule
+	173, // 170: crm.v1.ListWorkflowRuleVersionsResponse.versions:type_name -> crm.v1.WorkflowRuleVersion
+	172, // 171: crm.v1.SetWorkflowRuleStatusResponse.rule:type_name -> crm.v1.WorkflowRule
+	174, // 172: crm.v1.ListWorkflowExecutionsResponse.executions:type_name -> crm.v1.WorkflowExecution
+	175, // 173: crm.v1.ListNotificationsResponse.notifications:type_name -> crm.v1.Notification
+	175, // 174: crm.v1.MarkNotificationReadResponse.notification:type_name -> crm.v1.Notification
+	0,   // 175: crm.v1.CustomRecord.FieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 176: crm.v1.Account.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 177: crm.v1.Contact.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 178: crm.v1.Lead.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 179: crm.v1.Opportunity.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 180: crm.v1.Activity.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 181: crm.v1.Task.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	0,   // 182: crm.v1.Note.CustomFieldsEntry.value:type_name -> crm.v1.CustomValue
+	63,  // 183: crm.v1.CRMService.CreateAccount:input_type -> crm.v1.CreateAccountRequest
+	65,  // 184: crm.v1.CRMService.GetAccount:input_type -> crm.v1.GetAccountRequest
+	67,  // 185: crm.v1.CRMService.ListAccounts:input_type -> crm.v1.ListAccountsRequest
+	69,  // 186: crm.v1.CRMService.UpdateAccount:input_type -> crm.v1.UpdateAccountRequest
+	71,  // 187: crm.v1.CRMService.DeleteAccount:input_type -> crm.v1.DeleteAccountRequest
+	74,  // 188: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
+	76,  // 189: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
+	78,  // 190: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
+	80,  // 191: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
+	82,  // 192: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
+	85,  // 193: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
+	87,  // 194: crm.v1.CRMService.GetLead:input_type -> crm.v1.GetLeadRequest
+	89,  // 195: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
+	91,  // 196: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
+	93,  // 197: crm.v1.CRMService.DeleteLead:input_type -> crm.v1.DeleteLeadRequest
+	95,  // 198: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
+	98,  // 199: crm.v1.CRMService.CreateOpportunity:input_type -> crm.v1.CreateOpportunityRequest
+	100, // 200: crm.v1.CRMService.GetOpportunity:input_type -> crm.v1.GetOpportunityRequest
+	102, // 201: crm.v1.CRMService.ListOpportunities:input_type -> crm.v1.ListOpportunitiesRequest
+	104, // 202: crm.v1.CRMService.UpdateOpportunity:input_type -> crm.v1.UpdateOpportunityRequest
+	106, // 203: crm.v1.CRMService.MoveOpportunityToPipeline:input_type -> crm.v1.MoveOpportunityToPipelineRequest
+	108, // 204: crm.v1.CRMService.DeleteOpportunity:input_type -> crm.v1.DeleteOpportunityRequest
+	111, // 205: crm.v1.CRMService.ListOpportunityStageHistory:input_type -> crm.v1.ListOpportunityStageHistoryRequest
+	114, // 206: crm.v1.CRMService.CreatePipeline:input_type -> crm.v1.CreatePipelineRequest
+	116, // 207: crm.v1.CRMService.GetPipeline:input_type -> crm.v1.GetPipelineRequest
+	118, // 208: crm.v1.CRMService.ListPipelines:input_type -> crm.v1.ListPipelinesRequest
+	120, // 209: crm.v1.CRMService.UpdatePipeline:input_type -> crm.v1.UpdatePipelineRequest
+	123, // 210: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
+	125, // 211: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
+	127, // 212: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
+	130, // 213: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
+	132, // 214: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
+	134, // 215: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
+	136, // 216: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
+	138, // 217: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
+	140, // 218: crm.v1.CRMService.ListActivitiesForSubject:input_type -> crm.v1.ListActivitiesForSubjectRequest
+	145, // 219: crm.v1.CRMService.CreateTask:input_type -> crm.v1.CreateTaskRequest
+	147, // 220: crm.v1.CRMService.GetTask:input_type -> crm.v1.GetTaskRequest
+	149, // 221: crm.v1.CRMService.ListTasks:input_type -> crm.v1.ListTasksRequest
+	151, // 222: crm.v1.CRMService.UpdateTask:input_type -> crm.v1.UpdateTaskRequest
+	153, // 223: crm.v1.CRMService.DeleteTask:input_type -> crm.v1.DeleteTaskRequest
+	155, // 224: crm.v1.CRMService.CompleteTask:input_type -> crm.v1.CompleteTaskRequest
+	157, // 225: crm.v1.CRMService.ReopenTask:input_type -> crm.v1.ReopenTaskRequest
+	160, // 226: crm.v1.CRMService.CreateNote:input_type -> crm.v1.CreateNoteRequest
+	162, // 227: crm.v1.CRMService.GetNote:input_type -> crm.v1.GetNoteRequest
+	164, // 228: crm.v1.CRMService.ListNotes:input_type -> crm.v1.ListNotesRequest
+	166, // 229: crm.v1.CRMService.UpdateNote:input_type -> crm.v1.UpdateNoteRequest
+	168, // 230: crm.v1.CRMService.DeleteNote:input_type -> crm.v1.DeleteNoteRequest
+	4,   // 231: crm.v1.CRMService.CreateCustomFieldDefinition:input_type -> crm.v1.CreateCustomFieldDefinitionRequest
+	6,   // 232: crm.v1.CRMService.GetCustomFieldDefinition:input_type -> crm.v1.GetCustomFieldDefinitionRequest
+	8,   // 233: crm.v1.CRMService.ListCustomFieldDefinitions:input_type -> crm.v1.ListCustomFieldDefinitionsRequest
+	10,  // 234: crm.v1.CRMService.UpdateCustomFieldDefinition:input_type -> crm.v1.UpdateCustomFieldDefinitionRequest
+	12,  // 235: crm.v1.CRMService.ArchiveCustomFieldDefinition:input_type -> crm.v1.ArchiveCustomFieldDefinitionRequest
+	16,  // 236: crm.v1.CRMService.CreateCustomObjectDefinition:input_type -> crm.v1.CreateCustomObjectDefinitionRequest
+	18,  // 237: crm.v1.CRMService.GetCustomObjectDefinition:input_type -> crm.v1.GetCustomObjectDefinitionRequest
+	20,  // 238: crm.v1.CRMService.ListCustomObjectDefinitions:input_type -> crm.v1.ListCustomObjectDefinitionsRequest
+	22,  // 239: crm.v1.CRMService.ArchiveCustomObjectDefinition:input_type -> crm.v1.ArchiveCustomObjectDefinitionRequest
+	24,  // 240: crm.v1.CRMService.CreateCustomRecord:input_type -> crm.v1.CreateCustomRecordRequest
+	26,  // 241: crm.v1.CRMService.GetCustomRecord:input_type -> crm.v1.GetCustomRecordRequest
+	28,  // 242: crm.v1.CRMService.ListCustomRecords:input_type -> crm.v1.ListCustomRecordsRequest
+	30,  // 243: crm.v1.CRMService.UpdateCustomRecord:input_type -> crm.v1.UpdateCustomRecordRequest
+	32,  // 244: crm.v1.CRMService.DeleteCustomRecord:input_type -> crm.v1.DeleteCustomRecordRequest
+	142, // 245: crm.v1.CRMService.GetSummary:input_type -> crm.v1.GetSummaryRequest
+	34,  // 246: crm.v1.CRMService.SearchRecords:input_type -> crm.v1.SearchRecordsRequest
+	38,  // 247: crm.v1.CRMService.StartGoogleConnection:input_type -> crm.v1.StartGoogleConnectionRequest
+	41,  // 248: crm.v1.CRMService.GetGoogleConnection:input_type -> crm.v1.GetGoogleConnectionRequest
+	43,  // 249: crm.v1.CRMService.ListGoogleConnections:input_type -> crm.v1.ListGoogleConnectionsRequest
+	45,  // 250: crm.v1.CRMService.DisconnectGoogleConnection:input_type -> crm.v1.DisconnectGoogleConnectionRequest
+	60,  // 251: crm.v1.CRMService.SyncGoogleMailbox:input_type -> crm.v1.SyncGoogleMailboxRequest
+	48,  // 252: crm.v1.CRMService.SyncGoogleCalendar:input_type -> crm.v1.SyncGoogleCalendarRequest
+	51,  // 253: crm.v1.CRMService.EraseSyncedContentForContact:input_type -> crm.v1.EraseSyncedContentForContactRequest
+	54,  // 254: crm.v1.CRMService.ListSyncSuppressions:input_type -> crm.v1.ListSyncSuppressionsRequest
+	56,  // 255: crm.v1.CRMService.SuppressSyncAddress:input_type -> crm.v1.SuppressSyncAddressRequest
+	58,  // 256: crm.v1.CRMService.ReleaseSyncAddress:input_type -> crm.v1.ReleaseSyncAddressRequest
+	178, // 257: crm.v1.CRMService.DescribeWorkflowCatalog:input_type -> crm.v1.DescribeWorkflowCatalogRequest
+	180, // 258: crm.v1.CRMService.CreateWorkflowRule:input_type -> crm.v1.CreateWorkflowRuleRequest
+	182, // 259: crm.v1.CRMService.GetWorkflowRule:input_type -> crm.v1.GetWorkflowRuleRequest
+	184, // 260: crm.v1.CRMService.ListWorkflowRules:input_type -> crm.v1.ListWorkflowRulesRequest
+	186, // 261: crm.v1.CRMService.UpdateWorkflowRule:input_type -> crm.v1.UpdateWorkflowRuleRequest
+	188, // 262: crm.v1.CRMService.PublishWorkflowRuleVersion:input_type -> crm.v1.PublishWorkflowRuleVersionRequest
+	190, // 263: crm.v1.CRMService.ListWorkflowRuleVersions:input_type -> crm.v1.ListWorkflowRuleVersionsRequest
+	192, // 264: crm.v1.CRMService.SetWorkflowRuleStatus:input_type -> crm.v1.SetWorkflowRuleStatusRequest
+	194, // 265: crm.v1.CRMService.ListWorkflowExecutions:input_type -> crm.v1.ListWorkflowExecutionsRequest
+	196, // 266: crm.v1.CRMService.ListNotifications:input_type -> crm.v1.ListNotificationsRequest
+	198, // 267: crm.v1.CRMService.MarkNotificationRead:input_type -> crm.v1.MarkNotificationReadRequest
+	64,  // 268: crm.v1.CRMService.CreateAccount:output_type -> crm.v1.CreateAccountResponse
+	66,  // 269: crm.v1.CRMService.GetAccount:output_type -> crm.v1.GetAccountResponse
+	68,  // 270: crm.v1.CRMService.ListAccounts:output_type -> crm.v1.ListAccountsResponse
+	70,  // 271: crm.v1.CRMService.UpdateAccount:output_type -> crm.v1.UpdateAccountResponse
+	72,  // 272: crm.v1.CRMService.DeleteAccount:output_type -> crm.v1.DeleteAccountResponse
+	75,  // 273: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
+	77,  // 274: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
+	79,  // 275: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
+	81,  // 276: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
+	83,  // 277: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
+	86,  // 278: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
+	88,  // 279: crm.v1.CRMService.GetLead:output_type -> crm.v1.GetLeadResponse
+	90,  // 280: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
+	92,  // 281: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
+	94,  // 282: crm.v1.CRMService.DeleteLead:output_type -> crm.v1.DeleteLeadResponse
+	96,  // 283: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
+	99,  // 284: crm.v1.CRMService.CreateOpportunity:output_type -> crm.v1.CreateOpportunityResponse
+	101, // 285: crm.v1.CRMService.GetOpportunity:output_type -> crm.v1.GetOpportunityResponse
+	103, // 286: crm.v1.CRMService.ListOpportunities:output_type -> crm.v1.ListOpportunitiesResponse
+	105, // 287: crm.v1.CRMService.UpdateOpportunity:output_type -> crm.v1.UpdateOpportunityResponse
+	107, // 288: crm.v1.CRMService.MoveOpportunityToPipeline:output_type -> crm.v1.MoveOpportunityToPipelineResponse
+	109, // 289: crm.v1.CRMService.DeleteOpportunity:output_type -> crm.v1.DeleteOpportunityResponse
+	112, // 290: crm.v1.CRMService.ListOpportunityStageHistory:output_type -> crm.v1.ListOpportunityStageHistoryResponse
+	115, // 291: crm.v1.CRMService.CreatePipeline:output_type -> crm.v1.CreatePipelineResponse
+	117, // 292: crm.v1.CRMService.GetPipeline:output_type -> crm.v1.GetPipelineResponse
+	119, // 293: crm.v1.CRMService.ListPipelines:output_type -> crm.v1.ListPipelinesResponse
+	121, // 294: crm.v1.CRMService.UpdatePipeline:output_type -> crm.v1.UpdatePipelineResponse
+	124, // 295: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
+	126, // 296: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
+	128, // 297: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
+	131, // 298: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
+	133, // 299: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
+	135, // 300: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
+	137, // 301: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
+	139, // 302: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
+	141, // 303: crm.v1.CRMService.ListActivitiesForSubject:output_type -> crm.v1.ListActivitiesForSubjectResponse
+	146, // 304: crm.v1.CRMService.CreateTask:output_type -> crm.v1.CreateTaskResponse
+	148, // 305: crm.v1.CRMService.GetTask:output_type -> crm.v1.GetTaskResponse
+	150, // 306: crm.v1.CRMService.ListTasks:output_type -> crm.v1.ListTasksResponse
+	152, // 307: crm.v1.CRMService.UpdateTask:output_type -> crm.v1.UpdateTaskResponse
+	154, // 308: crm.v1.CRMService.DeleteTask:output_type -> crm.v1.DeleteTaskResponse
+	156, // 309: crm.v1.CRMService.CompleteTask:output_type -> crm.v1.CompleteTaskResponse
+	158, // 310: crm.v1.CRMService.ReopenTask:output_type -> crm.v1.ReopenTaskResponse
+	161, // 311: crm.v1.CRMService.CreateNote:output_type -> crm.v1.CreateNoteResponse
+	163, // 312: crm.v1.CRMService.GetNote:output_type -> crm.v1.GetNoteResponse
+	165, // 313: crm.v1.CRMService.ListNotes:output_type -> crm.v1.ListNotesResponse
+	167, // 314: crm.v1.CRMService.UpdateNote:output_type -> crm.v1.UpdateNoteResponse
+	169, // 315: crm.v1.CRMService.DeleteNote:output_type -> crm.v1.DeleteNoteResponse
+	5,   // 316: crm.v1.CRMService.CreateCustomFieldDefinition:output_type -> crm.v1.CreateCustomFieldDefinitionResponse
+	7,   // 317: crm.v1.CRMService.GetCustomFieldDefinition:output_type -> crm.v1.GetCustomFieldDefinitionResponse
+	9,   // 318: crm.v1.CRMService.ListCustomFieldDefinitions:output_type -> crm.v1.ListCustomFieldDefinitionsResponse
+	11,  // 319: crm.v1.CRMService.UpdateCustomFieldDefinition:output_type -> crm.v1.UpdateCustomFieldDefinitionResponse
+	13,  // 320: crm.v1.CRMService.ArchiveCustomFieldDefinition:output_type -> crm.v1.ArchiveCustomFieldDefinitionResponse
+	17,  // 321: crm.v1.CRMService.CreateCustomObjectDefinition:output_type -> crm.v1.CreateCustomObjectDefinitionResponse
+	19,  // 322: crm.v1.CRMService.GetCustomObjectDefinition:output_type -> crm.v1.GetCustomObjectDefinitionResponse
+	21,  // 323: crm.v1.CRMService.ListCustomObjectDefinitions:output_type -> crm.v1.ListCustomObjectDefinitionsResponse
+	23,  // 324: crm.v1.CRMService.ArchiveCustomObjectDefinition:output_type -> crm.v1.ArchiveCustomObjectDefinitionResponse
+	25,  // 325: crm.v1.CRMService.CreateCustomRecord:output_type -> crm.v1.CreateCustomRecordResponse
+	27,  // 326: crm.v1.CRMService.GetCustomRecord:output_type -> crm.v1.GetCustomRecordResponse
+	29,  // 327: crm.v1.CRMService.ListCustomRecords:output_type -> crm.v1.ListCustomRecordsResponse
+	31,  // 328: crm.v1.CRMService.UpdateCustomRecord:output_type -> crm.v1.UpdateCustomRecordResponse
+	33,  // 329: crm.v1.CRMService.DeleteCustomRecord:output_type -> crm.v1.DeleteCustomRecordResponse
+	143, // 330: crm.v1.CRMService.GetSummary:output_type -> crm.v1.GetSummaryResponse
+	36,  // 331: crm.v1.CRMService.SearchRecords:output_type -> crm.v1.SearchRecordsResponse
+	39,  // 332: crm.v1.CRMService.StartGoogleConnection:output_type -> crm.v1.StartGoogleConnectionResponse
+	42,  // 333: crm.v1.CRMService.GetGoogleConnection:output_type -> crm.v1.GetGoogleConnectionResponse
+	44,  // 334: crm.v1.CRMService.ListGoogleConnections:output_type -> crm.v1.ListGoogleConnectionsResponse
+	46,  // 335: crm.v1.CRMService.DisconnectGoogleConnection:output_type -> crm.v1.DisconnectGoogleConnectionResponse
+	61,  // 336: crm.v1.CRMService.SyncGoogleMailbox:output_type -> crm.v1.SyncGoogleMailboxResponse
+	49,  // 337: crm.v1.CRMService.SyncGoogleCalendar:output_type -> crm.v1.SyncGoogleCalendarResponse
+	52,  // 338: crm.v1.CRMService.EraseSyncedContentForContact:output_type -> crm.v1.EraseSyncedContentResponse
+	55,  // 339: crm.v1.CRMService.ListSyncSuppressions:output_type -> crm.v1.ListSyncSuppressionsResponse
+	57,  // 340: crm.v1.CRMService.SuppressSyncAddress:output_type -> crm.v1.SuppressSyncAddressResponse
+	59,  // 341: crm.v1.CRMService.ReleaseSyncAddress:output_type -> crm.v1.ReleaseSyncAddressResponse
+	179, // 342: crm.v1.CRMService.DescribeWorkflowCatalog:output_type -> crm.v1.DescribeWorkflowCatalogResponse
+	181, // 343: crm.v1.CRMService.CreateWorkflowRule:output_type -> crm.v1.CreateWorkflowRuleResponse
+	183, // 344: crm.v1.CRMService.GetWorkflowRule:output_type -> crm.v1.GetWorkflowRuleResponse
+	185, // 345: crm.v1.CRMService.ListWorkflowRules:output_type -> crm.v1.ListWorkflowRulesResponse
+	187, // 346: crm.v1.CRMService.UpdateWorkflowRule:output_type -> crm.v1.UpdateWorkflowRuleResponse
+	189, // 347: crm.v1.CRMService.PublishWorkflowRuleVersion:output_type -> crm.v1.PublishWorkflowRuleVersionResponse
+	191, // 348: crm.v1.CRMService.ListWorkflowRuleVersions:output_type -> crm.v1.ListWorkflowRuleVersionsResponse
+	193, // 349: crm.v1.CRMService.SetWorkflowRuleStatus:output_type -> crm.v1.SetWorkflowRuleStatusResponse
+	195, // 350: crm.v1.CRMService.ListWorkflowExecutions:output_type -> crm.v1.ListWorkflowExecutionsResponse
+	197, // 351: crm.v1.CRMService.ListNotifications:output_type -> crm.v1.ListNotificationsResponse
+	199, // 352: crm.v1.CRMService.MarkNotificationRead:output_type -> crm.v1.MarkNotificationReadResponse
+	268, // [268:353] is the sub-list for method output_type
+	183, // [183:268] is the sub-list for method input_type
+	183, // [183:183] is the sub-list for extension type_name
+	183, // [183:183] is the sub-list for extension extendee
+	0,   // [0:183] is the sub-list for field type_name
 }
 
 func init() { file_crm_v1_crm_proto_init() }
@@ -10714,7 +12876,7 @@ func file_crm_v1_crm_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_crm_v1_crm_proto_rawDesc), len(file_crm_v1_crm_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   180,
+			NumMessages:   210,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -18,6 +18,7 @@ import (
 	"github.com/santoshguru/crm/internal/domain"
 	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
+	"github.com/santoshguru/crm/internal/integration/workflow"
 	"github.com/santoshguru/crm/internal/platform"
 	"github.com/santoshguru/crm/internal/server"
 	"github.com/santoshguru/crm/internal/tracing"
@@ -93,6 +94,15 @@ func main() {
 	// Gmail quota problem must not stop meetings reaching customer timelines,
 	// and a calendar whose sync token expired must not delay anybody's mail.
 	calendar.Start(dispatchCtx, store, srv.CalendarSyncer(), 0, slog.Default())
+
+	// Workflow automation. Unlike the two sync loops this has no
+	// configuration to be missing: automation is part of the CRM rather than
+	// an integration, so it always runs, and a deployment with no active
+	// rules simply finds no due tenants. It shares the same shutdown signal —
+	// a pass interrupted mid-way leaves its cursor where it was and its lease
+	// to expire, and the idempotency key on each execution is what makes
+	// resuming safe.
+	workflow.Start(dispatchCtx, store, 0, slog.Default())
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,

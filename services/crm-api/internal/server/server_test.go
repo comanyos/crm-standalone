@@ -155,6 +155,11 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // erasing deletes timeline entries, and the other two add and remove rows on
 // the suppression list.
 //
+// "Publish", "Set" and "Mark" joined it for workflow automation and
+// notifications: publishing writes an immutable rule version, SetWorkflowRule-
+// Status moves a rule through its lifecycle, and MarkNotificationRead stamps
+// a row. "Describe" deliberately did not — the catalog is static allowlists.
+//
 // "Start" and "Disconnect" joined it for the Google connection. Both read as
 // navigation and are not: StartGoogleConnection writes a durable one-time
 // authorization record before it returns a URL, and DisconnectGoogleConnection
@@ -162,7 +167,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // for the same reason: reading a mailbox is how it decides what to write, but
 // what it writes is CRM Activities.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}
