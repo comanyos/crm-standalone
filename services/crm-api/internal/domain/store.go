@@ -292,6 +292,15 @@ type Store interface {
 	// Tags (migrations/0024_tags.sql, tags.go). Deleting a definition removes
 	// its assignments too — see DeleteTagDefinition's doc comment for why a
 	// tag has no archive state the way a pipeline or custom field does.
+	// MergeAccounts folds DuplicateID's relationships into SurvivorID,
+	// applies in.FieldResolutions to the survivor, writes an immutable
+	// AccountMergeRecord, and deletes the duplicate account — see
+	// merge_accounts.go's package doc comment for why there is no undo.
+	MergeAccounts(ctx context.Context, scope Scope, in MergeAccountsInput) (*Account, *AccountMergeRecord, error)
+	// ListAccountMerges returns every merge recorded for one account, either
+	// as the survivor or the (now-deleted) duplicate, newest first.
+	ListAccountMerges(ctx context.Context, scope Scope, accountID string) ([]*AccountMergeRecord, error)
+
 	CreateTagDefinition(ctx context.Context, scope Scope, v *TagDefinition) (*TagDefinition, error)
 	GetTagDefinition(ctx context.Context, scope Scope, id string) (*TagDefinition, error)
 	ListTagDefinitions(ctx context.Context, scope Scope) ([]*TagDefinition, error)

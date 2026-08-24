@@ -204,6 +204,7 @@ type MemStore struct {
 	stageHistory     *memTable[*OpportunityStageChange]
 	ownershipHistory *memTable[*AccountOwnershipHistory]
 	customField      *memTable[*CustomFieldDefinition]
+	accountMerge     *memTable[*AccountMergeRecord]
 	customObject     *memTable[*CustomObjectDefinition]
 	customRecord     *memTable[*CustomRecord]
 
@@ -246,6 +247,7 @@ func NewMemStore() *MemStore {
 		stageHistory:     newMemTable(cloneOpportunityStageChange),
 		ownershipHistory: newMemTable(cloneAccountOwnershipHistory),
 		customField:      newMemTable(cloneCustomFieldDefinition),
+		accountMerge:     newMemTable(cloneAccountMergeRecord),
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
 		google:           newGoogleTables(),
