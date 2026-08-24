@@ -62,6 +62,10 @@ type apiFixture struct {
 	// tagID names a tag created and assigned to accountID, so a tag probe
 	// has both a definition and an assignment to try to leak.
 	tagID string
+	// savedViewID names a private saved view, owned by this fixture's own
+	// principal (ctxAs always authenticates as "test-user" — see ctxAs in
+	// crm_test.go), so a saved-view probe has something to try to leak.
+	savedViewID string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -285,6 +289,15 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 	})); err != nil {
 		t.Fatalf("[%s] seed tag assignment: %v", label, err)
 	}
+
+	view, err := s.CreateSavedView(f.ctx, connect.NewRequest(&crmv1.CreateSavedViewRequest{
+		ObjectType: "account", Name: label + " confidential view",
+		Filters: map[string]string{"tier": "gold"},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed saved view: %v", label, err)
+	}
+	f.savedViewID = view.Msg.GetView().GetId()
 
 	return f
 }
@@ -1207,6 +1220,43 @@ var crossTenantProbes = map[string]isolationProbe{
 		if len(res.Msg.GetTags()) != 0 {
 			t.Error("ListTagsForRecord returned organization A's tags for a foreign account id")
 		}
+	},
+	"CreateSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Both fixtures authenticate as the same subject ("test-user" —
+		// ctxAs, crm_test.go) in different tenants, so this proves the
+		// isolation holds on tenant, not owner: reusing organization A's
+		// view name in organization B must succeed and mint a distinct id,
+		// never collide with or overwrite A's row.
+		res, err := s.CreateSavedView(ctxB, connect.NewRequest(&crmv1.CreateSavedViewRequest{
+			ObjectType: "account", Name: "victim confidential view",
+		}))
+		if err != nil {
+			t.Fatalf("CreateSavedView: %v", err)
+		}
+		if res.Msg.GetView().GetId() == a.savedViewID {
+			t.Error("CreateSavedView: organization B was handed organization A's saved view id")
+		}
+	},
+	"ListSavedViews": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListSavedViews(ctxB, connect.NewRequest(&crmv1.ListSavedViewsRequest{}))
+		if err != nil {
+			t.Fatalf("ListSavedViews: %v", err)
+		}
+		for _, view := range res.Msg.GetViews() {
+			if view.GetId() == a.savedViewID {
+				t.Error("ListSavedViews returned organization A's saved view")
+			}
+		}
+	},
+	"UpdateSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateSavedView(ctxB, connect.NewRequest(&crmv1.UpdateSavedViewRequest{
+			Id: a.savedViewID, Name: "seized",
+		}))
+		wantNotFound(t, "UpdateSavedView", err)
+	},
+	"DeleteSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteSavedView(ctxB, connect.NewRequest(&crmv1.DeleteSavedViewRequest{Id: a.savedViewID}))
+		wantNotFound(t, "DeleteSavedView", err)
 	},
 	"ListTaggedRecords": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		res, err := s.ListTaggedRecords(ctxB, connect.NewRequest(&crmv1.ListTaggedRecordsRequest{TagId: a.tagID}))

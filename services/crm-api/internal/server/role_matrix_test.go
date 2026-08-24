@@ -170,6 +170,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:workflow:read": true, "crm:workflow:write": true,
 			"crm:notification:read": true, "crm:notification:write": true,
 			"crm:tag:read": true, "crm:tag:write": true,
+			"crm:saved_view:read": true, "crm:saved_view:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -192,6 +193,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:workflow:read": true, "crm:workflow:write": true,
 			"crm:notification:read": true, "crm:notification:write": true,
 			"crm:tag:read": true, "crm:tag:write": true,
+			"crm:saved_view:read": true, "crm:saved_view:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -222,6 +224,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:workflow:read": true, "crm:workflow:write": false,
 			"crm:notification:read": true, "crm:notification:write": true,
 			"crm:tag:read": true, "crm:tag:write": true,
+			"crm:saved_view:read": true, "crm:saved_view:write": true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -247,6 +250,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// it — see TestViewerHoldsNoWriteAuthority.
 			"crm:notification:read": true, "crm:notification:write": false,
 			"crm:tag:read": true, "crm:tag:write": false,
+			"crm:saved_view:read": false, "crm:saved_view:write": false,
 		},
 	}
 

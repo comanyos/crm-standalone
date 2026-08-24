@@ -184,6 +184,20 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/BulkReassignTaskAssignee": "crm:task:write",
 	"/crm.v1.CRMService/BulkReassignAccountOwner": "crm:account:write",
 	"/crm.v1.CRMService/BulkReassignLeadOwner":    "crm:lead:write",
+
+	// Saved views. Every RPC scopes to the caller's own views by
+	// construction (see internal/api/saved_views.go), so read and write here
+	// mean "may this principal have saved views at all" rather than
+	// authority over anyone else's — the same posture notifications' scopes
+	// have. crm_viewer holds neither: see role_matrix_test.go's
+	// TestViewerHoldsNoWriteAuthority for why that role holds no :write
+	// scope of any kind, which as a side effect means a pure viewer cannot
+	// save a view in this version — a real, named limitation rather than an
+	// oversight.
+	"/crm.v1.CRMService/CreateSavedView": "crm:saved_view:write",
+	"/crm.v1.CRMService/ListSavedViews":  "crm:saved_view:read",
+	"/crm.v1.CRMService/UpdateSavedView": "crm:saved_view:write",
+	"/crm.v1.CRMService/DeleteSavedView": "crm:saved_view:write",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

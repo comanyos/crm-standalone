@@ -302,6 +302,18 @@ const (
 	// CRMServiceBulkReassignLeadOwnerProcedure is the fully-qualified name of the CRMService's
 	// BulkReassignLeadOwner RPC.
 	CRMServiceBulkReassignLeadOwnerProcedure = "/crm.v1.CRMService/BulkReassignLeadOwner"
+	// CRMServiceCreateSavedViewProcedure is the fully-qualified name of the CRMService's
+	// CreateSavedView RPC.
+	CRMServiceCreateSavedViewProcedure = "/crm.v1.CRMService/CreateSavedView"
+	// CRMServiceListSavedViewsProcedure is the fully-qualified name of the CRMService's ListSavedViews
+	// RPC.
+	CRMServiceListSavedViewsProcedure = "/crm.v1.CRMService/ListSavedViews"
+	// CRMServiceUpdateSavedViewProcedure is the fully-qualified name of the CRMService's
+	// UpdateSavedView RPC.
+	CRMServiceUpdateSavedViewProcedure = "/crm.v1.CRMService/UpdateSavedView"
+	// CRMServiceDeleteSavedViewProcedure is the fully-qualified name of the CRMService's
+	// DeleteSavedView RPC.
+	CRMServiceDeleteSavedViewProcedure = "/crm.v1.CRMService/DeleteSavedView"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -516,6 +528,14 @@ type CRMServiceClient interface {
 	// a request field the interceptor's static policy cannot see.
 	BulkReassignAccountOwner(context.Context, *connect.Request[v1.BulkReassignAccountOwnerRequest]) (*connect.Response[v1.BulkReassignAccountOwnerResponse], error)
 	BulkReassignLeadOwner(context.Context, *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error)
+	// Saved views (M4 — data productivity). Private to the caller by
+	// construction — see internal/domain/saved_views.go's doc comment for why
+	// there is no sharing yet — so every RPC here reads only the caller's own
+	// views, the same way notifications do.
+	CreateSavedView(context.Context, *connect.Request[v1.CreateSavedViewRequest]) (*connect.Response[v1.CreateSavedViewResponse], error)
+	ListSavedViews(context.Context, *connect.Request[v1.ListSavedViewsRequest]) (*connect.Response[v1.ListSavedViewsResponse], error)
+	UpdateSavedView(context.Context, *connect.Request[v1.UpdateSavedViewRequest]) (*connect.Response[v1.UpdateSavedViewResponse], error)
+	DeleteSavedView(context.Context, *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1129,6 +1149,30 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("BulkReassignLeadOwner")),
 			connect.WithClientOptions(opts...),
 		),
+		createSavedView: connect.NewClient[v1.CreateSavedViewRequest, v1.CreateSavedViewResponse](
+			httpClient,
+			baseURL+CRMServiceCreateSavedViewProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateSavedView")),
+			connect.WithClientOptions(opts...),
+		),
+		listSavedViews: connect.NewClient[v1.ListSavedViewsRequest, v1.ListSavedViewsResponse](
+			httpClient,
+			baseURL+CRMServiceListSavedViewsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListSavedViews")),
+			connect.WithClientOptions(opts...),
+		),
+		updateSavedView: connect.NewClient[v1.UpdateSavedViewRequest, v1.UpdateSavedViewResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateSavedViewProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateSavedView")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteSavedView: connect.NewClient[v1.DeleteSavedViewRequest, v1.DeleteSavedViewResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteSavedViewProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteSavedView")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1234,6 +1278,10 @@ type cRMServiceClient struct {
 	bulkReassignTaskAssignee      *connect.Client[v1.BulkReassignTaskAssigneeRequest, v1.BulkReassignTaskAssigneeResponse]
 	bulkReassignAccountOwner      *connect.Client[v1.BulkReassignAccountOwnerRequest, v1.BulkReassignAccountOwnerResponse]
 	bulkReassignLeadOwner         *connect.Client[v1.BulkReassignLeadOwnerRequest, v1.BulkReassignLeadOwnerResponse]
+	createSavedView               *connect.Client[v1.CreateSavedViewRequest, v1.CreateSavedViewResponse]
+	listSavedViews                *connect.Client[v1.ListSavedViewsRequest, v1.ListSavedViewsResponse]
+	updateSavedView               *connect.Client[v1.UpdateSavedViewRequest, v1.UpdateSavedViewResponse]
+	deleteSavedView               *connect.Client[v1.DeleteSavedViewRequest, v1.DeleteSavedViewResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1736,6 +1784,26 @@ func (c *cRMServiceClient) BulkReassignLeadOwner(ctx context.Context, req *conne
 	return c.bulkReassignLeadOwner.CallUnary(ctx, req)
 }
 
+// CreateSavedView calls crm.v1.CRMService.CreateSavedView.
+func (c *cRMServiceClient) CreateSavedView(ctx context.Context, req *connect.Request[v1.CreateSavedViewRequest]) (*connect.Response[v1.CreateSavedViewResponse], error) {
+	return c.createSavedView.CallUnary(ctx, req)
+}
+
+// ListSavedViews calls crm.v1.CRMService.ListSavedViews.
+func (c *cRMServiceClient) ListSavedViews(ctx context.Context, req *connect.Request[v1.ListSavedViewsRequest]) (*connect.Response[v1.ListSavedViewsResponse], error) {
+	return c.listSavedViews.CallUnary(ctx, req)
+}
+
+// UpdateSavedView calls crm.v1.CRMService.UpdateSavedView.
+func (c *cRMServiceClient) UpdateSavedView(ctx context.Context, req *connect.Request[v1.UpdateSavedViewRequest]) (*connect.Response[v1.UpdateSavedViewResponse], error) {
+	return c.updateSavedView.CallUnary(ctx, req)
+}
+
+// DeleteSavedView calls crm.v1.CRMService.DeleteSavedView.
+func (c *cRMServiceClient) DeleteSavedView(ctx context.Context, req *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error) {
+	return c.deleteSavedView.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -1948,6 +2016,14 @@ type CRMServiceHandler interface {
 	// a request field the interceptor's static policy cannot see.
 	BulkReassignAccountOwner(context.Context, *connect.Request[v1.BulkReassignAccountOwnerRequest]) (*connect.Response[v1.BulkReassignAccountOwnerResponse], error)
 	BulkReassignLeadOwner(context.Context, *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error)
+	// Saved views (M4 — data productivity). Private to the caller by
+	// construction — see internal/domain/saved_views.go's doc comment for why
+	// there is no sharing yet — so every RPC here reads only the caller's own
+	// views, the same way notifications do.
+	CreateSavedView(context.Context, *connect.Request[v1.CreateSavedViewRequest]) (*connect.Response[v1.CreateSavedViewResponse], error)
+	ListSavedViews(context.Context, *connect.Request[v1.ListSavedViewsRequest]) (*connect.Response[v1.ListSavedViewsResponse], error)
+	UpdateSavedView(context.Context, *connect.Request[v1.UpdateSavedViewRequest]) (*connect.Response[v1.UpdateSavedViewResponse], error)
+	DeleteSavedView(context.Context, *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2557,6 +2633,30 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("BulkReassignLeadOwner")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateSavedViewHandler := connect.NewUnaryHandler(
+		CRMServiceCreateSavedViewProcedure,
+		svc.CreateSavedView,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateSavedView")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListSavedViewsHandler := connect.NewUnaryHandler(
+		CRMServiceListSavedViewsProcedure,
+		svc.ListSavedViews,
+		connect.WithSchema(cRMServiceMethods.ByName("ListSavedViews")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateSavedViewHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateSavedViewProcedure,
+		svc.UpdateSavedView,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateSavedView")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteSavedViewHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteSavedViewProcedure,
+		svc.DeleteSavedView,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteSavedView")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -2759,6 +2859,14 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceBulkReassignAccountOwnerHandler.ServeHTTP(w, r)
 		case CRMServiceBulkReassignLeadOwnerProcedure:
 			cRMServiceBulkReassignLeadOwnerHandler.ServeHTTP(w, r)
+		case CRMServiceCreateSavedViewProcedure:
+			cRMServiceCreateSavedViewHandler.ServeHTTP(w, r)
+		case CRMServiceListSavedViewsProcedure:
+			cRMServiceListSavedViewsHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateSavedViewProcedure:
+			cRMServiceUpdateSavedViewHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteSavedViewProcedure:
+			cRMServiceDeleteSavedViewHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3166,4 +3274,20 @@ func (UnimplementedCRMServiceHandler) BulkReassignAccountOwner(context.Context, 
 
 func (UnimplementedCRMServiceHandler) BulkReassignLeadOwner(context.Context, *connect.Request[v1.BulkReassignLeadOwnerRequest]) (*connect.Response[v1.BulkReassignLeadOwnerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.BulkReassignLeadOwner is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateSavedView(context.Context, *connect.Request[v1.CreateSavedViewRequest]) (*connect.Response[v1.CreateSavedViewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateSavedView is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListSavedViews(context.Context, *connect.Request[v1.ListSavedViewsRequest]) (*connect.Response[v1.ListSavedViewsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListSavedViews is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateSavedView(context.Context, *connect.Request[v1.UpdateSavedViewRequest]) (*connect.Response[v1.UpdateSavedViewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateSavedView is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteSavedView(context.Context, *connect.Request[v1.DeleteSavedViewRequest]) (*connect.Response[v1.DeleteSavedViewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteSavedView is not implemented"))
 }

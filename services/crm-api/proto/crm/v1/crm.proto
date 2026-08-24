@@ -235,6 +235,15 @@ service CRMService {
   // a request field the interceptor's static policy cannot see.
   rpc BulkReassignAccountOwner(BulkReassignAccountOwnerRequest) returns (BulkReassignAccountOwnerResponse);
   rpc BulkReassignLeadOwner(BulkReassignLeadOwnerRequest) returns (BulkReassignLeadOwnerResponse);
+
+  // Saved views (M4 — data productivity). Private to the caller by
+  // construction — see internal/domain/saved_views.go's doc comment for why
+  // there is no sharing yet — so every RPC here reads only the caller's own
+  // views, the same way notifications do.
+  rpc CreateSavedView(CreateSavedViewRequest) returns (CreateSavedViewResponse);
+  rpc ListSavedViews(ListSavedViewsRequest) returns (ListSavedViewsResponse);
+  rpc UpdateSavedView(UpdateSavedViewRequest) returns (UpdateSavedViewResponse);
+  rpc DeleteSavedView(DeleteSavedViewRequest) returns (DeleteSavedViewResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -1326,3 +1335,43 @@ message BulkReassignLeadOwnerRequest {
   string new_owner_id = 2;
 }
 message BulkReassignLeadOwnerResponse { repeated BulkItemResult results = 1; }
+
+// Saved views.
+message SavedView {
+  string id = 1;
+  string object_type = 2;
+  string name = 3;
+  map<string, string> filters = 4;
+  string sort = 5;
+  repeated string columns = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateSavedViewRequest {
+  string object_type = 1;
+  string name = 2;
+  map<string, string> filters = 3;
+  string sort = 4;
+  repeated string columns = 5;
+}
+message CreateSavedViewResponse { SavedView view = 1; }
+
+message ListSavedViewsRequest {
+  // object_type narrows to one list. Empty means every saved view the
+  // caller owns, across every list.
+  string object_type = 1;
+}
+message ListSavedViewsResponse { repeated SavedView views = 1; }
+
+message UpdateSavedViewRequest {
+  string id = 1;
+  string name = 2;
+  map<string, string> filters = 3;
+  string sort = 4;
+  repeated string columns = 5;
+}
+message UpdateSavedViewResponse { SavedView view = 1; }
+
+message DeleteSavedViewRequest { string id = 1; }
+message DeleteSavedViewResponse {}

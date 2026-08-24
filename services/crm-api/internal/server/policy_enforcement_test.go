@@ -292,6 +292,10 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateTag(ctx, withToken(&crmv1.CreateTagRequest{Name: "x"}, tok))
 			return err
 		},
+		"crm:saved_view:write": func(tok string) error {
+			_, err := client.CreateSavedView(ctx, withToken(&crmv1.CreateSavedViewRequest{ObjectType: "account", Name: "x"}, tok))
+			return err
+		},
 	}
 
 	// Every write scope this service demands needs a probe here.
