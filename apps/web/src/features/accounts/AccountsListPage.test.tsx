@@ -6,7 +6,7 @@ import { makeAccount, renderRoutes } from "../../test/harness";
 import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
-  crm: { listAccounts: vi.fn() },
+  crm: { listAccounts: vi.fn(), listTags: vi.fn(), bulkAssignTag: vi.fn(), bulkRemoveTag: vi.fn() },
   auth: {
     hasScope: vi.fn(),
     hasRole: vi.fn(),
@@ -31,6 +31,9 @@ beforeEach(() => {
   auth.hasScope.mockReturnValue(true);
   auth.hasRole.mockReturnValue(true);
   crm.listAccounts.mockResolvedValue({ accounts: [makeAccount()], nextPageToken: "" });
+  crm.listTags.mockResolvedValue({ tags: [{ $typeName: "crm.v1.Tag", id: "tag-1", name: "Hot Lead", color: "#ff0000" }] });
+  crm.bulkAssignTag.mockResolvedValue({ results: [{ id: "acc-1", success: true, error: "" }] });
+  crm.bulkRemoveTag.mockResolvedValue({ results: [{ id: "acc-1", success: true, error: "" }] });
 });
 
 /** The last argument ListAccounts was called with — the request the screen
@@ -151,6 +154,54 @@ describe("AccountsListPage", () => {
 
     const rowHeader = screen.getByRole("rowheader", { name: /Acme Corp/ });
     expect(rowHeader).toBeInTheDocument();
+  });
+
+  // Bulk tagging: select a row, pick a tag, and the batch call carries the
+  // selected id — the same "one bulk call, not a loop" contract the tasks
+  // list's bulk actions have.
+  it("bulk-tags the selected accounts", async () => {
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Acme Corp" }));
+    expect(screen.getByText("1 account selected")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "tag-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add tag to selected" }));
+
+    await waitFor(() => expect(crm.bulkAssignTag).toHaveBeenCalledWith({
+      tagId: "tag-1", objectType: "account", objectIds: ["acc-1"],
+    }));
+    await waitFor(() => expect(screen.queryByText(/account selected/)).not.toBeInTheDocument());
+  });
+
+  it("bulk-removes a tag from the selected accounts", async () => {
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Acme Corp" }));
+    fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "tag-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Remove tag from selected" }));
+
+    await waitFor(() => expect(crm.bulkRemoveTag).toHaveBeenCalledWith({
+      tagId: "tag-1", objectType: "account", objectIds: ["acc-1"],
+    }));
+  });
+
+  it("offers no bulk-tag controls without the tag write scope", async () => {
+    auth.hasScope.mockImplementation((scope: string) => scope !== "crm:tag:write");
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    expect(screen.queryByRole("checkbox", { name: /^Select /i })).not.toBeInTheDocument();
+  });
+
+  it("has no accessibility violations with the bulk-tag toolbar open", async () => {
+    const { container } = renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Acme Corp" }));
+    await screen.findByText("1 account selected");
+    await expectNoA11yViolations(container);
   });
 
 });

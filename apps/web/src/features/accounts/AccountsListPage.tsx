@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { PageHeader } from "../../components/shell/PageHeader";
 import { Table, type Column } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
@@ -10,7 +10,8 @@ import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/StatePanel";
-import { renderQueryError } from "../../lib/connectErrors";
+import { useToast } from "../../components/ui/Toast";
+import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useDebouncedValue } from "../../lib/useDebouncedValue";
 import { useAuth } from "../../auth/AuthProvider";
@@ -27,6 +28,7 @@ export default function AccountsListPage() {
   const { crm } = useCrmClients();
   const { hasScope } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [nameContains, setNameContains] = useState("");
   const [tier, setTier] = useState("");
@@ -37,8 +39,54 @@ export default function AccountsListPage() {
   const [history, setHistory] = useState<string[]>([""]);
   const currentToken = history[history.length - 1];
 
+  // Bulk tag selection is page-local, the same as the tasks list's bulk
+  // selection: it does not survive a filter change or a page turn, both of
+  // which already invalidate what "selected" means.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [tagToApply, setTagToApply] = useState("");
+  const canTag = hasScope("crm:tag:write");
+  const tagsQuery = useQuery({ queryKey: ["crm.listTags"], queryFn: () => crm.listTags({}), enabled: canTag });
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const reportBulkOutcome = (results: { success: boolean }[], verb: string) => {
+    const succeeded = results.filter((r) => r.success).length;
+    const failed = results.length - succeeded;
+    if (failed === 0) {
+      toast.show({ tone: "success", message: `${verb} ${succeeded} account${succeeded === 1 ? "" : "s"}.` });
+    } else {
+      toast.show({
+        tone: "warning",
+        message: `${verb} ${succeeded}, ${failed} failed — an account may have changed since you selected it.`,
+      });
+    }
+  };
+  const bulkAssign = useMutation({
+    mutationFn: () => crm.bulkAssignTag({ tagId: tagToApply, objectType: "account", objectIds: Array.from(selected) }),
+    onSuccess: (res) => {
+      setSelected(new Set());
+      setTagToApply("");
+      reportBulkOutcome(res.results, "Tagged");
+    },
+    onError: (err) => toast.show({ tone: "danger", message: mutationErrorMessage(err) }),
+  });
+  const bulkRemove = useMutation({
+    mutationFn: () => crm.bulkRemoveTag({ tagId: tagToApply, objectType: "account", objectIds: Array.from(selected) }),
+    onSuccess: (res) => {
+      setSelected(new Set());
+      setTagToApply("");
+      reportBulkOutcome(res.results, "Untagged");
+    },
+    onError: (err) => toast.show({ tone: "danger", message: mutationErrorMessage(err) }),
+  });
+
   useEffect(() => {
     setHistory([""]);
+    setSelected(new Set());
   }, [debouncedName, debouncedTier, sort]);
 
   const { data, error, isPending, isPlaceholderData, refetch } = useQuery({
@@ -56,8 +104,27 @@ export default function AccountsListPage() {
 
   const columns: Column<Account>[] = [
     {
+      key: "select",
+      header: "Select", headerHidden: true,
+      render: (a) =>
+        canTag ? (
+          <input
+            type="checkbox"
+            checked={selected.has(a.id)}
+            aria-label={`Select ${a.name}`}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              event.stopPropagation();
+              toggleSelected(a.id);
+            }}
+            className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+        ) : null,
+    },
+    {
       key: "name",
       header: "Name",
+      rowHeader: true,
       render: (a) => <span className="font-medium text-slate-900">{a.name}</span>,
     },
     {
@@ -155,6 +222,43 @@ export default function AccountsListPage() {
 
       {data && data.accounts.length > 0 && (
         <div className={isPlaceholderData ? "opacity-60" : undefined}>
+          {canTag && selected.size > 0 && (
+            <div className="mb-3 flex flex-wrap items-end gap-3 rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-sm">
+              <span className="font-medium text-brand-800">
+                {selected.size} account{selected.size === 1 ? "" : "s"} selected
+              </span>
+              <div className="w-48">
+                <Select
+                  label="Tag"
+                  value={tagToApply}
+                  onChange={(e) => setTagToApply(e.target.value)}
+                  placeholder="Choose a tag…"
+                  options={(tagsQuery.data?.tags ?? []).map((t) => ({ value: t.id, label: t.name }))}
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!tagToApply}
+                loading={bulkAssign.isPending}
+                onClick={() => bulkAssign.mutate()}
+              >
+                Add tag to selected
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!tagToApply}
+                loading={bulkRemove.isPending}
+                onClick={() => bulkRemove.mutate()}
+              >
+                Remove tag from selected
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setSelected(new Set())}>
+                Clear selection
+              </Button>
+            </div>
+          )}
           <Table
             caption="Accounts"
             columns={columns}
