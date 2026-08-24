@@ -6,7 +6,10 @@ import { makeAccount, renderRoutes } from "../../test/harness";
 import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
-  crm: { listAccounts: vi.fn(), listTags: vi.fn(), bulkAssignTag: vi.fn(), bulkRemoveTag: vi.fn() },
+  crm: {
+    listAccounts: vi.fn(), listTags: vi.fn(), bulkAssignTag: vi.fn(), bulkRemoveTag: vi.fn(),
+    listSavedViews: vi.fn(), createSavedView: vi.fn(), deleteSavedView: vi.fn(),
+  },
   auth: {
     hasScope: vi.fn(),
     hasRole: vi.fn(),
@@ -34,6 +37,11 @@ beforeEach(() => {
   crm.listTags.mockResolvedValue({ tags: [{ $typeName: "crm.v1.Tag", id: "tag-1", name: "Hot Lead", color: "#ff0000" }] });
   crm.bulkAssignTag.mockResolvedValue({ results: [{ id: "acc-1", success: true, error: "" }] });
   crm.bulkRemoveTag.mockResolvedValue({ results: [{ id: "acc-1", success: true, error: "" }] });
+  crm.listSavedViews.mockResolvedValue({ views: [] });
+  crm.createSavedView.mockResolvedValue({
+    view: { $typeName: "crm.v1.SavedView", id: "view-1", objectType: "account", name: "Gold accounts", filters: { nameContains: "", tier: "gold" }, sort: "", columns: [] },
+  });
+  crm.deleteSavedView.mockResolvedValue({});
 });
 
 /** The last argument ListAccounts was called with — the request the screen
@@ -202,6 +210,62 @@ describe("AccountsListPage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Acme Corp" }));
     await screen.findByText("1 account selected");
     await expectNoA11yViolations(container);
+  });
+
+  // Saved views: the current filter/sort state, not a copy the server
+  // invents — the request must carry exactly what's on screen.
+  it("saves the current filters as a named view", async () => {
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    fireEvent.change(screen.getByLabelText("Tier"), { target: { value: "gold" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
+    await screen.findByRole("dialog");
+    fireEvent.change(screen.getByLabelText("View name"), { target: { value: "Gold accounts" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save view" }));
+
+    await waitFor(() => expect(crm.createSavedView).toHaveBeenCalledWith({
+      objectType: "account", name: "Gold accounts", filters: { nameContains: "", tier: "gold" }, sort: "",
+    }));
+  });
+
+  it("applies a saved view's filters when picked", async () => {
+    crm.listSavedViews.mockResolvedValue({
+      views: [{ $typeName: "crm.v1.SavedView", id: "view-1", objectType: "account", name: "Gold accounts", filters: { nameContains: "Acme", tier: "gold" }, sort: "-created_at", columns: [] }],
+    });
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    fireEvent.change(await screen.findByLabelText("Saved view"), { target: { value: "view-1" } });
+
+    await waitFor(() => {
+      expect((screen.getByLabelText("Search by name") as HTMLInputElement).value).toBe("Acme");
+      expect((screen.getByLabelText("Tier") as HTMLInputElement).value).toBe("gold");
+      expect((screen.getByLabelText("Sort by") as HTMLSelectElement).value).toBe("-created_at");
+    });
+  });
+
+  it("deletes the active saved view", async () => {
+    crm.listSavedViews.mockResolvedValue({
+      views: [{ $typeName: "crm.v1.SavedView", id: "view-1", objectType: "account", name: "Gold accounts", filters: {}, sort: "", columns: [] }],
+    });
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    fireEvent.change(await screen.findByLabelText("Saved view"), { target: { value: "view-1" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete view" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Delete view" }));
+
+    await waitFor(() => expect(crm.deleteSavedView).toHaveBeenCalledWith({ id: "view-1" }));
+  });
+
+  it("offers no saved-view controls without the saved_view scopes", async () => {
+    auth.hasScope.mockImplementation((scope: string) => !scope.startsWith("crm:saved_view"));
+    renderRoutes(routes, ["/accounts"]);
+    await screen.findByText("Acme Corp");
+
+    expect(screen.queryByRole("button", { name: "Save current view" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Saved view")).not.toBeInTheDocument();
   });
 
 });

@@ -8,6 +8,7 @@ import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
+import { Dialog } from "../../components/ui/Dialog";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/StatePanel";
 import { useToast } from "../../components/ui/Toast";
@@ -15,7 +16,7 @@ import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors"
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useDebouncedValue } from "../../lib/useDebouncedValue";
 import { useAuth } from "../../auth/AuthProvider";
-import type { Account } from "@crm/contracts";
+import type { Account, SavedView } from "@crm/contracts";
 
 const SORT_OPTIONS = [
   { value: "", label: "Name (A–Z)" },
@@ -88,6 +89,51 @@ export default function AccountsListPage() {
     setHistory([""]);
     setSelected(new Set());
   }, [debouncedName, debouncedTier, sort]);
+
+  // Saved views: a private, per-owner preset of this page's own filters and
+  // sort. applyView is the one place that knows how a SavedView's flat
+  // filters map maps back onto this page's own filter state.
+  const canReadViews = hasScope("crm:saved_view:read");
+  const canSaveViews = hasScope("crm:saved_view:write");
+  const [activeViewId, setActiveViewId] = useState("");
+  const [savingView, setSavingView] = useState(false);
+  const [newViewName, setNewViewName] = useState("");
+  const savedViewsQuery = useQuery({
+    queryKey: ["crm.listSavedViews", "account"],
+    queryFn: () => crm.listSavedViews({ objectType: "account" }),
+    enabled: canReadViews,
+  });
+  const applyView = (view: SavedView) => {
+    setNameContains(view.filters.nameContains ?? "");
+    setTier(view.filters.tier ?? "");
+    setSort(view.sort);
+  };
+  const saveView = useMutation({
+    mutationFn: () =>
+      crm.createSavedView({
+        objectType: "account",
+        name: newViewName.trim(),
+        filters: { nameContains, tier },
+        sort,
+      }),
+    onSuccess: (res) => {
+      savedViewsQuery.refetch();
+      setActiveViewId(res.view?.id ?? "");
+      setSavingView(false);
+      setNewViewName("");
+      toast.show({ tone: "success", message: "View saved." });
+    },
+    onError: (err) => toast.show({ tone: "danger", message: mutationErrorMessage(err) }),
+  });
+  const deleteView = useMutation({
+    mutationFn: (id: string) => crm.deleteSavedView({ id }),
+    onSuccess: () => {
+      setActiveViewId("");
+      savedViewsQuery.refetch();
+      toast.show({ tone: "success", message: "View deleted." });
+    },
+    onError: (err) => toast.show({ tone: "danger", message: mutationErrorMessage(err) }),
+  });
 
   const { data, error, isPending, isPlaceholderData, refetch } = useQuery({
     queryKey: ["crm.listAccounts", debouncedName, debouncedTier, sort, currentToken],
@@ -191,6 +237,31 @@ export default function AccountsListPage() {
             options={SORT_OPTIONS}
           />
         </div>
+        {canReadViews && (savedViewsQuery.data?.views.length ?? 0) > 0 && (
+          <div className="w-56">
+            <Select
+              label="Saved view"
+              value={activeViewId}
+              onChange={(e) => {
+                setActiveViewId(e.target.value);
+                const view = savedViewsQuery.data?.views.find((v) => v.id === e.target.value);
+                if (view) applyView(view);
+              }}
+              placeholder="None"
+              options={(savedViewsQuery.data?.views ?? []).map((v) => ({ value: v.id, label: v.name }))}
+            />
+          </div>
+        )}
+        {canSaveViews && (
+          <Button variant="secondary" onClick={() => { setNewViewName(""); setSavingView(true); }}>
+            Save current view
+          </Button>
+        )}
+        {canSaveViews && activeViewId && (
+          <Button variant="secondary" loading={deleteView.isPending} onClick={() => deleteView.mutate(activeViewId)}>
+            Delete view
+          </Button>
+        )}
       </div>
 
       {isPending && <SkeletonRows rows={6} />}
@@ -276,6 +347,29 @@ export default function AccountsListPage() {
           </div>
         </div>
       )}
+      <Dialog
+        open={savingView}
+        onClose={() => setSavingView(false)}
+        title="Save current view"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSavingView(false)} disabled={saveView.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={() => saveView.mutate()} loading={saveView.isPending} disabled={!newViewName.trim()}>
+              Save view
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="View name"
+          value={newViewName}
+          onChange={(e) => setNewViewName(e.target.value)}
+          hint="Saves the current search, tier filter, and sort order for you to reapply later. Views are private to you."
+          required
+        />
+      </Dialog>
     </div>
   );
 }
