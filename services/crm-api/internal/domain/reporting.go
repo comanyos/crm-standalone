@@ -23,15 +23,24 @@ import "time"
 //   - Pipeline status. "open"/"won"/"lost" is PipelineStage.TerminalType,
 //     the same field pipeline_test.go and transitions.go already treat as
 //     authoritative — never inferred from a stage's name or position.
-//   - Forecast. Not implemented. A weighted-pipeline forecast needs
-//     probability-by-stage rules a product owner has not set (the same
-//     open decision the currency note above cites), so this report offers
-//     none rather than a number nobody agreed the formula for.
+//   - Forecast. Included, via the existing PipelineForecast (forecast.go)
+//     and its DefaultStageProbabilities — a documented default weighting,
+//     not a product-confirmed methodology (forecast.go's own doc comment
+//     says as much: "a deployment with a real forecasting methodology
+//     supplies its own map"). It is keyed on Opportunity.Stage, the fixed
+//     six-value state machine transitions.go enforces on every write
+//     regardless of which Pipeline/PipelineStage a deal lives in, so the
+//     rollup is valid tenant-wide rather than scoped to one pipeline's
+//     custom stages. DashboardReport surfaces it as-is rather than
+//     inventing a second, competing forecast model.
 //
 // This file holds pure aggregation over already-fetched records — no store
-// access, so it is unit-testable without a live database or a MemStore. The
-// composition (paging through a tenant's pipelines, opportunities, tasks and
-// leads to build the inputs) lives in internal/api/reporting.go, bounded the
+// access, so it is unit-testable without a live database or a MemStore
+// (PipelineForecast is the one exception DashboardReport composes in
+// directly, since it already exists as its own store-backed rollup and
+// re-deriving it here would fork the two). The remaining composition
+// (paging through a tenant's pipelines, opportunities, tasks and leads to
+// build the pure inputs) lives in internal/api/reporting.go, bounded the
 // same way every other list this session added is bounded: one page, not an
 // unbounded per-tenant scan.
 
@@ -93,11 +102,15 @@ func (r ConversionReport) ConversionRate() float64 {
 }
 
 // DashboardReport is the whole first-cut dashboard: one entry per pipeline,
-// the task summary, and the lead conversion funnel.
+// the task summary, the lead conversion funnel, and the tenant-wide weighted
+// forecast. Forecast is a pointer because building it needs a store round
+// trip (PipelineForecast) that a caller may skip — nil means "not
+// requested", not "zero pipeline value".
 type DashboardReport struct {
 	Pipelines   []PipelineReport
 	Tasks       TaskReport
 	Conversion  ConversionReport
+	Forecast    *Forecast
 	GeneratedAt time.Time
 }
 

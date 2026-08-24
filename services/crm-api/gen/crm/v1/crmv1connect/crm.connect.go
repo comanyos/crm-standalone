@@ -337,6 +337,9 @@ const (
 	// CRMServiceListExportJobsProcedure is the fully-qualified name of the CRMService's ListExportJobs
 	// RPC.
 	CRMServiceListExportJobsProcedure = "/crm.v1.CRMService/ListExportJobs"
+	// CRMServiceGetDashboardReportProcedure is the fully-qualified name of the CRMService's
+	// GetDashboardReport RPC.
+	CRMServiceGetDashboardReportProcedure = "/crm.v1.CRMService/GetDashboardReport"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -588,6 +591,13 @@ type CRMServiceClient interface {
 	// ListExportJobs is the audit trail of who exported, when, and how many
 	// rows — the export content itself is never persisted.
 	ListExportJobs(context.Context, *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error)
+	// GetDashboardReport is the bounded, tenant-scoped reporting surface
+	// (M4 — data productivity): one page of pipeline/stage summary per
+	// pipeline, a task status summary, the lead conversion funnel, and the
+	// default-weighted pipeline forecast. See internal/domain/reporting.go
+	// for the canonical metric semantics (currency, time zone, pipeline
+	// status, and forecast) this report follows.
+	GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1273,6 +1283,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListExportJobs")),
 			connect.WithClientOptions(opts...),
 		),
+		getDashboardReport: connect.NewClient[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse](
+			httpClient,
+			baseURL+CRMServiceGetDashboardReportProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetDashboardReport")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1390,6 +1406,7 @@ type cRMServiceClient struct {
 	commitImportJob               *connect.Client[v1.CommitImportJobRequest, v1.CommitImportJobResponse]
 	exportAccounts                *connect.Client[v1.ExportAccountsRequest, v1.ExportAccountsResponse]
 	listExportJobs                *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
+	getDashboardReport            *connect.Client[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1952,6 +1969,11 @@ func (c *cRMServiceClient) ListExportJobs(ctx context.Context, req *connect.Requ
 	return c.listExportJobs.CallUnary(ctx, req)
 }
 
+// GetDashboardReport calls crm.v1.CRMService.GetDashboardReport.
+func (c *cRMServiceClient) GetDashboardReport(ctx context.Context, req *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error) {
+	return c.getDashboardReport.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2201,6 +2223,13 @@ type CRMServiceHandler interface {
 	// ListExportJobs is the audit trail of who exported, when, and how many
 	// rows — the export content itself is never persisted.
 	ListExportJobs(context.Context, *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error)
+	// GetDashboardReport is the bounded, tenant-scoped reporting surface
+	// (M4 — data productivity): one page of pipeline/stage summary per
+	// pipeline, a task status summary, the lead conversion funnel, and the
+	// default-weighted pipeline forecast. See internal/domain/reporting.go
+	// for the canonical metric semantics (currency, time zone, pipeline
+	// status, and forecast) this report follows.
+	GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2882,6 +2911,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListExportJobs")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceGetDashboardReportHandler := connect.NewUnaryHandler(
+		CRMServiceGetDashboardReportProcedure,
+		svc.GetDashboardReport,
+		connect.WithSchema(cRMServiceMethods.ByName("GetDashboardReport")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -3108,6 +3143,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceExportAccountsHandler.ServeHTTP(w, r)
 		case CRMServiceListExportJobsProcedure:
 			cRMServiceListExportJobsHandler.ServeHTTP(w, r)
+		case CRMServiceGetDashboardReportProcedure:
+			cRMServiceGetDashboardReportHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3563,4 +3600,8 @@ func (UnimplementedCRMServiceHandler) ExportAccounts(context.Context, *connect.R
 
 func (UnimplementedCRMServiceHandler) ListExportJobs(context.Context, *connect.Request[v1.ListExportJobsRequest]) (*connect.Response[v1.ListExportJobsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListExportJobs is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetDashboardReport is not implemented"))
 }

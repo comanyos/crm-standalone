@@ -1066,6 +1066,35 @@ var crossTenantProbes = map[string]isolationProbe{
 			}
 		}
 	},
+	// GetDashboardReport composes pipelines, opportunities, tasks and leads
+	// (internal/api/reporting.go): each read is already tenant-scoped the
+	// same way ListPipelines/ListOpportunities/etc. are on their own, but
+	// the report reshapes rows into aggregates rather than returning them
+	// verbatim, so a leak here would be easy to miss by only checking list
+	// RPCs. The pipeline identity and the forecast's per-owner bucket are
+	// the two places A's seeded data (its own pipeline, and its
+	// opportunity's owner-A account owner) would surface if the tenant
+	// filter were dropped anywhere in the composition.
+	"GetDashboardReport": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.GetDashboardReport(ctxB, connect.NewRequest(&crmv1.GetDashboardReportRequest{}))
+		if err != nil {
+			t.Fatalf("GetDashboardReport: %v", err)
+		}
+		report := res.Msg.GetReport()
+		for _, p := range report.GetPipelines() {
+			if p.GetPipelineId() == a.pipelineID {
+				t.Errorf("GetDashboardReport pipelines included organization A's pipeline %q", a.pipelineID)
+			}
+		}
+		for _, b := range report.GetForecast().GetBuckets() {
+			if b.GetOwnerId() == "owner-victim" {
+				t.Errorf("GetDashboardReport forecast leaked organization A's account owner %q", b.GetOwnerId())
+			}
+		}
+		if _, leaked := report.GetForecast().GetByOwner()["owner-victim"]; leaked {
+			t.Error("GetDashboardReport forecast.by_owner leaked organization A's account owner")
+		}
+	},
 	// Workflow automation. Both fixtures seed an active rule, a version, an
 	// execution and a notification, so each of these runs against a tenant
 	// that really does have automation to leak.

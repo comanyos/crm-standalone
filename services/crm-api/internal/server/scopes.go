@@ -216,6 +216,11 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/CommitImportJob": "crm:account:write",
 	"/crm.v1.CRMService/ExportAccounts":  "crm:account:read",
 	"/crm.v1.CRMService/ListExportJobs":  "crm:account:read",
+
+	// GetDashboardReport reuses GetSummary's scope: both are read-only,
+	// tenant-wide aggregate rollups over records the caller could otherwise
+	// list one type at a time, not a new authorization surface.
+	"/crm.v1.CRMService/GetDashboardReport": "crm:summary:read",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

@@ -275,6 +275,14 @@ service CRMService {
   // ListExportJobs is the audit trail of who exported, when, and how many
   // rows — the export content itself is never persisted.
   rpc ListExportJobs(ListExportJobsRequest) returns (ListExportJobsResponse);
+
+  // GetDashboardReport is the bounded, tenant-scoped reporting surface
+  // (M4 — data productivity): one page of pipeline/stage summary per
+  // pipeline, a task status summary, the lead conversion funnel, and the
+  // default-weighted pipeline forecast. See internal/domain/reporting.go
+  // for the canonical metric semantics (currency, time zone, pipeline
+  // status, and forecast) this report follows.
+  rpc GetDashboardReport(GetDashboardReportRequest) returns (GetDashboardReportResponse);
 }
 
 // CustomValue carries one tenant-defined field value without weakening the
@@ -1494,3 +1502,97 @@ message ExportJob {
 
 message ListExportJobsRequest { string object_type = 1; }
 message ListExportJobsResponse { repeated ExportJob jobs = 1; }
+
+// Dashboard and reporting (M4 — data productivity). See
+// internal/domain/reporting.go for the canonical metric semantics this
+// report follows: raw tenant amounts (no currency conversion), UTC date
+// comparisons, pipeline status from PipelineStage.terminal_type, and a
+// forecast built from a documented default stage-probability weighting
+// rather than a product-confirmed methodology.
+
+// PipelineStageSummary is one stage's open pipeline within one pipeline's
+// report: how many opportunities sit in it and their combined amount.
+message PipelineStageSummary {
+  string stage_id = 1;
+  string stage_name = 2;
+  // terminal_type is "open", "won", or "lost" — PipelineStage.terminal_type,
+  // never inferred from the stage's name or position.
+  string terminal_type = 3;
+  int32 count = 4;
+  double amount = 5;
+}
+
+// PipelineReport is one pipeline's shape: every stage's summary, plus the
+// won/lost totals that summarize its outcome so far.
+message PipelineReport {
+  string pipeline_id = 1;
+  string pipeline_name = 2;
+  repeated PipelineStageSummary stages = 3;
+  int32 won_count = 4;
+  double won_amount = 5;
+  int32 lost_count = 6;
+  double lost_amount = 7;
+}
+
+// TaskSummary counts a tenant's tasks by status, plus how many open ones
+// are overdue as of the report's generation time (UTC).
+message TaskSummary {
+  int32 open_count = 1;
+  int32 in_progress_count = 2;
+  int32 completed_count = 3;
+  int32 cancelled_count = 4;
+  int32 overdue_count = 5;
+}
+
+// LeadFunnelStage is one lifecycle status's count in the lead funnel.
+message LeadFunnelStage {
+  string status = 1;
+  int32 count = 2;
+}
+
+// ConversionFunnel is the lead funnel: how many leads are at each
+// lifecycle status, in lifecycle order, and the conversion rate it implies.
+message ConversionFunnel {
+  repeated LeadFunnelStage funnel = 1;
+  int32 total_leads = 2;
+  int32 converted_leads = 3;
+  // conversion_rate is converted_leads / total_leads, or 0 for a tenant
+  // with no leads yet.
+  double conversion_rate = 4;
+}
+
+// ForecastBucket is one (owner, stage) cell of the weighted pipeline
+// rollup.
+message ForecastBucket {
+  string owner_id = 1;
+  string stage = 2;
+  int32 count = 3;
+  // amount is the raw, unweighted sum, alongside weighted for reference.
+  double amount = 4;
+  double weighted = 5;
+}
+
+// ForecastSummary is the tenant-wide weighted-pipeline forecast
+// (internal/domain/forecast.go's PipelineForecast, DefaultStageProbabilities).
+// It is keyed on the opportunity's fixed six-stage state machine, which
+// every Opportunity carries regardless of which Pipeline/PipelineStage it
+// currently lives in, so this rollup is valid tenant-wide.
+message ForecastSummary {
+  map<string, double> by_owner = 1;
+  map<string, double> by_stage = 2;
+  double total = 3;
+  repeated ForecastBucket buckets = 4;
+}
+
+// DashboardReport is the whole first-cut dashboard: one entry per pipeline,
+// the task summary, the lead conversion funnel, and the weighted forecast.
+message DashboardReport {
+  repeated PipelineReport pipelines = 1;
+  TaskSummary tasks = 2;
+  ConversionFunnel conversion = 3;
+  ForecastSummary forecast = 4;
+  google.protobuf.Timestamp generated_at = 5;
+}
+
+message GetDashboardReportRequest {}
+message GetDashboardReportResponse { DashboardReport report = 1; }
