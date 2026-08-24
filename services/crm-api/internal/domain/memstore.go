@@ -660,7 +660,16 @@ func (s *MemStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead,
 		return nil, err
 	}
 	v.CustomFields = custom
-	return s.lead.create(scope, v)
+	created, err := s.lead.create(scope, v)
+	if err != nil {
+		return nil, err
+	}
+	// Published after the row exists, so a rule cannot fire on a lead a
+	// caller can then not read.
+	if err := enqueueLeadCreated(ctx, s, scope, created); err != nil {
+		return nil, err
+	}
+	return created, nil
 }
 
 // GetLead returns one Lead belonging to the scope's tenant.
@@ -1038,6 +1047,12 @@ func (s *MemStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opport
 			ChangedAt:     nowStamp(),
 		}); err != nil {
 			return nil, fmt.Errorf("record opportunity stage history: %w", err)
+		}
+		// Published in the same place the history row is written, so an event
+		// cannot exist for a change that did not happen or be missed for one
+		// that did.
+		if err := enqueueOpportunityStageChanged(ctx, s, scope, updated, existing.Stage, nowStamp()); err != nil {
+			return nil, err
 		}
 	}
 

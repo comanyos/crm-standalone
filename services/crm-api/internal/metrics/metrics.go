@@ -69,6 +69,19 @@ var (
 		Name: "crm_sync_erasures_total",
 		Help: "Erasures of synchronised communication content, by trigger and outcome.",
 	}, []string{"outcome"})
+	// WorkflowPassesTotal and WorkflowExecutionsTotal instrument automation.
+	// The execution label includes duplicate_suppressed on purpose: that
+	// counter going up is the idempotency key doing its job, and a deployment
+	// where it stays at zero while events flow is one where something has
+	// stopped delivering.
+	WorkflowPassesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_workflow_passes_total",
+		Help: "Workflow automation passes partitioned by outcome.",
+	}, []string{"outcome"})
+	WorkflowExecutionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_workflow_executions_total",
+		Help: "Workflow rule executions partitioned by safe outcome code.",
+	}, []string{"outcome"})
 	dbPoolAcquired = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_acquired_connections", Help: "Current acquired CRM database pool connections."})
 	dbPoolIdle     = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_idle_connections", Help: "Current idle CRM database pool connections."})
 	dbPoolTotal    = promauto.NewGauge(prometheus.GaugeOpts{Name: "crm_db_pool_total_connections", Help: "Current total CRM database pool connections."})

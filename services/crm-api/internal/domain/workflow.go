@@ -611,3 +611,27 @@ func cloneNotification(n *Notification) *Notification {
 	out := *n
 	return &out
 }
+
+// scalarString renders a decoded JSON scalar the way a condition compares it.
+//
+// json.Unmarshal into `any` turns every number into a float64, so 42 arrives
+// as 42.0 and would render as "42.000000" under naive formatting — and a rule
+// saying score eq 42 would then never match. Formatting without a fixed
+// precision, and trimming a trailing ".0", is what keeps whole numbers
+// comparing as whole numbers.
+func scalarString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case bool:
+		return strconv.FormatBool(typed)
+	case float64:
+		return strconv.FormatFloat(typed, 'f', -1, 64)
+	case json.Number:
+		return typed.String()
+	case nil:
+		return ""
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
+}

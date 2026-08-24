@@ -594,15 +594,13 @@ func TestPgStoreOpportunityPipelineWorkflow(t *testing.T) {
 
 	// The won transition published exactly one durable event, carrying the
 	// account's owner.
-	events, err := s.OutboxEventsFor(ctx, scope, opp.ID)
+	all, err := s.OutboxEventsFor(ctx, scope, opp.ID)
 	if err != nil {
 		t.Fatalf("read outbox: %v", err)
 	}
+	events := eventsOfType(all, EventOpportunityClosedWon)
 	if len(events) != 1 {
-		t.Fatalf("outbox holds %d events for the won deal, want 1", len(events))
-	}
-	if events[0].Envelope.Type != EventOpportunityClosedWon {
-		t.Errorf("event type = %q, want %q", events[0].Envelope.Type, EventOpportunityClosedWon)
+		t.Fatalf("outbox holds %d closed_won events for the won deal, want 1", len(events))
 	}
 	if events[0].Envelope.EntityID != opp.ID || events[0].Envelope.TenantID != scope.TenantID {
 		t.Errorf("event envelope = %+v, want it to name this deal and tenant", events[0].Envelope)
@@ -656,12 +654,13 @@ func TestPgStoreOpportunityLostBranchRequiresCloseFields(t *testing.T) {
 		t.Errorf("closed-lost deal = %+v, want both close fields set", lost)
 	}
 
-	events, err := s.OutboxEventsFor(ctx, scope, opp.ID)
+	all, err := s.OutboxEventsFor(ctx, scope, opp.ID)
 	if err != nil {
 		t.Fatalf("read outbox: %v", err)
 	}
-	if len(events) != 0 {
-		t.Errorf("losing a deal published %d events, want 0 — only closed_won publishes", len(events))
+	if events := eventsOfType(all, EventOpportunityClosedWon); len(events) != 0 {
+		t.Errorf("losing a deal published %d closed_won events, want 0 — only winning publishes that",
+			len(events))
 	}
 }
 

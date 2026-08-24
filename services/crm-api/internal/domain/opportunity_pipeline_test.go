@@ -376,15 +376,17 @@ func TestOpportunityClosedWonEvent(t *testing.T) {
 			t.Fatalf("close won: %v", err)
 		}
 
-		events, err := s.OutboxEventsFor(ctx, tenantA, updated.ID)
+		all, err := s.OutboxEventsFor(ctx, tenantA, updated.ID)
 		if err != nil {
 			t.Fatalf("outbox events for %s: %v", updated.ID, err)
 		}
+		// Filtered by type rather than counting everything: a stage change
+		// also publishes opportunity.stage_changed now (workflow_events.go),
+		// and what this test is about is that winning publishes exactly one
+		// closed_won.
+		events := eventsOfType(all, EventOpportunityClosedWon)
 		if len(events) != 1 {
-			t.Fatalf("got %d events on closed_won, want exactly 1", len(events))
-		}
-		if events[0].Envelope.Type != EventOpportunityClosedWon {
-			t.Fatalf("event type = %q, want %q", events[0].Envelope.Type, EventOpportunityClosedWon)
+			t.Fatalf("got %d closed_won events on closed_won, want exactly 1", len(events))
 		}
 		if events[0].Envelope.EntityType != EntityOpportunity || events[0].Envelope.EntityID != updated.ID {
 			t.Fatalf("envelope identifies %s/%s, want %s/%s",
@@ -417,12 +419,19 @@ func TestOpportunityClosedWonEvent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("re-save of won opportunity: %v", err)
 		}
-		events, err = s.OutboxEventsFor(ctx, tenantA, resaved.ID)
+		all, err = s.OutboxEventsFor(ctx, tenantA, resaved.ID)
 		if err != nil {
 			t.Fatalf("outbox events for %s: %v", resaved.ID, err)
 		}
-		if len(events) != 1 {
-			t.Fatalf("got %d events after re-saving a won deal, want still exactly 1", len(events))
+		if events := eventsOfType(all, EventOpportunityClosedWon); len(events) != 1 {
+			t.Fatalf("got %d closed_won events after re-saving a won deal, want still exactly 1",
+				len(events))
+		}
+		// A re-save that changes no stage publishes no stage change either,
+		// which is what stops a rename firing everybody's automation.
+		if events := eventsOfType(all, EventOpportunityStageChanged); len(events) != 1 {
+			t.Fatalf("got %d stage_changed events after a rename, want still 1 (from the win)",
+				len(events))
 		}
 	})
 
@@ -434,12 +443,16 @@ func TestOpportunityClosedWonEvent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("close lost: %v", err)
 		}
-		events, err := s.OutboxEventsFor(ctx, tenantA, updated.ID)
+		all, err := s.OutboxEventsFor(ctx, tenantA, updated.ID)
 		if err != nil {
 			t.Fatalf("outbox events for %s: %v", updated.ID, err)
 		}
-		if len(events) != 0 {
-			t.Fatalf("got %d events on closed_lost, want 0", len(events))
+		if events := eventsOfType(all, EventOpportunityClosedWon); len(events) != 0 {
+			t.Fatalf("got %d closed_won events on closed_lost, want 0", len(events))
+		}
+		// Losing is still a stage change, and automation needs to hear it.
+		if events := eventsOfType(all, EventOpportunityStageChanged); len(events) != 1 {
+			t.Fatalf("got %d stage_changed events on closed_lost, want 1", len(events))
 		}
 	})
 
@@ -450,12 +463,31 @@ func TestOpportunityClosedWonEvent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("advance stage: %v", err)
 		}
-		events, err := s.OutboxEventsFor(ctx, tenantA, updated.ID)
+		all, err := s.OutboxEventsFor(ctx, tenantA, updated.ID)
 		if err != nil {
 			t.Fatalf("outbox events for %s: %v", updated.ID, err)
 		}
-		if len(events) != 0 {
-			t.Fatalf("got %d events on an ordinary transition, want 0", len(events))
+		if events := eventsOfType(all, EventOpportunityClosedWon); len(events) != 0 {
+			t.Fatalf("got %d closed_won events on an ordinary transition, want 0", len(events))
+		}
+		if events := eventsOfType(all, EventOpportunityStageChanged); len(events) != 1 {
+			t.Fatalf("got %d stage_changed events on an ordinary transition, want 1", len(events))
 		}
 	})
+}
+
+// eventsOfType filters an entity's outbox history to one event type.
+//
+// The tests around stage transitions used to count every event an
+// opportunity had, which was the same thing while closed_won was the only
+// publisher. It is not any more: workflow automation needs to hear every
+// stage change, so the assertions say which type they mean.
+func eventsOfType(events []*OutboxEvent, eventType string) []*OutboxEvent {
+	out := make([]*OutboxEvent, 0, len(events))
+	for _, event := range events {
+		if event.Envelope.Type == eventType {
+			out = append(out, event)
+		}
+	}
+	return out
 }

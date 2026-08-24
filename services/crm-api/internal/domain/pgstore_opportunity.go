@@ -322,6 +322,11 @@ func (s *PgStore) UpdateOpportunity(ctx context.Context, scope Scope, v *Opportu
 			scope.TenantID, newID(), updated.ID, existing.Stage, updated.Stage, nowStamp()); err != nil {
 			return nil, fmt.Errorf("record opportunity stage history: %w", err)
 		}
+		// In the same transaction as the history row, so the event and the
+		// change it describes commit together or not at all.
+		if err := enqueueOpportunityStageChanged(ctx, r, scope, updated, existing.Stage, nowStamp()); err != nil {
+			return nil, err
+		}
 	}
 
 	if becameClosed && stage.TerminalType == "won" {

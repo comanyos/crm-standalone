@@ -126,15 +126,15 @@ func TestPgStoreOpportunityPipeline(t *testing.T) {
 
 	// closed_won published exactly one event, with the documented payload
 	// shape (source_version 1, entity type "opportunity").
-	events, err := s.OutboxEventsFor(ctx, tenantA, opp.ID)
+	all, err := s.OutboxEventsFor(ctx, tenantA, opp.ID)
 	if err != nil {
 		t.Fatalf("outbox events for %s: %v", opp.ID, err)
 	}
+	// By type: stage changes publish their own event now, and this assertion
+	// is about closed_won being published exactly once.
+	events := eventsOfType(all, EventOpportunityClosedWon)
 	if len(events) != 1 {
-		t.Fatalf("got %d events on closed_won, want exactly 1", len(events))
-	}
-	if events[0].Envelope.Type != EventOpportunityClosedWon {
-		t.Fatalf("event type = %q, want %q", events[0].Envelope.Type, EventOpportunityClosedWon)
+		t.Fatalf("got %d closed_won events on closed_won, want exactly 1", len(events))
 	}
 
 	// PipelineForecast reflects the closed_won deal at full amount, and

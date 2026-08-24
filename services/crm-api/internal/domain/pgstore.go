@@ -723,6 +723,11 @@ func (s *PgStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	if err != nil {
 		return nil, fmt.Errorf("create lead: %w", err)
 	}
+	// Published after the row exists, so a rule cannot fire on a lead a
+	// caller can then not read.
+	if err := enqueueLeadCreated(ctx, s, scope, v); err != nil {
+		return nil, err
+	}
 	return cloneLead(v), nil
 }
 
