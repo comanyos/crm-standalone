@@ -4,7 +4,11 @@ import { AppShell } from "./AppShell";
 import { renderRoutes } from "../../test/harness";
 import { expectNoA11yViolations } from "../../test/a11y";
 
-const { auth } = vi.hoisted(() => ({
+const { auth, crm } = vi.hoisted(() => ({
+  // The shell now carries the notification bell, which reads the caller's own
+  // inbox. It is mocked here rather than left out: an unmocked CRM client
+  // throws out of the provider hook and takes the whole shell down with it.
+  crm: { listNotifications: vi.fn(), markNotificationRead: vi.fn() },
   auth: {
     hasScope: vi.fn(),
     hasRole: vi.fn(),
@@ -16,6 +20,7 @@ const { auth } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => auth }));
+vi.mock("../../lib/useCrmClients", () => ({ useCrmClients: () => ({ crm, module: {} }) }));
 
 const routes = [
   {
@@ -32,6 +37,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   auth.hasScope.mockReturnValue(true);
   auth.hasRole.mockReturnValue(true);
+  crm.listNotifications.mockResolvedValue({ notifications: [], unreadCount: 0 });
 });
 
 function nav() {

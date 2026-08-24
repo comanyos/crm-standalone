@@ -1,4 +1,5 @@
 import { CommandPalette } from "./CommandPalette";
+import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 
 export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
@@ -16,7 +17,8 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
         <span aria-hidden="true">☰</span>
       </button>
       <CommandPalette />
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-1">
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>
