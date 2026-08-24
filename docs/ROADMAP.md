@@ -315,7 +315,7 @@ reporting semantics, quotas and forecasts, and the tasks/reminders/attachment
 half of the activities entry. Attachment storage still needs object-storage
 ownership from the product owner.
 
-## M4 — Data productivity (38%)
+## M4 — Data productivity (45%)
 
 Dependencies: M2/M3 stable record schemas and indexes.
 
@@ -344,8 +344,13 @@ Dependencies: M2/M3 stable record schemas and indexes.
 - [~] Custom fields, deduplication/merge policy, CSV import validation, and
   export jobs with audit trails. Tenant administrators can already define
   typed custom fields and custom objects without runtime DDL; deduplication
-  flags exist for accounts, contacts, and leads. Merge workflows, imports,
-  exports, and their audit trails remain pending.
+  flags exist for accounts, contacts, and leads. **Account merge is done**:
+  field-by-field resolution, relationship migration (contacts,
+  opportunities, child accounts, activities/tasks/notes, ownership history,
+  tags, and dangling dedup flags on other accounts), an immutable audit
+  trail, and an explicitly-documented no-undo policy — verified live, with
+  two bugs live testing found and fixed. Contact and lead merge are not
+  implemented. Imports, exports, and their audit trails remain pending.
 - [ ] Dashboard cards and basic reporting backed by query endpoints.
 
 Acceptance criteria: large result sets remain paginated; bulk actions are

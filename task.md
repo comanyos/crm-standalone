@@ -1348,9 +1348,29 @@ Acceptance criteria:
   with other filters. Custom fields and validation rules predate this work
   (task_v2 Phase 1.1). Controlled schema changes for custom objects also
   predate this work (task_v2 Phase 1.2).
-- [ ] Implement duplicate review/merge with field-by-field resolution,
+- [~] Implement duplicate review/merge with field-by-field resolution,
   relationship migration, immutable merge audit, undo policy, and conflict
-  constraints.
+  constraints. **Accounts are done**: `MergeAccounts` resolves each
+  mergeable field (name, industry, tier, owner, website, annual revenue,
+  parent) survivor-or-duplicate per caller choice; migrates contacts,
+  opportunities, child accounts, the Activity/Task/Note subject edge,
+  ownership history, and tag assignments (dropping instead of duplicating a
+  tag the survivor already carries); repoints or clears any account's
+  dangling `duplicate_of_account_id` flag left by deleting the duplicate;
+  writes an immutable `account_merges` audit row
+  (`migrations/0026_account_merges.sql`) queryable from either account's
+  id; and has no undo, documented explicitly rather than implied — see
+  `merge_accounts.go`'s package doc comment for why one is not safe to
+  build here. PgStore runs the whole operation in one transaction with
+  both rows locked via `SELECT ... FOR UPDATE`, so two concurrent merges
+  naming either account serialize rather than race. A field-by-field
+  review dialog on the account detail page's existing duplicate-flag
+  banner is verified live against the running stack, including two real
+  bugs live testing found and fixed (a client/server field-name mismatch,
+  and the dangling-dedup-flag gap above). **Contact and lead merge are not
+  implemented** — a named gap: both already have the same dedup-flag
+  convention (`DuplicateOfContactID`) but no merge workflow, so a flagged
+  contact or lead duplicate can only be resolved by hand today.
 
 Acceptance criteria:
 
