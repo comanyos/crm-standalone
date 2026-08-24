@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter, type RouteObject } from "react-router-dom";
 import { ToastProvider } from "../components/ui/Toast";
 import { timestampFromDate, type Timestamp } from "@bufbuild/protobuf/wkt";
-import type { Account, Contact, CustomFieldDefinition, CustomObjectDefinition, Lead, Note, Opportunity, Pipeline, PipelineStage, Task } from "@crm/contracts";
+import type { Account, Contact, CustomFieldDefinition, CustomObjectDefinition, Lead, Note, Opportunity, Pipeline, PipelineStage, Tag, Task } from "@crm/contracts";
 
 /** Renders a route tree on a memory **data** router.
  *
@@ -212,6 +212,16 @@ export function makeCustomField(overrides: Partial<CustomFieldDefinition> = {}):
     required: false,
     ...overrides,
   } as CustomFieldDefinition;
+}
+
+export function makeTag(overrides: Partial<Tag> = {}): Tag {
+  return {
+    $typeName: "crm.v1.Tag",
+    id: "tag-1",
+    name: "Hot Lead",
+    color: "#ff0000",
+    ...overrides,
+  } as Tag;
 }
 
 export function makeCustomObject(overrides: Partial<CustomObjectDefinition> = {}): CustomObjectDefinition {

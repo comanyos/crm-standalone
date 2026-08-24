@@ -15,6 +15,7 @@ import { useToast } from "../../components/ui/Toast";
 import { ActivityTimeline } from "../../components/ActivityTimeline";
 import { TasksPanel } from "../../components/TasksPanel";
 import { NotesPanel } from "../../components/NotesPanel";
+import { TagsPanel } from "../../components/TagsPanel";
 
 function statusTone(status: string): BadgeTone {
   if (status === "qualified" || status === "converted") return "success";
@@ -101,6 +102,7 @@ export default function LeadDetailPage() {
           <Field label="Owner" value={lead.ownerId} />
         </dl>
       </section>
+      <TagsPanel objectType="lead" objectId={id} />
       <TasksPanel subjectType="lead" subjectId={id} />
       <NotesPanel subjectType="lead" subjectId={id} />
       <ActivityTimeline subjectType="lead" subjectId={id} />

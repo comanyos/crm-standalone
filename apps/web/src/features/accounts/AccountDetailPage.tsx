@@ -14,6 +14,7 @@ import { useToast } from "../../components/ui/Toast";
 import { ActivityTimeline } from "../../components/ActivityTimeline";
 import { TasksPanel } from "../../components/TasksPanel";
 import { NotesPanel } from "../../components/NotesPanel";
+import { TagsPanel } from "../../components/TagsPanel";
 
 export default function AccountDetailPage() {
   const { id = "" } = useParams<{ id: string }>();
@@ -213,7 +214,8 @@ export default function AccountDetailPage() {
           )}
         </section>
 
-        <TasksPanel subjectType="account" subjectId={id} />
+        <TagsPanel objectType="account" objectId={id} />
+      <TasksPanel subjectType="account" subjectId={id} />
       <NotesPanel subjectType="account" subjectId={id} />
       <ActivityTimeline subjectType="account" subjectId={id} />
       </div>

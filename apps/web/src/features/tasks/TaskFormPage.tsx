@@ -11,6 +11,7 @@ import { Select } from "../../components/ui/Select";
 import { Button } from "../../components/ui/Button";
 import { SkeletonRows } from "../../components/ui/Skeleton";
 import { UnsavedChangesPrompt } from "../../components/ui/UnsavedChangesPrompt";
+import { TagsPanel } from "../../components/TagsPanel";
 import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useUnsavedChangesGuard } from "../../lib/useUnsavedChangesGuard";
@@ -202,6 +203,11 @@ export default function TaskFormPage({ mode }: { mode: "create" | "edit" }) {
           </Button>
         </div>
       </form>
+      {mode === "edit" && id && (
+        <div className="mt-6 max-w-xl">
+          <TagsPanel objectType="task" objectId={id} />
+        </div>
+      )}
       <UnsavedChangesPrompt blocker={blocker} />
     </div>
   );
