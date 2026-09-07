@@ -102,7 +102,7 @@ below.
 
 | § | Gap | Verdict | Status |
 | --- | --- | --- | --- |
-| 1 | Inbound lead capture webhooks (Facebook Lead Ads, Google Ads, WordPress, Zapier, web forms) | **Build.** Highest value per unit of work. | **Not started** — blocked on D1 |
+| 1 | Inbound lead capture webhooks (Facebook Lead Ads, Google Ads, WordPress, Zapier, web forms) | **Build.** Highest value per unit of work. | **Done** — D1 answered conservatively, see below |
 | 2 | Contact channel model + consent/opt-out ledger | **Build first.** Prerequisite for §3–§7. | **Done** — see below |
 | 3 | Click-to-chat outbound (WhatsApp/SMS/tel deep links) + logged activity | **Build.** Cheapest real capability in this file. | **Done, pending a real-device check** |
 | 4 | Provider-sent messaging (WhatsApp BSP, SMS, `gmail.send`) | **Defer** until §3 shows demand. | Not started — D2, D3, D4 |
@@ -116,7 +116,7 @@ below.
 
 ## What has been delivered
 
-Four sections, in the order the sequencing at the bottom of this file gives.
+Five sections, in the order the sequencing at the bottom of this file gives.
 Each was verified the way this repository requires — against live PostgreSQL
 with row-level security, over real HTTP with real signed tokens where the
 change reaches that far — not merely written.
@@ -171,13 +171,40 @@ through a real connection pool take nine distinct turns with an even split;
 a failed assignment leaves the rotation exactly where it was rather than
 burning a turn.
 
+**§1 — inbound lead capture.** `migrations/0031_lead_capture.sql`,
+`internal/integration/leadcapture`, `docs/LEAD_CAPTURE.md`. An external system
+POSTs a signed lead and an *ordinary* Lead appears in the right tenant —
+ordinary being the point, since it emits the same `lead.created` event and the
+workflow engine and §8's rotation fire on it unchanged.
+
+**D1 is answered rather than still open.** The decision record in
+`docs/LEAD_CAPTURE.md` states it: unauthenticated because the caller is a
+third-party server, behind a *required* HMAC-SHA256 signature with no unsigned
+mode, an unguessable token that also resolves the tenant on the drain pool,
+and a body cap plus a per-endpoint rate limit. A stricter answer — an IP
+allowlist, a WAF — sits in front of this and replaces none of it.
+
+The response deliberately says almost nothing: an unknown token and a bad
+signature are answered identically, or the response becomes an oracle for
+whether a token is real.
+
+Two defects only the live pass could find, both fixed with tests: the service
+crash-looped on boot because the new key was added to the group that checks
+Google's all-or-nothing configuration, and the delivery log recorded "created"
+without recording which lead it created.
+
 ### What that leaves
 
 The remaining unblocked work is §10.1–10.3 (installability, push,
 mobile-viewport tests) and §6 (messaging automation, which additionally wants
-D6). Everything else is behind a decision listed below. **§1 is the highest-value
-item in this file and needs only D1** — one decision, and no provider,
-contract or cost.
+D6). Everything else is behind a decision listed below.
+
+Two things are worth carrying forward rather than leaving in commit messages.
+**§3 is not finished** until somebody sends a real message from a real phone:
+deep-link behaviour differs by operating system and the `sms:` body spelling
+is empirical, not specified. And **no browser test has ever rendered this app
+at a phone width** — the responsive work is real but is currently protected by
+review and jsdom, which has no layout.
 
 ---
 
@@ -187,7 +214,8 @@ None of §4, §7, §9 or §11 may start before the matching decision lands. This
 mirrors `docs/WORKFLOW_AUTOMATION.md` § *Decisions still needed before
 integrations*, which already refuses to guess these.
 
-- [ ] **D1 — Ingress policy.** Are unauthenticated inbound webhook endpoints
+- [x] **D1 — Ingress policy.** *Answered conservatively and implemented; see
+  `docs/LEAD_CAPTURE.md`. Revisit only to add controls in front of it.* Are unauthenticated inbound webhook endpoints
   acceptable on the CRM API surface, and behind what (IP allowlist, WAF,
   provider signature verification, rate limit per endpoint)? Today the only
   unauthenticated route is the Google OAuth callback

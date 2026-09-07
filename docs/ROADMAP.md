@@ -490,7 +490,7 @@ Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
 retryable.
 
-## M7 — Privyr parity: speed-to-lead (35%)
+## M7 — Privyr parity: speed-to-lead (55%)
 
 Dependencies: none for the delivered items; the rest are listed with the
 product-owner decision each waits on in `task_crm.md`.
@@ -547,10 +547,26 @@ this milestone — covers only the genuine zeroes.
   take nine distinct turns with an even split, and a failed assignment leaves
   the rotation exactly where it was rather than burning a turn.
 
-- [ ] **Inbound lead capture** (`task_crm.md` §1). The highest-value item in
-  the file and the head of Privyr's whole value chain. Needs one decision (D1:
-  are unauthenticated inbound webhook endpoints acceptable, and behind what) —
-  no provider, contract or recurring cost.
+- [x] **Inbound lead capture** (`task_crm.md` §1,
+  `migrations/0031_lead_capture.sql`, `docs/LEAD_CAPTURE.md`). An external
+  system POSTs a signed lead and an ordinary Lead appears in the right tenant,
+  emitting the same `lead.created` event so existing automations — including
+  the rotation above — fire on it unchanged.
+
+  D1 is answered in the decision record rather than left open: unauthenticated
+  because the caller is a third-party server, behind a required HMAC-SHA256
+  signature with no unsigned mode, an unguessable token that also resolves the
+  tenant on the drain pool, a body cap and a per-endpoint rate limit. The
+  response is uniform by design — an unknown token and a bad signature answer
+  identically, or the response is an oracle for whether a token is real.
+
+  Verified against the running Compose stack, not only in tests: two identical
+  signed deliveries produced exactly one lead linked to its delivery, an
+  unsigned one was recorded as rejected and created nothing, and the captured
+  lead emitted `lead.created`. That pass found two defects the suite could not
+  — the new configuration key tripped Google's all-or-nothing check and
+  crash-looped the service, and the delivery log recorded "created" without
+  recording what it created.
 - [ ] Mobile speed-to-lead: installability, push on a new lead, and a
   mobile-viewport browser test (`task_crm.md` §10.1–10.3). A native app is
   explicitly **not** planned — see §10.4 for why.
@@ -562,8 +578,9 @@ Acceptance criteria: an external lead source delivers into the correct tenant
 and fires existing automations unchanged; a rep reaches a contact in one tap
 and the timeline records the attempt honestly; consent is durable, auditable
 and enforced by a single gate proven total by a test; new leads distribute
-across a team exactly once each. **Two of the four are met**; the first waits
-on D1 and the second on a real-device check.
+across a team exactly once each. **Three of the four are met**; the
+remaining one — a rep reaching a contact in one tap — waits on a real-device
+check that jsdom cannot give it.
 
 ## M6 — Production readiness and release (25%)
 
