@@ -499,10 +499,16 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
 - **Export for a subject-access request** — "tell me what you hold about me"
   is the other half of the same regulation, and there is no operation for it.
 
-- **Writing to Google** — sync is one-way in both streams. The CRM never
-  creates, moves or cancels an event, and `gmail.send` is requested but
-  nothing sends. Google is authoritative for everything synced; there is no
-  write-back and therefore no two-way conflict to resolve.
+- **Writing to Google, except sending one drafted message.** Sync is one-way
+  in both streams: the CRM never creates, moves or cancels an event, and
+  nothing writes back to a mailbox. Google is authoritative for everything
+  synced, so there is no two-way conflict to resolve.
+
+  The one exception is `gmail.send`, which now sends a drafted message when a
+  person presses the button — see *Sending* below. It writes nothing back into
+  sync's own state and creates no conflict: the sent message arrives through
+  the ordinary incremental sync like any other, from the mailbox's own record
+  of it.
 - **Calendars other than `primary`** — a user with a separate work calendar
   syncs only their main one.
 - **Recurring series** — instances are synced individually (`singleEvents`),
@@ -517,6 +523,68 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
 - **Sealing-key rotation** with re-encryption.
 - **Microsoft** — deliberately not configured. Do not add it without an
   explicit request.
+
+## Sending (task_crm.md §4, the gmail.send rung)
+
+The `gmail.send` scope has been requested since this integration was built and
+was unused until now. It sends one thing: a message an automation drafted
+(`task_crm.md` §6), when a person presses the button.
+
+**It sends as the acting user, from their own connected mailbox.** The `From`
+address is read from the stored connection, never from the request — Gmail
+only sends as an address the authenticated account owns, so a supplied `From`
+would be rejected anyway, and making it easy to try is a spoofing affordance
+rather than a feature. A rep's message therefore arrives from the rep, which
+is what the recipient expects and what keeps replies going to the right place.
+
+**It is manual, and that is load-bearing.** Nothing drains the drafting queue
+on a timer. The moment something does, quiet hours (D6) stop being optional —
+an automation that can send is an automation that can send at 3am — so the
+absence of a poller here is a deliberate boundary and not an unfinished one.
+
+### The order of operations, and why
+
+1. Read the draft under the caller's scope. A foreign id is NotFound before
+   anything else happens — including before checking whether this deployment
+   can send at all, or the refusal answers a question about us rather than
+   refusing them.
+2. Re-check consent, before anything about this deployment's capabilities.
+   A draft can be days old. "They opted out" is also the answer that stops the
+   user sending by hand, which "we cannot send mail" would not.
+3. Claim the draft — mark it sent — **before** calling Gmail.
+4. Send.
+
+Step 3 before step 4 is the part worth defending. Claiming first means a crash
+in between leaves a message marked sent that was not. Claiming after would
+mean a crash leaves one sent but still pending, which a rep or a retry then
+sends again. Between "possibly not delivered" and "possibly delivered twice",
+only the second is unrecoverable from the recipient's side — so a failed send
+says plainly that the draft is marked sent and may not have gone, and asks the
+user to check the mailbox before resending.
+
+### What the message looks like
+
+One `text/plain` part, UTF-8, base64 transfer encoding, RFC 2047 encoded
+subject. Base64 rather than 8bit because it cannot produce an over-long line,
+a bare CR or LF, or a line ending in whitespace — three ways a hand-built body
+breaks silently in transit. No HTML alternative and no attachments: those are
+formatting decisions nobody has made.
+
+Any header containing a line break is refused. A newline in a subject or an
+address appends whatever follows as another header — `Bcc`, `Reply-To`, or a
+second body — which turns one message into a mailing.
+
+### What is not verified
+
+Everything above is asserted against a stub: the exact bytes this service puts
+on the wire, the header-injection refusals, that a provider error body never
+reaches an error value (Gmail's echo request content, and errors here reach
+logs), and that sending refuses without a usable connection.
+
+**No message has been sent to Gmail.** That needs a real OAuth client, which
+no environment here has. Before trusting this in production: connect a real
+mailbox, send one draft, and confirm it arrives correctly formatted — the
+encoding and the `From` handling are the two things a stub cannot prove.
 
 ## Verification status
 

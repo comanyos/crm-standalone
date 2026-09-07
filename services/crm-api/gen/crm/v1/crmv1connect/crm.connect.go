@@ -388,6 +388,9 @@ const (
 	// CRMServiceDiscardOutboundMessageProcedure is the fully-qualified name of the CRMService's
 	// DiscardOutboundMessage RPC.
 	CRMServiceDiscardOutboundMessageProcedure = "/crm.v1.CRMService/DiscardOutboundMessage"
+	// CRMServiceSendOutboundMessageProcedure is the fully-qualified name of the CRMService's
+	// SendOutboundMessage RPC.
+	CRMServiceSendOutboundMessageProcedure = "/crm.v1.CRMService/SendOutboundMessage"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -720,6 +723,20 @@ type CRMServiceClient interface {
 	ListOutboundMessages(context.Context, *connect.Request[v1.ListOutboundMessagesRequest]) (*connect.Response[v1.ListOutboundMessagesResponse], error)
 	MarkOutboundMessageSent(context.Context, *connect.Request[v1.MarkOutboundMessageSentRequest]) (*connect.Response[v1.MarkOutboundMessageSentResponse], error)
 	DiscardOutboundMessage(context.Context, *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error)
+	// SendOutboundMessage actually delivers a drafted message, through the
+	// caller's own connected Gmail account (task_crm.md §4, the gmail.send
+	// rung). It is the one place this service sends anything.
+	//
+	// Deliberately a separate RPC from MarkOutboundMessageSent rather than a
+	// flag on it: one records what a person did elsewhere, the other does
+	// something irreversible on their behalf. Collapsing them would make
+	// "record that I sent this by hand" one typo away from actually sending it.
+	//
+	// It sends as the caller, not as the draft's assignee. Gmail will only send
+	// as an address the authenticated account owns, and a message that arrives
+	// from somebody who did not write it is worse than one that arrives from a
+	// colleague.
+	SendOutboundMessage(context.Context, *connect.Request[v1.SendOutboundMessageRequest]) (*connect.Response[v1.SendOutboundMessageResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1507,6 +1524,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("DiscardOutboundMessage")),
 			connect.WithClientOptions(opts...),
 		),
+		sendOutboundMessage: connect.NewClient[v1.SendOutboundMessageRequest, v1.SendOutboundMessageResponse](
+			httpClient,
+			baseURL+CRMServiceSendOutboundMessageProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SendOutboundMessage")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1641,6 +1664,7 @@ type cRMServiceClient struct {
 	listOutboundMessages           *connect.Client[v1.ListOutboundMessagesRequest, v1.ListOutboundMessagesResponse]
 	markOutboundMessageSent        *connect.Client[v1.MarkOutboundMessageSentRequest, v1.MarkOutboundMessageSentResponse]
 	discardOutboundMessage         *connect.Client[v1.DiscardOutboundMessageRequest, v1.DiscardOutboundMessageResponse]
+	sendOutboundMessage            *connect.Client[v1.SendOutboundMessageRequest, v1.SendOutboundMessageResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -2288,6 +2312,11 @@ func (c *cRMServiceClient) DiscardOutboundMessage(ctx context.Context, req *conn
 	return c.discardOutboundMessage.CallUnary(ctx, req)
 }
 
+// SendOutboundMessage calls crm.v1.CRMService.SendOutboundMessage.
+func (c *cRMServiceClient) SendOutboundMessage(ctx context.Context, req *connect.Request[v1.SendOutboundMessageRequest]) (*connect.Response[v1.SendOutboundMessageResponse], error) {
+	return c.sendOutboundMessage.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2618,6 +2647,20 @@ type CRMServiceHandler interface {
 	ListOutboundMessages(context.Context, *connect.Request[v1.ListOutboundMessagesRequest]) (*connect.Response[v1.ListOutboundMessagesResponse], error)
 	MarkOutboundMessageSent(context.Context, *connect.Request[v1.MarkOutboundMessageSentRequest]) (*connect.Response[v1.MarkOutboundMessageSentResponse], error)
 	DiscardOutboundMessage(context.Context, *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error)
+	// SendOutboundMessage actually delivers a drafted message, through the
+	// caller's own connected Gmail account (task_crm.md §4, the gmail.send
+	// rung). It is the one place this service sends anything.
+	//
+	// Deliberately a separate RPC from MarkOutboundMessageSent rather than a
+	// flag on it: one records what a person did elsewhere, the other does
+	// something irreversible on their behalf. Collapsing them would make
+	// "record that I sent this by hand" one typo away from actually sending it.
+	//
+	// It sends as the caller, not as the draft's assignee. Gmail will only send
+	// as an address the authenticated account owns, and a message that arrives
+	// from somebody who did not write it is worse than one that arrives from a
+	// colleague.
+	SendOutboundMessage(context.Context, *connect.Request[v1.SendOutboundMessageRequest]) (*connect.Response[v1.SendOutboundMessageResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -3401,6 +3444,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("DiscardOutboundMessage")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceSendOutboundMessageHandler := connect.NewUnaryHandler(
+		CRMServiceSendOutboundMessageProcedure,
+		svc.SendOutboundMessage,
+		connect.WithSchema(cRMServiceMethods.ByName("SendOutboundMessage")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -3661,6 +3710,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceMarkOutboundMessageSentHandler.ServeHTTP(w, r)
 		case CRMServiceDiscardOutboundMessageProcedure:
 			cRMServiceDiscardOutboundMessageHandler.ServeHTTP(w, r)
+		case CRMServiceSendOutboundMessageProcedure:
+			cRMServiceSendOutboundMessageHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -4184,4 +4235,8 @@ func (UnimplementedCRMServiceHandler) MarkOutboundMessageSent(context.Context, *
 
 func (UnimplementedCRMServiceHandler) DiscardOutboundMessage(context.Context, *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DiscardOutboundMessage is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SendOutboundMessage(context.Context, *connect.Request[v1.SendOutboundMessageRequest]) (*connect.Response[v1.SendOutboundMessageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SendOutboundMessage is not implemented"))
 }

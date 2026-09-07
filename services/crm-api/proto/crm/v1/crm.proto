@@ -361,6 +361,28 @@ service CRMService {
   rpc ListOutboundMessages(ListOutboundMessagesRequest) returns (ListOutboundMessagesResponse);
   rpc MarkOutboundMessageSent(MarkOutboundMessageSentRequest) returns (MarkOutboundMessageSentResponse);
   rpc DiscardOutboundMessage(DiscardOutboundMessageRequest) returns (DiscardOutboundMessageResponse);
+  // SendOutboundMessage actually delivers a drafted message, through the
+  // caller's own connected Gmail account (task_crm.md §4, the gmail.send
+  // rung). It is the one place this service sends anything.
+  //
+  // Deliberately a separate RPC from MarkOutboundMessageSent rather than a
+  // flag on it: one records what a person did elsewhere, the other does
+  // something irreversible on their behalf. Collapsing them would make
+  // "record that I sent this by hand" one typo away from actually sending it.
+  //
+  // It sends as the caller, not as the draft's assignee. Gmail will only send
+  // as an address the authenticated account owns, and a message that arrives
+  // from somebody who did not write it is worse than one that arrives from a
+  // colleague.
+  rpc SendOutboundMessage(SendOutboundMessageRequest) returns (SendOutboundMessageResponse);
+}
+
+message SendOutboundMessageRequest { string id = 1; }
+message SendOutboundMessageResponse {
+  OutboundMessage message = 1;
+  // provider_message_id is Gmail's own id for what it sent — the only proof
+  // outside Gmail that the send happened.
+  string provider_message_id = 2;
 }
 
 // OutboundMessage is one message an automation drafted for a person to send.

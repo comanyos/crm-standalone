@@ -9,6 +9,8 @@ const { crm, auth } = vi.hoisted(() => ({
     listOutboundMessages: vi.fn(),
     markOutboundMessageSent: vi.fn(),
     discardOutboundMessage: vi.fn(),
+    sendOutboundMessage: vi.fn(),
+    getGoogleConnection: vi.fn(),
   },
   auth: {
     hasScope: vi.fn(),
@@ -48,6 +50,13 @@ beforeEach(() => {
   crm.listOutboundMessages.mockResolvedValue({ messages: [draft()] });
   crm.markOutboundMessageSent.mockResolvedValue({ message: draft({ status: "sent" }) });
   crm.discardOutboundMessage.mockResolvedValue({ message: draft({ status: "discarded" }) });
+  crm.sendOutboundMessage.mockResolvedValue({
+    message: draft({ status: "sent" }),
+    providerMessageId: "gmail-1",
+  });
+  // No connected mailbox by default: sending from the CRM is the exception,
+  // not the norm, and most deployments have no Google client at all.
+  crm.getGoogleConnection.mockResolvedValue({ connection: undefined });
 });
 
 describe("DraftedMessagesPanel", () => {
@@ -123,6 +132,54 @@ describe("DraftedMessagesPanel", () => {
 
     expect(await screen.findByText("Hi, about your enquiry.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mark as sent" })).not.toBeInTheDocument();
+  });
+
+  it("offers no send button without a connected mailbox", async () => {
+    renderRoutes(routes);
+    await screen.findByText("Hi, about your enquiry.");
+
+    // Sending needs the user's own Google account. Showing a button that
+    // fails is worse than not showing one — the rep has a working one-tap
+    // path already.
+    expect(screen.queryByRole("button", { name: "Send from my email" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark as sent" })).toBeInTheDocument();
+  });
+
+  it("sends from the CRM when the user has connected a mailbox", async () => {
+    crm.getGoogleConnection.mockResolvedValue({ connection: { status: "connected" } });
+    renderRoutes(routes);
+
+    const sendButton = await screen.findByRole("button", { name: "Send from my email" });
+    fireEvent.click(sendButton);
+
+    await waitFor(() => expect(crm.sendOutboundMessage).toHaveBeenCalledWith({ id: "msg-1" }));
+    // Marking sent stays available beside it: a rep may have sent it another
+    // way, and the two are different claims.
+    expect(crm.markOutboundMessageSent).not.toHaveBeenCalled();
+  });
+
+  it("will not send a draft the contact opted out of", async () => {
+    crm.getGoogleConnection.mockResolvedValue({ connection: { status: "connected" } });
+    crm.listOutboundMessages.mockResolvedValue({
+      messages: [draft({ mayStillSend: false, refusalReason: "consent_withdrawn" })],
+    });
+    renderRoutes(routes);
+
+    const sendButton = await screen.findByRole("button", { name: "Send from my email" });
+    expect(sendButton).toBeDisabled();
+  });
+
+  it("offers no send button for a channel the CRM cannot deliver", async () => {
+    crm.getGoogleConnection.mockResolvedValue({ connection: { status: "connected" } });
+    crm.listOutboundMessages.mockResolvedValue({
+      messages: [draft({ channelKind: "whatsapp", address: "+441632960001" })],
+    });
+    renderRoutes(routes);
+    await screen.findByText("Hi, about your enquiry.");
+
+    // Only email has a provider here; WhatsApp stays one tap by hand.
+    expect(screen.queryByRole("button", { name: "Send from my email" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open in WhatsApp/ })).toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {

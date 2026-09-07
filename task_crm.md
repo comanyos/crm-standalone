@@ -105,7 +105,7 @@ below.
 | 1 | Inbound lead capture webhooks (Facebook Lead Ads, Google Ads, WordPress, Zapier, web forms) | **Build.** Highest value per unit of work. | **Done** — D1 answered conservatively, see below |
 | 2 | Contact channel model + consent/opt-out ledger | **Build first.** Prerequisite for §3–§7. | **Done** — see below |
 | 3 | Click-to-chat outbound (WhatsApp/SMS/tel deep links) + logged activity | **Build.** Cheapest real capability in this file. | **Done, pending a real-device check** |
-| 4 | Provider-sent messaging (WhatsApp BSP, SMS, `gmail.send`) | **Defer** until §3 shows demand. | Not started — D2, D3, D4 |
+| 4 | Provider-sent messaging (WhatsApp BSP, SMS, `gmail.send`) | **Defer** until §3 shows demand. | **`gmail.send` done** (built on request, unverified against real Gmail); WhatsApp/SMS still D2/D3/D4 |
 | 5 | Message templates + 1-touch quick replies | **Build** (literal first, merge fields after §5.3). | **Done, including merge fields** |
 | 6 | Messaging actions in the workflow engine | **Build** after §3 and §5. | **Done** — drafts rather than sends, so D6 does not apply |
 | 7 | Bulk / campaign sending | **Defer.** Highest legal risk, lowest fit for a B2B CRM. | Not started — D3, legal review |
@@ -244,13 +244,24 @@ a draft that disappeared would look like the CRM lost it.
 **Nothing unblocked is left, and the remaining sections should not be built
 speculatively.** Each is held for a specific reason, not for want of time:
 
-**§4 — provider-sent messaging.** Needs D2 (provider and cost owner), D3
-(retention) and D4 (secret/KMS ownership). The `gmail.send` rung is genuinely
-ready — the OAuth scope is already requested, the connection lifecycle exists,
-and §6's queue already has the `pending → sent` transition a sender would
-drive — but it cannot be *verified* without a real Google OAuth client, and an
-unverifiable network integration is worse than none. Note also that anything
-draining the queue automatically makes D6 required.
+**§4 — provider-sent messaging. The `gmail.send` rung is built**, on the
+product owner's instruction and against the recommendation recorded here. It
+sends one drafted message, as the acting user's own connected mailbox, when a
+person presses the button — see `docs/GOOGLE_INTEGRATION.md` § *Sending* for
+the order of operations and why claiming the draft precedes the send.
+
+Nothing drains the queue on a timer, and that boundary is load-bearing: the
+moment something does, D6 (quiet hours) stops being optional.
+
+**It is not verified against real Gmail.** The bytes on the wire, the
+header-injection refusals, the provider-error redaction and the
+no-usable-connection paths are all asserted against a stub; no message has
+been sent. That needs a real OAuth client. Before trusting it in production,
+connect a mailbox and send one draft — the encoding and the `From` handling
+are the two things a stub cannot prove.
+
+WhatsApp and SMS remain deferred and still need D2 (provider and cost owner),
+D3 (retention) and D4 (secret/KMS ownership).
 
 **§7 — bulk campaigns.** Still the recommendation not to build. It is the
 highest-risk surface here for platform bans and regulatory exposure, one

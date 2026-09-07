@@ -275,6 +275,11 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListOutboundMessages":    "crm:message:read",
 	"/crm.v1.CRMService/MarkOutboundMessageSent": "crm:message:write",
 	"/crm.v1.CRMService/DiscardOutboundMessage":  "crm:message:write",
+	// Sending is the same authority as claiming a send: both end with a
+	// message the organization is answerable for. A separate scope would
+	// invite granting one without the other, which makes no sense in either
+	// direction — being trusted to send but not to record it, or the reverse.
+	"/crm.v1.CRMService/SendOutboundMessage": "crm:message:write",
 	// Assembled rather than written as a literal, and not to be tidied back.
 	// gosec's G101 flags a string literal whose key contains "Secret" as a
 	// hardcoded credential; the value here is a scope name, so the finding is

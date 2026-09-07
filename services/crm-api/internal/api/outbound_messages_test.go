@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -167,5 +168,100 @@ func TestTheQueueCanBeFilteredToMine(t *testing.T) {
 	// else's queue by naming them.
 	if res.Msg.GetMessages()[0].GetAssigneeId() != principalSubject(ctx) {
 		t.Errorf("assignee = %q, want the caller", res.Msg.GetMessages()[0].GetAssigneeId())
+	}
+}
+
+// TestSendingIsRefusedWithoutAGoogleIntegration covers the shape of the
+// answer, not only the fact of it. A deployment that cannot send should say
+// so and point at what to do instead, rather than failing in a way that reads
+// like a bug.
+func TestSendingIsRefusedWithoutAGoogleIntegration(t *testing.T) {
+	s, store := newTestServiceWithStore()
+	ctx := ctxAs("tenant-1", "org-1")
+	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	draft := seedDraft(t, store, scope, "alex@example.com")
+
+	_, err := s.SendOutboundMessage(ctx, connect.NewRequest(&crmv1.SendOutboundMessageRequest{
+		Id: draft.ID,
+	}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("send with no integration: %v (code %v), want FailedPrecondition",
+			err, connect.CodeOf(err))
+	}
+	if !strings.Contains(err.Error(), "mark it sent") {
+		t.Errorf("the refusal does not say what to do instead: %v", err)
+	}
+
+	// And it changed nothing: a refused send must leave the draft sendable by
+	// hand, not consumed.
+	after, err := store.GetOutboundMessage(context.Background(), scope, draft.ID)
+	if err != nil {
+		t.Fatalf("re-read: %v", err)
+	}
+	if after.Status != domain.OutboundPending {
+		t.Errorf("status = %q after a refused send, want it still pending", after.Status)
+	}
+}
+
+// TestSendingRefusesANonEmailDraft: SMS and WhatsApp have no provider here,
+// so those drafts stay one-tap-by-hand rather than failing at Gmail.
+func TestSendingRefusesANonEmailDraft(t *testing.T) {
+	s, store := newTestServiceWithStore()
+	ctx := ctxAs("tenant-1", "org-1")
+	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	draft, _, err := store.DraftOutboundMessage(context.Background(), scope, &domain.OutboundMessage{
+		SubjectType: domain.SubjectContact, SubjectID: "c-1",
+		ChannelKind: domain.ChannelWhatsApp, Address: "+441632960001",
+		Body: "Hi", Status: domain.OutboundPending,
+	})
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	_, err = s.SendOutboundMessage(ctx, connect.NewRequest(&crmv1.SendOutboundMessageRequest{
+		Id: draft.ID,
+	}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("sending a WhatsApp draft: %v (code %v), want FailedPrecondition",
+			err, connect.CodeOf(err))
+	}
+}
+
+// TestSendingRefusesAWithdrawnContact is the consent check at its last useful
+// moment — after this point a message has left the building.
+func TestSendingRefusesAWithdrawnContact(t *testing.T) {
+	s, store := newTestServiceWithStore()
+	ctx := ctxAs("tenant-1", "org-1")
+	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	draft := seedDraft(t, store, scope, "alex@example.com")
+
+	if _, err := store.RecordConsent(context.Background(), scope, &domain.MessagingConsent{
+		ChannelKind: domain.ChannelEmail, Address: "alex@example.com",
+		State: domain.ConsentWithdrawn, Source: domain.ConsentSourceInbound,
+	}); err != nil {
+		t.Fatalf("record withdrawal: %v", err)
+	}
+
+	_, err := s.SendOutboundMessage(ctx, connect.NewRequest(&crmv1.SendOutboundMessageRequest{
+		Id: draft.ID,
+	}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("send after a withdrawal: %v (code %v), want FailedPrecondition",
+			err, connect.CodeOf(err))
+	}
+	// The consent check must come before the "can this deployment send"
+	// check would matter — a refusal for the wrong reason would let a
+	// configured deployment through.
+	if !strings.Contains(err.Error(), domain.RefusalConsentWithdrawn) {
+		t.Errorf("refused for the wrong reason: %v", err)
+	}
+
+	after, err := store.GetOutboundMessage(context.Background(), scope, draft.ID)
+	if err != nil {
+		t.Fatalf("re-read: %v", err)
+	}
+	if after.Status != domain.OutboundPending {
+		t.Errorf("status = %q, want the draft untouched", after.Status)
 	}
 }

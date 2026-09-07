@@ -11,7 +11,9 @@
 package gmail
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -345,4 +347,143 @@ func (c *Client) get(ctx context.Context, accessToken, path string, params url.V
 		return fmt.Errorf("gmail: decode %s response: %w", path, err)
 	}
 	return nil
+}
+
+// Sending (task_crm.md §4, the gmail.send rung).
+//
+// This is the one place the package writes rather than reads, and the only
+// place it handles a message body at all. The package doc above says bodies
+// never cross the network — that remains true of every *read*, which is the
+// property that matters: it means a customer's incoming mail cannot be stored
+// here. A message this organization is itself sending is not somebody else's
+// correspondence, and it has to be transmitted to be sent.
+
+// SendRequest is one outgoing message.
+type SendRequest struct {
+	// From is the connected mailbox's own address. Gmail rejects a From that
+	// is not an address the authenticated account may send as, which is the
+	// behaviour we want: a rep sends as themselves.
+	From    string
+	To      string
+	Subject string
+	Body    string
+}
+
+// Validate rejects a message Gmail would refuse or that would arrive wrong.
+func (r SendRequest) Validate() error {
+	if strings.TrimSpace(r.From) == "" || strings.TrimSpace(r.To) == "" {
+		return errors.New("gmail: a message needs a sender and a recipient")
+	}
+	if strings.TrimSpace(r.Body) == "" {
+		return errors.New("gmail: a message needs a body")
+	}
+	// A header value containing a newline is header injection: it lets a
+	// crafted subject or address append Bcc, Reply-To or a second body. The
+	// subject reaches here from a tenant's own template, so this is a guard
+	// against a mistake more than an attacker — but it is exactly the mistake
+	// that turns one message into a mass mailing.
+	for name, value := range map[string]string{
+		"from": r.From, "to": r.To, "subject": r.Subject,
+	} {
+		if strings.ContainsAny(value, "\r\n") {
+			return fmt.Errorf("gmail: %s header contains a line break", name)
+		}
+	}
+	return nil
+}
+
+// Send delivers one message as the authenticated mailbox and returns Gmail's
+// own message id.
+//
+// The id is worth keeping: it is what a later feature would use to correlate
+// a reply, and it is the only proof outside Gmail that the send happened.
+func (c *Client) Send(ctx context.Context, accessToken string, req SendRequest) (string, error) {
+	if strings.TrimSpace(accessToken) == "" {
+		return "", errors.New("gmail: access token is required")
+	}
+	if err := req.Validate(); err != nil {
+		return "", err
+	}
+
+	payload, err := json.Marshal(map[string]string{"raw": encodeRFC5322(req)})
+	if err != nil {
+		return "", fmt.Errorf("gmail: encode message: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/messages/send", bytes.NewReader(payload))
+	if err != nil {
+		return "", fmt.Errorf("gmail: build send request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+accessToken)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("gmail: send failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+		// No body in the error, for the same reason every other call here
+		// omits it: Gmail error bodies echo request content, and an error
+		// value in this codebase reaches a log line — which would put the
+		// message, and the recipient, in the logs.
+		return "", fmt.Errorf("gmail: send returned HTTP %d", resp.StatusCode)
+	}
+
+	var sent struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&sent); err != nil {
+		// The message may well have been sent — this is a decode failure on
+		// the response, not a refusal. The caller must treat an error here as
+		// "unknown", never as "not sent", or a retry sends it twice.
+		return "", fmt.Errorf("gmail: decode send response: %w", err)
+	}
+	return sent.ID, nil
+}
+
+// encodeRFC5322 builds the message Gmail expects, base64url encoded.
+//
+// Written by hand rather than with net/mail, which parses rather than
+// composes, or a MIME library this tree does not have. The message is
+// deliberately the simplest thing that renders correctly everywhere: one
+// text/plain part, UTF-8, no attachments, no alternative HTML. Anything
+// richer is a formatting decision nobody has made.
+func encodeRFC5322(req SendRequest) string {
+	var b strings.Builder
+	b.WriteString("From: " + req.From + "\r\n")
+	b.WriteString("To: " + req.To + "\r\n")
+	if strings.TrimSpace(req.Subject) != "" {
+		// Encoded-word per RFC 2047, unconditionally. A subject is a
+		// tenant's own words and may hold anything; base64 in UTF-8 is
+		// correct for all of it, and deciding per character when to encode is
+		// how a subject arrives as mojibake for one recipient in ten.
+		b.WriteString("Subject: =?utf-8?B?" +
+			base64.StdEncoding.EncodeToString([]byte(req.Subject)) + "?=\r\n")
+	}
+	b.WriteString("MIME-Version: 1.0\r\n")
+	b.WriteString("Content-Type: text/plain; charset=\"utf-8\"\r\n")
+	// Base64 rather than 8bit or quoted-printable: it cannot produce a line
+	// longer than the limit, cannot contain a bare CR or LF, and cannot end a
+	// line with whitespace — three ways a hand-built body silently breaks.
+	b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
+	b.WriteString(chunk76(base64.StdEncoding.EncodeToString([]byte(req.Body))))
+
+	// URL-safe, unpadded: what Gmail's `raw` field requires.
+	return base64.RawURLEncoding.EncodeToString([]byte(b.String()))
+}
+
+// chunk76 wraps base64 at the 76 characters RFC 2045 allows.
+func chunk76(s string) string {
+	var b strings.Builder
+	for len(s) > 76 {
+		b.WriteString(s[:76])
+		b.WriteString("\r\n")
+		s = s[76:]
+	}
+	b.WriteString(s)
+	return b.String()
 }

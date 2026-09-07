@@ -40,6 +40,31 @@ export function DraftedMessagesPanel({
     enabled: canRead && !!subjectId,
   });
 
+  /** Sending from the CRM needs a connected Google account, which is per
+   * user rather than per tenant. Asking here — rather than guessing from a
+   * config flag the browser cannot see — means the button appears exactly
+   * when it will work. */
+  const connectionQuery = useQuery({
+    queryKey: ["crm.getGoogleConnection"],
+    queryFn: () => crm.getGoogleConnection({}),
+    enabled: canWrite && hasScope("crm:integration:read"),
+    // A user with no connection is the normal case, not an error.
+    retry: false,
+  });
+  const canSendFromCrm = connectionQuery.data?.connection?.status === "connected";
+
+  const send = useMutation({
+    mutationFn: (id: string) => crm.sendOutboundMessage({ id }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+      void queryClient.invalidateQueries({
+        queryKey: ["crm.listActivitiesForSubject", subjectType, subjectId],
+      });
+      toast.show({ tone: "success", message: "Sent from your mailbox." });
+    },
+    onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
+  });
+
   const resolve = useMutation({
     mutationFn: (vars: { id: string; action: "sent" | "discard" }) =>
       vars.action === "sent"
@@ -111,8 +136,19 @@ export function DraftedMessagesPanel({
                       Open in {CHANNEL_ACTIONS[kind] ?? draft.channelKind}
                     </a>
                   )}
+                  {canSendFromCrm && draft.channelKind === "email" && (
+                    <Button
+                      size="sm"
+                      disabled={!draft.mayStillSend}
+                      loading={send.isPending}
+                      onClick={() => send.mutate(draft.id)}
+                    >
+                      Send from my email
+                    </Button>
+                  )}
                   <Button
                     size="sm"
+                    variant={canSendFromCrm && draft.channelKind === "email" ? "secondary" : "primary"}
                     disabled={!draft.mayStillSend}
                     loading={resolve.isPending}
                     onClick={() => resolve.mutate({ id: draft.id, action: "sent" })}

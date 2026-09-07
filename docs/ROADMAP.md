@@ -490,7 +490,7 @@ Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
 retryable.
 
-## M7 — Privyr parity: speed-to-lead (75%)
+## M7 — Privyr parity: speed-to-lead (80%)
 
 Dependencies: none for the delivered items; the rest are listed with the
 product-owner decision each waits on in `task_crm.md`.
@@ -600,12 +600,22 @@ this milestone — covers only the genuine zeroes.
   send, because a rule can draft on Monday and a rep can open the queue on
   Wednesday.
 
-- [ ] Provider-sent messaging (§4), bulk campaigns (§7), trackable files (§9),
-  push (§10.2) and ad-conversion feedback (§11) are each held for a stated
-  reason in `task_crm.md` rather than merely unstarted — a provider contract,
-  a legal review, object-storage ownership, a push provider, and an outbound
-  PII decision respectively. §4's `gmail.send` rung is ready but cannot be
-  verified without a real Google client.
+- [~] **Sending a drafted message through Gmail** (`task_crm.md` §4, the
+  `gmail.send` rung). Built on the product owner's instruction. It sends one
+  drafted message as the acting user's own connected mailbox, when a person
+  presses the button; nothing drains the queue on a timer, which is what keeps
+  quiet hours (D6) out of scope. See `docs/GOOGLE_INTEGRATION.md` § *Sending*.
+
+  **Unverified against real Gmail.** The message bytes, the header-injection
+  refusals, the provider-error redaction and the no-connection paths are
+  asserted against a stub; no message has been sent, which needs a real OAuth
+  client. Connect a mailbox and send one draft before trusting it.
+
+- [ ] WhatsApp and SMS sending (§4), bulk campaigns (§7), trackable files
+  (§9), push (§10.2) and ad-conversion feedback (§11) are each held for a
+  stated reason in `task_crm.md` rather than merely unstarted — a provider
+  contract, a legal review, object-storage ownership, a push provider, and an
+  outbound PII decision respectively.
 
 Acceptance criteria: an external lead source delivers into the correct tenant
 and fires existing automations unchanged; a rep reaches a contact in one tap

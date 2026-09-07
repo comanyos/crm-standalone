@@ -68,7 +68,7 @@ func newTestServiceWithStore() (*CRMService, domain.Store) {
 		panic("api tests: build capture sealer: " + err.Error())
 	}
 	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer,
-		privacySvc, sealer), store
+		privacySvc, sealer, nil), store
 }
 
 // testCaptureKey seals lead-capture secrets in this package's tests. Base64

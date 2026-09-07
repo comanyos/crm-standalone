@@ -35,6 +35,10 @@ type CRMService struct {
 	// a secret need it; listing endpoints and reading the delivery log work
 	// either way, so an administrator can still see what exists.
 	capture *secrets.Sealer
+	// gmailSender is nil unless Google is configured. A nil sender is how
+	// SendOutboundMessage answers "can this deployment send at all" — it
+	// reports a precondition failure and tells the user to send it themselves.
+	gmailSender *gmail.Sender
 }
 
 // NewCRMService wires the domain service. The integration arguments may all
@@ -43,6 +47,7 @@ func NewCRMService(
 	cfg config.Config, store domain.Store, googleSvc *google.Service,
 	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
 	privacySvc *privacy.Service, captureSealer *secrets.Sealer,
+	gmailSender *gmail.Sender,
 ) *CRMService {
 	if privacySvc == nil {
 		// Unlike the Google services, this one is not optional: a
@@ -57,7 +62,7 @@ func NewCRMService(
 	return &CRMService{
 		cfg: cfg, store: store, google: googleSvc,
 		gmail: gmailSyncer, calendar: calendarSyncer, privacy: privacySvc,
-		capture: captureSealer,
+		capture: captureSealer, gmailSender: gmailSender,
 	}
 }
 

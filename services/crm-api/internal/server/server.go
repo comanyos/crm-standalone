@@ -49,8 +49,13 @@ type Server struct {
 	// API layer so issuing an endpoint and verifying its deliveries cannot
 	// drift onto two different keys.
 	captureSealer *secrets.Sealer
-	mux           *http.ServeMux
-	readiness     func(context.Context) error
+	// gmailSender is nil unless Google is configured, exactly like gmail
+	// above: without a credential there is no mailbox to send from, and a
+	// sender wired to a nil token source would fail on every attempt rather
+	// than reporting that the feature is off.
+	gmailSender *gmail.Sender
+	mux         *http.ServeMux
+	readiness   func(context.Context) error
 }
 
 // New builds the server and registers routes.
@@ -92,9 +97,14 @@ func New(
 		gmailSyncer    *gmail.Syncer
 		calendarSyncer *calendar.Syncer
 	)
+	var gmailSender *gmail.Sender
 	if googleSvc.Configured() {
-		gmailSyncer = gmail.NewSyncer(store, gmail.New(nil), googleSvc, privacySvc, slog.Default())
+		gmailClient := gmail.New(nil)
+		gmailSyncer = gmail.NewSyncer(store, gmailClient, googleSvc, privacySvc, slog.Default())
 		calendarSyncer = calendar.NewSyncer(store, calendar.New(nil), googleSvc, privacySvc, slog.Default())
+		// One client for reading and sending: they share a base URL and an
+		// HTTP timeout, and two would be two places to configure.
+		gmailSender = gmail.NewSender(store, gmailClient, googleSvc)
 	}
 	captureSealer, err := newCaptureSealer(cfg)
 	if err != nil {
@@ -120,6 +130,7 @@ func New(
 
 		leadCapture:   captureSvc,
 		captureSealer: captureSealer,
+		gmailSender:   gmailSender,
 
 		mux: http.NewServeMux(),
 	}
@@ -228,7 +239,7 @@ func (s *Server) routes() {
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
 		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar, s.privacy,
-			s.captureSealer), interceptors)
+			s.captureSealer, s.gmailSender), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect

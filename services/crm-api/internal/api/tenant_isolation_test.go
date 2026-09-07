@@ -1497,6 +1497,18 @@ var crossTenantProbes = map[string]isolationProbe{
 		}))
 		wantNotFound(t, "MarkOutboundMessageSent", err)
 	},
+	"SendOutboundMessage": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// The worst possible cross-tenant failure in this service: sending
+		// another organization's drafted message would put their words in
+		// front of their customer, from the wrong mailbox, and mark their
+		// queue done. It must be NotFound before anything else happens —
+		// which is why the draft is read under the caller's own scope first,
+		// ahead of the consent check and the claim.
+		_, err := s.SendOutboundMessage(ctxB, connect.NewRequest(&crmv1.SendOutboundMessageRequest{
+			Id: a.outboundMessageID,
+		}))
+		wantNotFound(t, "SendOutboundMessage", err)
+	},
 	"DiscardOutboundMessage": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.DiscardOutboundMessage(ctxB, connect.NewRequest(&crmv1.DiscardOutboundMessageRequest{
 			Id: a.outboundMessageID,
