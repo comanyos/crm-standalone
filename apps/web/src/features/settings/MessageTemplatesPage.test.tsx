@@ -130,9 +130,7 @@ describe("MessageTemplatesPage", () => {
     fireEvent.change(screen.getByLabelText("Body"), { target: { value: "Hi " } });
     fireEvent.click(screen.getByRole("button", { name: "{{contact.first_name}}" }));
 
-    expect((screen.getByLabelText("Body") as HTMLTextAreaElement).value).toBe(
-      "Hi {{contact.first_name}}",
-    );
+    expect((screen.getByLabelText("Body") as HTMLTextAreaElement).value).toBe("Hi {{contact.first_name}}");
   });
 
   it("confirms before deleting, and says what a delete does not affect", async () => {
