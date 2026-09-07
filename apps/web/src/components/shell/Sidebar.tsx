@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: "/settings/custom-objects", label: "Custom objects" },
   { to: "/settings/tags", label: "Tags" },
   { to: "/settings/message-templates", label: "Message templates" },
+  { to: "/settings/lead-capture", label: "Lead capture" },
   { to: "/settings/integrations", label: "Connected accounts" },
 ];
 
