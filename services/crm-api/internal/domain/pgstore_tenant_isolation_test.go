@@ -326,6 +326,20 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] record messaging consent: %v", label, err)
 	}
 
+	// One round-robin assignment, so the cursor and the ledger both hold a
+	// row. Without them the catalog-driven test below skips both tables, and
+	// the ledger names which colleague was handed which lead — a tenant's own
+	// staffing, and a way to read another organization's rotation.
+	if _, err := s.AssignNextOwner(ctx, f.scope, AssignNextOwnerInput{
+		ExecutionID:   fmt.Sprintf("exec-iso-%s-%d", label, stamp),
+		RuleVersionID: fmt.Sprintf("ver-iso-%s-%d", label, stamp),
+		SubjectType:   SubjectLead,
+		SubjectID:     f.leadID,
+		Members:       []string{"rep-" + label + "-1", "rep-" + label + "-2"},
+	}); err != nil {
+		t.Fatalf("[%s] seed owner assignment: %v", label, err)
+	}
+
 	return f
 }
 

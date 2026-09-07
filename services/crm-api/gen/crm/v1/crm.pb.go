@@ -9981,7 +9981,7 @@ func (x *WorkflowCondition) GetValue() string {
 // are enforced server-side; the others are ignored.
 type WorkflowAction struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// type is create_task, add_activity or notify.
+	// type is create_task, add_activity, notify or assign_owner.
 	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
 	// title is the task title or the notification title.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
@@ -10001,9 +10001,18 @@ type WorkflowAction struct {
 	// the task has no due date.
 	DueInDays int32 `protobuf:"varint,7,opt,name=due_in_days,json=dueInDays,proto3" json:"due_in_days,omitempty"`
 	// activity_kind applies to add_activity.
-	ActivityKind  string `protobuf:"bytes,8,opt,name=activity_kind,json=activityKind,proto3" json:"activity_kind,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ActivityKind string `protobuf:"bytes,8,opt,name=activity_kind,json=activityKind,proto3" json:"activity_kind,omitempty"`
+	// rotation_members applies to assign_owner: the ordered principals the
+	// action hands records to, one after another (task_crm.md §8). Order is
+	// meaningful — "who is next" is only answerable against a fixed sequence —
+	// and a member listed twice is refused rather than given twice the work.
+	//
+	// An assign_owner action must not also set assignee or assignee_id: it
+	// chooses the assignee from this list, and naming one too would give it two
+	// answers to the same question.
+	RotationMembers []string `protobuf:"bytes,9,rep,name=rotation_members,json=rotationMembers,proto3" json:"rotation_members,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *WorkflowAction) Reset() {
@@ -10090,6 +10099,13 @@ func (x *WorkflowAction) GetActivityKind() string {
 		return x.ActivityKind
 	}
 	return ""
+}
+
+func (x *WorkflowAction) GetRotationMembers() []string {
+	if x != nil {
+		return x.RotationMembers
+	}
+	return nil
 }
 
 // WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer
@@ -10756,8 +10772,15 @@ type DescribeWorkflowCatalogResponse struct {
 	MaxConditions int32 `protobuf:"varint,4,opt,name=max_conditions,json=maxConditions,proto3" json:"max_conditions,omitempty"`
 	MaxActions    int32 `protobuf:"varint,5,opt,name=max_actions,json=maxActions,proto3" json:"max_actions,omitempty"`
 	MaxTextLength int32 `protobuf:"varint,6,opt,name=max_text_length,json=maxTextLength,proto3" json:"max_text_length,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// max_rotation_members bounds an assign_owner action's member list.
+	MaxRotationMembers int32 `protobuf:"varint,7,opt,name=max_rotation_members,json=maxRotationMembers,proto3" json:"max_rotation_members,omitempty"`
+	// assignable_subjects are the record types assign_owner can set an owner
+	// on. An opportunity is deliberately absent: its owner is its account's, so
+	// assigning one would reassign the account and every other opportunity on
+	// it.
+	AssignableSubjects []string `protobuf:"bytes,8,rep,name=assignable_subjects,json=assignableSubjects,proto3" json:"assignable_subjects,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *DescribeWorkflowCatalogResponse) Reset() {
@@ -10830,6 +10853,20 @@ func (x *DescribeWorkflowCatalogResponse) GetMaxTextLength() int32 {
 		return x.MaxTextLength
 	}
 	return 0
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetMaxRotationMembers() int32 {
+	if x != nil {
+		return x.MaxRotationMembers
+	}
+	return 0
+}
+
+func (x *DescribeWorkflowCatalogResponse) GetAssignableSubjects() []string {
+	if x != nil {
+		return x.AssignableSubjects
+	}
+	return nil
 }
 
 // CreateWorkflowRuleRequest starts a rule. It is always created as a draft:
@@ -16546,7 +16583,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x11WorkflowCondition\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x1a\n" +
 	"\boperator\x18\x02 \x01(\tR\boperator\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\tR\x05value\"\xec\x01\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\"\x97\x02\n" +
 	"\x0eWorkflowAction\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
@@ -16556,7 +16593,8 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"assigneeId\x12\x1a\n" +
 	"\bpriority\x18\x06 \x01(\tR\bpriority\x12\x1e\n" +
 	"\vdue_in_days\x18\a \x01(\x05R\tdueInDays\x12#\n" +
-	"\ractivity_kind\x18\b \x01(\tR\factivityKind\"\xad\x02\n" +
+	"\ractivity_kind\x18\b \x01(\tR\factivityKind\x12)\n" +
+	"\x10rotation_members\x18\t \x03(\tR\x0frotationMembers\"\xad\x02\n" +
 	"\fWorkflowRule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -16626,7 +16664,7 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\vobject_type\x18\x02 \x01(\tR\n" +
 	"objectType\x12-\n" +
 	"\x06fields\x18\x03 \x03(\v2\x15.crm.v1.WorkflowFieldR\x06fields\" \n" +
-	"\x1eDescribeWorkflowCatalogRequest\"\xa2\x02\n" +
+	"\x1eDescribeWorkflowCatalogRequest\"\x85\x03\n" +
 	"\x1fDescribeWorkflowCatalogResponse\x12=\n" +
 	"\btriggers\x18\x01 \x03(\v2!.crm.v1.WorkflowTriggerDescriptorR\btriggers\x12!\n" +
 	"\faction_types\x18\x02 \x03(\tR\vactionTypes\x12-\n" +
@@ -16634,7 +16672,9 @@ const file_crm_v1_crm_proto_rawDesc = "" +
 	"\x0emax_conditions\x18\x04 \x01(\x05R\rmaxConditions\x12\x1f\n" +
 	"\vmax_actions\x18\x05 \x01(\x05R\n" +
 	"maxActions\x12&\n" +
-	"\x0fmax_text_length\x18\x06 \x01(\x05R\rmaxTextLength\"Q\n" +
+	"\x0fmax_text_length\x18\x06 \x01(\x05R\rmaxTextLength\x120\n" +
+	"\x14max_rotation_members\x18\a \x01(\x05R\x12maxRotationMembers\x12/\n" +
+	"\x13assignable_subjects\x18\b \x03(\tR\x12assignableSubjects\"Q\n" +
 	"\x19CreateWorkflowRuleRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"F\n" +

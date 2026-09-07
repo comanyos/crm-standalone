@@ -40,6 +40,8 @@ func (e *Engine) act(
 		return e.addActivity(ctx, scope, action, execution)
 	case domain.ActionNotify:
 		return e.notify(ctx, scope, version, action, execution, subject)
+	case domain.ActionAssignOwner:
+		return e.assignOwner(ctx, scope, action, execution, subject)
 	default:
 		// A version that stored an action type this build does not know is
 		// terminal: it will not become known by retrying.
@@ -217,4 +219,46 @@ func actionReason(err error) string {
 	default:
 		return ReasonActionFailed
 	}
+}
+
+// assignOwner hands the record to the next member of the rule's rotation
+// (task_crm.md §8).
+//
+// It is a thin call because the whole operation has to be one transaction —
+// the owner change, the record of what was decided, and the rotation's
+// advance — and only the store can do that. Splitting it here would put the
+// interesting failure mode back: an assignment that burns a turn without
+// happening, silently skipping a member.
+//
+// The subject is the freshly re-read one, like every other action, so a lead
+// deleted between the event and the execution fails terminally rather than
+// assigning nothing to somebody.
+func (e *Engine) assignOwner(
+	ctx context.Context, scope domain.Scope,
+	action domain.WorkflowAction, execution *domain.WorkflowExecution, subject subjectSnapshot,
+) (string, error) {
+	assignment, err := e.store.AssignNextOwner(ctx, scope, domain.AssignNextOwnerInput{
+		ExecutionID:   execution.ID,
+		RuleVersionID: execution.RuleVersionID,
+		SubjectType:   subject.Type,
+		SubjectID:     subject.ID,
+		Members:       action.RotationMembers,
+	})
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return ReasonRecordGone, err
+	case errors.Is(err, domain.ErrInvalid):
+		// A rotation the store refuses cannot start working by being retried:
+		// the member list is frozen in an immutable rule version, and the
+		// subject type is fixed by the trigger.
+		return ReasonInvalidAction, err
+	case err != nil:
+		return ReasonActionFailed, err
+	}
+
+	if assignment.Replayed {
+		e.log.Info("workflow assignment replayed rather than advancing the rotation",
+			"execution", execution.ID, "member", assignment.MemberID)
+	}
+	return "", nil
 }

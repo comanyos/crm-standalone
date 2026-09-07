@@ -36,25 +36,35 @@ const routes = [{ path: "/settings/automation", element: <AutomationPage /> }];
 const catalog = {
   triggers: [
     {
-      eventType: "lead.created", objectType: "lead",
+      eventType: "lead.created",
+      objectType: "lead",
       fields: [
         { name: "source", kind: "text", operators: ["eq", "neq", "contains", "in"] },
         { name: "score", kind: "number", operators: ["eq", "neq", "gt", "lt"] },
       ],
     },
     {
-      eventType: "opportunity.stage_changed", objectType: "opportunity",
+      eventType: "opportunity.stage_changed",
+      objectType: "opportunity",
       fields: [{ name: "stage", kind: "text", operators: ["eq", "neq", "contains", "in"] }],
     },
   ],
-  actionTypes: ["create_task", "add_activity", "notify"],
+  actionTypes: ["create_task", "add_activity", "notify", "assign_owner"],
   assigneeSelectors: ["record_owner", "fixed_user"],
-  maxConditions: 10, maxActions: 10, maxTextLength: 500,
+  maxConditions: 10,
+  maxActions: 10,
+  maxTextLength: 500,
+  maxRotationMembers: 50,
+  assignableSubjects: ["account", "lead"],
 };
 
 const activeRule = {
-  id: "rule-1", name: "Referral follow-up", description: "Call new referrals",
-  status: "active", activeVersionId: "ver-1", createdBy: "user-1",
+  id: "rule-1",
+  name: "Referral follow-up",
+  description: "Call new referrals",
+  status: "active",
+  activeVersionId: "ver-1",
+  createdBy: "user-1",
 };
 
 beforeEach(() => {
@@ -71,12 +81,23 @@ beforeEach(() => {
   crm.getWorkflowRule.mockResolvedValue({
     rule: activeRule,
     activeVersion: {
-      id: "ver-1", ruleId: "rule-1", version: 1, triggerEventType: "lead.created",
+      id: "ver-1",
+      ruleId: "rule-1",
+      version: 1,
+      triggerEventType: "lead.created",
       conditions: [{ field: "source", operator: "eq", value: "referral" }],
-      actions: [{
-        type: "create_task", title: "Call the referral", body: "", assignee: "record_owner",
-        assigneeId: "", priority: "medium", dueInDays: 1, activityKind: "",
-      }],
+      actions: [
+        {
+          type: "create_task",
+          title: "Call the referral",
+          body: "",
+          assignee: "record_owner",
+          assigneeId: "",
+          priority: "medium",
+          dueInDays: 1,
+          activityKind: "",
+        },
+      ],
     },
   });
 });
@@ -122,9 +143,13 @@ describe("AutomationPage", () => {
 
     fireEvent.change(screen.getByLabelText("Field 1"), { target: { value: "score" } });
     await waitFor(() =>
-      expect(within(screen.getByLabelText("Comparison 1")).getByRole("option", { name: "is greater than" }))
-        .toBeInTheDocument());
-    expect(within(screen.getByLabelText("Comparison 1")).queryByRole("option", { name: "contains" })).toBeNull();
+      expect(
+        within(screen.getByLabelText("Comparison 1")).getByRole("option", { name: "is greater than" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(screen.getByLabelText("Comparison 1")).queryByRole("option", { name: "contains" }),
+    ).toBeNull();
   });
 
   // A rule saved without switching on must publish with activate=false, or
@@ -139,7 +164,9 @@ describe("AutomationPage", () => {
 
     await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
     expect(crm.publishWorkflowRuleVersion.mock.calls[0][0]).toMatchObject({
-      ruleId: "rule-2", triggerEventType: "lead.created", activate: false,
+      ruleId: "rule-2",
+      triggerEventType: "lead.created",
+      activate: false,
     });
   });
 
@@ -153,6 +180,72 @@ describe("AutomationPage", () => {
 
     await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
     expect(crm.publishWorkflowRuleVersion.mock.calls[0][0]).toMatchObject({ activate: true });
+  });
+
+  // Round-robin lead distribution (task_crm.md §8). It is an action on an
+  // ordinary rule rather than a feature of its own, so these tests are about
+  // the editor offering it correctly — the rotation's own guarantees are
+  // proven in internal/domain.
+  it("distributes leads across a rotation", async () => {
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "New rule" }));
+    await screen.findByRole("dialog");
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Round robin" } });
+    fireEvent.change(screen.getByLabelText("Action 1"), { target: { value: "assign_owner" } });
+    fireEvent.change(screen.getByLabelText("People 1"), {
+      target: { value: "rep-a, rep-b , rep-c," },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save and switch on" }));
+
+    await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
+    const action = crm.publishWorkflowRuleVersion.mock.calls[0][0].actions[0];
+    expect(action.type).toBe("assign_owner");
+    // Trimmed, and the trailing comma does not become a blank member the
+    // server would refuse — the author should not have to hunt for that.
+    expect(action.rotationMembers).toEqual(["rep-a", "rep-b", "rep-c"]);
+  });
+
+  it("clears the assignee when an action becomes a rotation", async () => {
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "New rule" }));
+    await screen.findByRole("dialog");
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Round robin" } });
+
+    // The blank action starts as create_task with assignee "record_owner".
+    // Switching to assign_owner must drop it: the server refuses an action
+    // that both picks from a rotation and names somebody, and keeping the old
+    // value would produce a rule that will not save with an error pointing at
+    // a field the author can no longer see.
+    fireEvent.change(screen.getByLabelText("Action 1"), { target: { value: "assign_owner" } });
+    expect(screen.queryByLabelText("Assign to 1")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("People 1"), { target: { value: "rep-a, rep-b" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and switch on" }));
+
+    await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
+    const action = crm.publishWorkflowRuleVersion.mock.calls[0][0].actions[0];
+    expect(action.assignee).toBe("");
+    expect(action.assigneeId).toBe("");
+  });
+
+  it("clears the rotation when an action stops being one", async () => {
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "New rule" }));
+    await screen.findByRole("dialog");
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Round robin" } });
+    fireEvent.change(screen.getByLabelText("Action 1"), { target: { value: "assign_owner" } });
+    fireEvent.change(screen.getByLabelText("People 1"), { target: { value: "rep-a, rep-b" } });
+
+    // Changing your mind must not leave a rotation on a create_task action.
+    fireEvent.change(screen.getByLabelText("Action 1"), { target: { value: "create_task" } });
+    fireEvent.change(screen.getByLabelText("Title 1"), { target: { value: "Call them" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and switch on" }));
+
+    await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
+    const action = crm.publishWorkflowRuleVersion.mock.calls[0][0].actions[0];
+    expect(action.type).toBe("create_task");
+    expect(action.rotationMembers).toEqual([]);
+    expect(action.assignee).toBe("record_owner");
   });
 
   // Editing loads the running version rather than starting blank: an author
@@ -170,8 +263,9 @@ describe("AutomationPage", () => {
   it("pauses a running rule", async () => {
     await loaded();
     fireEvent.click(screen.getByRole("button", { name: "Pause Referral follow-up" }));
-    await waitFor(() => expect(crm.setWorkflowRuleStatus)
-      .toHaveBeenCalledWith({ id: "rule-1", status: "paused" }));
+    await waitFor(() =>
+      expect(crm.setWorkflowRuleStatus).toHaveBeenCalledWith({ id: "rule-1", status: "paused" }),
+    );
   });
 
   // Archiving is permanent, so it goes through a confirmation that says so.
@@ -183,8 +277,9 @@ describe("AutomationPage", () => {
     expect(crm.setWorkflowRuleStatus).not.toHaveBeenCalled();
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
-    await waitFor(() => expect(crm.setWorkflowRuleStatus)
-      .toHaveBeenCalledWith({ id: "rule-1", status: "archived" }));
+    await waitFor(() =>
+      expect(crm.setWorkflowRuleStatus).toHaveBeenCalledWith({ id: "rule-1", status: "archived" }),
+    );
   });
 
   // "Why didn't my rule fire" is the question the ledger exists to answer, so
@@ -193,12 +288,20 @@ describe("AutomationPage", () => {
     crm.listWorkflowExecutions.mockResolvedValue({
       executions: [
         {
-          id: "ex-1", ruleId: "rule-1", sourceEventType: "lead.created",
-          status: "skipped", attempts: 0, errorCategory: "",
+          id: "ex-1",
+          ruleId: "rule-1",
+          sourceEventType: "lead.created",
+          status: "skipped",
+          attempts: 0,
+          errorCategory: "",
         },
         {
-          id: "ex-2", ruleId: "rule-1", sourceEventType: "lead.created",
-          status: "failed", attempts: 1, errorCategory: "no_assignee",
+          id: "ex-2",
+          ruleId: "rule-1",
+          sourceEventType: "lead.created",
+          status: "failed",
+          attempts: 1,
+          errorCategory: "no_assignee",
         },
       ],
     });

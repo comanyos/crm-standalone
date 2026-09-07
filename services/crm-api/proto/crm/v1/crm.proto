@@ -1134,7 +1134,7 @@ message WorkflowCondition {
 // WorkflowAction is one thing a rule does. The fields each action type uses
 // are enforced server-side; the others are ignored.
 message WorkflowAction {
-  // type is create_task, add_activity or notify.
+  // type is create_task, add_activity, notify or assign_owner.
   string type = 1;
   // title is the task title or the notification title.
   string title = 2;
@@ -1155,6 +1155,15 @@ message WorkflowAction {
   int32 due_in_days = 7;
   // activity_kind applies to add_activity.
   string activity_kind = 8;
+  // rotation_members applies to assign_owner: the ordered principals the
+  // action hands records to, one after another (task_crm.md §8). Order is
+  // meaningful — "who is next" is only answerable against a fixed sequence —
+  // and a member listed twice is refused rather than given twice the work.
+  //
+  // An assign_owner action must not also set assignee or assignee_id: it
+  // chooses the assignee from this list, and naming one too would give it two
+  // answers to the same question.
+  repeated string rotation_members = 9;
 }
 
 // WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer
@@ -1258,6 +1267,13 @@ message DescribeWorkflowCatalogResponse {
   int32 max_conditions = 4;
   int32 max_actions = 5;
   int32 max_text_length = 6;
+  // max_rotation_members bounds an assign_owner action's member list.
+  int32 max_rotation_members = 7;
+  // assignable_subjects are the record types assign_owner can set an owner
+  // on. An opportunity is deliberately absent: its owner is its account's, so
+  // assigning one would reassign the account and every other opportunity on
+  // it.
+  repeated string assignable_subjects = 8;
 }
 
 // CreateWorkflowRuleRequest starts a rule. It is always created as a draft:

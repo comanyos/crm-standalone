@@ -211,6 +211,11 @@ type MemStore struct {
 	customRecord     *memTable[*CustomRecord]
 	consent          *memTable[*MessagingConsent]
 
+	// assignment holds the round-robin cursors and the per-execution record
+	// of what each one decided — not memTables, see
+	// memstore_lead_distribution.go.
+	assignment *assignmentTables
+
 	// google holds the integration's two records. They are not memTables:
 	// see memstore_google.go for why.
 	google *googleTables
@@ -256,6 +261,7 @@ func NewMemStore() *MemStore {
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
 		consent:          newMemTable(cloneMessagingConsent),
+		assignment:       newAssignmentTables(),
 		google:           newGoogleTables(),
 		gmail:            newGmailTables(),
 		calendar:         newCalendarTables(),

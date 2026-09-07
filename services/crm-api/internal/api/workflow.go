@@ -55,12 +55,14 @@ func (s *CRMService) DescribeWorkflowCatalog(
 	}
 	maxConditions, maxActions, maxText := domain.WorkflowLimits()
 	return connect.NewResponse(&crmv1.DescribeWorkflowCatalogResponse{
-		Triggers:          out,
-		ActionTypes:       domain.WorkflowActionTypes(),
-		AssigneeSelectors: domain.WorkflowAssigneeSelectors(),
-		MaxConditions:     int32(maxConditions),
-		MaxActions:        int32(maxActions),
-		MaxTextLength:     int32(maxText),
+		Triggers:           out,
+		ActionTypes:        domain.WorkflowActionTypes(),
+		AssigneeSelectors:  domain.WorkflowAssigneeSelectors(),
+		MaxConditions:      int32(maxConditions),
+		MaxActions:         int32(maxActions),
+		MaxTextLength:      int32(maxText),
+		MaxRotationMembers: int32(domain.MaxRotationMembers()),
+		AssignableSubjects: domain.SortedAssignableSubjects(),
 	}), nil
 }
 
@@ -371,7 +373,7 @@ func workflowVersionToProto(v *domain.WorkflowRuleVersion) *crmv1.WorkflowRuleVe
 			Type: action.Type, Title: action.Title, Body: action.Body,
 			Assignee: action.Assignee, AssigneeId: action.AssigneeID,
 			Priority: action.Priority, DueInDays: int32(action.DueInDays),
-			ActivityKind: action.ActivityKind,
+			ActivityKind: action.ActivityKind, RotationMembers: action.RotationMembers,
 		})
 	}
 	return &crmv1.WorkflowRuleVersion{
@@ -399,7 +401,7 @@ func workflowActionsFromProto(in []*crmv1.WorkflowAction) []domain.WorkflowActio
 			Type: action.GetType(), Title: action.GetTitle(), Body: action.GetBody(),
 			Assignee: action.GetAssignee(), AssigneeID: action.GetAssigneeId(),
 			Priority: action.GetPriority(), DueInDays: int(action.GetDueInDays()),
-			ActivityKind: action.GetActivityKind(),
+			ActivityKind: action.GetActivityKind(), RotationMembers: action.GetRotationMembers(),
 		})
 	}
 	return out

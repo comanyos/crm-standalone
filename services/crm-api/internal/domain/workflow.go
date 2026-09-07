@@ -214,8 +214,12 @@ func operatorsFor(kind fieldKind) []string {
 // WorkflowActionTypes and WorkflowAssigneeSelectors are the remaining halves
 // of the authoring catalog.
 func WorkflowActionTypes() []string {
-	return []string{ActionCreateTask, ActionAddActivity, ActionNotify}
+	return []string{ActionCreateTask, ActionAddActivity, ActionNotify, ActionAssignOwner}
 }
+
+// MaxRotationMembers reports the bound on an assign_owner action's member
+// list, so the editor enforces what the server enforces rather than guessing.
+func MaxRotationMembers() int { return maxRotationMembers }
 
 // WorkflowAssigneeSelectors returns the ways an action may name a principal.
 func WorkflowAssigneeSelectors() []string {
@@ -258,7 +262,21 @@ const (
 	ActionCreateTask  = "create_task"
 	ActionAddActivity = "add_activity"
 	ActionNotify      = "notify"
+	// ActionAssignOwner distributes records across a team in rotation
+	// (task_crm.md §8, migrations/0029_lead_distribution.sql). It is an
+	// action rather than an engine of its own so that automatic lead
+	// distribution inherits this one's versioning, conditions, execution
+	// ledger, bounded retries and loop prevention — a second mechanism beside
+	// it would need all of that again, and would be the one nobody remembered
+	// to give it to.
+	ActionAssignOwner = "assign_owner"
 )
+
+// maxRotationMembers bounds a rotation. The limit exists because the member
+// list is stored inside an immutable rule version: a list long enough to
+// matter for storage is also long enough that nobody is reviewing who is on
+// it, which is the more important problem.
+const maxRotationMembers = 50
 
 // Assignee selectors. A rule cannot name an arbitrary principal by typing an
 // id into a value field and having it silently mean nothing; it picks one of
@@ -296,6 +314,17 @@ type WorkflowAction struct {
 
 	// ActivityKind applies to add_activity.
 	ActivityKind string `json:"activity_kind,omitempty"`
+
+	// RotationMembers applies to assign_owner: the ordered principals the
+	// action hands records to, one after another. Order is meaningful and is
+	// preserved, because "who is next" is only answerable against a fixed
+	// sequence.
+	//
+	// There is deliberately no strategy field beside it. Round robin is the
+	// only strategy, so a knob with one setting would be configuration that
+	// cannot be configured; a second strategy can be a second action type,
+	// which is also how it would get its own validation.
+	RotationMembers []string `json:"rotation_members,omitempty"`
 }
 
 const (
@@ -336,9 +365,51 @@ func (a *WorkflowAction) Validate() error {
 			return fmt.Errorf("%w: a notify action needs a title", ErrInvalid)
 		}
 		return a.validateAssignee(true)
+	case ActionAssignOwner:
+		return a.validateRotation()
 	default:
 		return fmt.Errorf("%w: %q is not a workflow action this version supports", ErrInvalid, a.Type)
 	}
+}
+
+// validateRotation checks an assign_owner action's member list.
+//
+// Duplicates are refused rather than tolerated. A list of ["a","b","a"] is
+// not a rotation with a preference — it is almost always a mistake, and
+// silently honouring it would give one member twice the work while looking
+// like an even split in the rule editor. Somebody who genuinely wants that
+// can say so with a second rule and a condition.
+func (a *WorkflowAction) validateRotation() error {
+	if len(a.RotationMembers) == 0 {
+		return fmt.Errorf("%w: an assign_owner action needs at least one member to assign to", ErrInvalid)
+	}
+	if len(a.RotationMembers) > maxRotationMembers {
+		return fmt.Errorf("%w: a rotation may name at most %d members", ErrInvalid, maxRotationMembers)
+	}
+	seen := make(map[string]bool, len(a.RotationMembers))
+	for _, member := range a.RotationMembers {
+		trimmed := strings.TrimSpace(member)
+		if trimmed == "" {
+			return fmt.Errorf("%w: a rotation member cannot be blank", ErrInvalid)
+		}
+		if len([]rune(trimmed)) > maxWorkflowTextLength {
+			return fmt.Errorf("%w: a rotation member id exceeds %d characters",
+				ErrInvalid, maxWorkflowTextLength)
+		}
+		if seen[trimmed] {
+			return fmt.Errorf("%w: %q appears twice in the rotation; "+
+				"a member listed twice would silently get twice the work", ErrInvalid, trimmed)
+		}
+		seen[trimmed] = true
+	}
+	// An assign_owner action takes no assignee selector: it decides the
+	// assignee itself. Accepting one would give the action two answers to the
+	// same question.
+	if a.Assignee != "" || strings.TrimSpace(a.AssigneeID) != "" {
+		return fmt.Errorf("%w: an assign_owner action chooses the assignee from its rotation "+
+			"and must not also name one", ErrInvalid)
+	}
+	return a.bounded()
 }
 
 func (a *WorkflowAction) validateAssignee(required bool) error {

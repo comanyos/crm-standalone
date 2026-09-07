@@ -25,25 +25,58 @@ import { useToast } from "../../components/ui/Toast";
  * saved — or worse, one that saves and silently never matches. */
 
 const STATUS_TONE: Record<string, BadgeTone> = {
-  draft: "neutral", active: "success", paused: "warning", archived: "neutral",
+  draft: "neutral",
+  active: "success",
+  paused: "warning",
+  archived: "neutral",
 };
 
 const ACTION_LABELS: Record<string, string> = {
-  create_task: "Create a task", add_activity: "Log an activity", notify: "Send a notification",
+  create_task: "Create a task",
+  add_activity: "Log an activity",
+  notify: "Send a notification",
+  assign_owner: "Assign to the next person in a rotation",
 };
 
+/** The patch that switching an action's type needs, beyond the type itself.
+ *
+ * Switching to assign_owner has to clear the assignee, because the server
+ * refuses an action that both picks from a rotation and names somebody — and
+ * a form that silently kept the old value would produce a rule that will not
+ * save, with an error pointing at a field the author can no longer see.
+ * Switching away clears the rotation for the mirror-image reason. */
+function changeActionType(type: string): Partial<WorkflowAction> {
+  if (type === "assign_owner") {
+    return { type, assignee: "", assigneeId: "", title: "", body: "" };
+  }
+  return { type, rotationMembers: [], assignee: "record_owner" };
+}
+
+/** Actions that hand work to a person the author names. assign_owner is
+ * absent on purpose: it picks the assignee from its own rotation, and the
+ * server refuses an action that does both. */
+const ASSIGNING_ACTIONS = new Set(["create_task", "notify"]);
+
 const OPERATOR_LABELS: Record<string, string> = {
-  eq: "is", neq: "is not", contains: "contains", in: "is one of",
-  gt: "is greater than", lt: "is less than",
+  eq: "is",
+  neq: "is not",
+  contains: "contains",
+  in: "is one of",
+  gt: "is greater than",
+  lt: "is less than",
 };
 
 const ASSIGNEE_LABELS: Record<string, string> = {
-  record_owner: "The record's owner", fixed_user: "A specific person",
+  record_owner: "The record's owner",
+  fixed_user: "A specific person",
 };
 
 const EXECUTION_TONE: Record<string, BadgeTone> = {
-  succeeded: "success", failed: "danger", skipped: "neutral",
-  pending: "brand", running: "brand",
+  succeeded: "success",
+  failed: "danger",
+  skipped: "neutral",
+  pending: "brand",
+  running: "brand",
 };
 
 /** The failure codes the engine records. They are bounded codes rather than
@@ -68,13 +101,27 @@ type Draft = {
 const blankCondition = (field: string, operator: string): WorkflowCondition =>
   ({ $typeName: "crm.v1.WorkflowCondition", field, operator, value: "" }) as WorkflowCondition;
 
-const blankAction = (): WorkflowAction => ({
-  $typeName: "crm.v1.WorkflowAction", type: "create_task", title: "", body: "",
-  assignee: "record_owner", assigneeId: "", priority: "medium", dueInDays: 0, activityKind: "note",
-}) as WorkflowAction;
+const blankAction = (): WorkflowAction =>
+  ({
+    $typeName: "crm.v1.WorkflowAction",
+    type: "create_task",
+    title: "",
+    body: "",
+    assignee: "record_owner",
+    assigneeId: "",
+    priority: "medium",
+    dueInDays: 0,
+    activityKind: "note",
+    rotationMembers: [],
+  }) as WorkflowAction;
 
 const blankDraft = (): Draft => ({
-  ruleId: "", name: "", description: "", trigger: "", conditions: [], actions: [blankAction()],
+  ruleId: "",
+  name: "",
+  description: "",
+  trigger: "",
+  conditions: [],
+  actions: [blankAction()],
 });
 
 export default function AutomationPage() {
@@ -117,13 +164,21 @@ export default function AutomationPage() {
     mutationFn: async (input: { draft: Draft; activate: boolean }) => {
       const { draft: d, activate } = input;
       const ruleId = d.ruleId
-        ? (await crm.updateWorkflowRule({ id: d.ruleId, name: d.name.trim(), description: d.description.trim() }))
-            .rule?.id ?? d.ruleId
-        : (await crm.createWorkflowRule({ name: d.name.trim(), description: d.description.trim() }))
-            .rule?.id ?? "";
+        ? ((
+            await crm.updateWorkflowRule({
+              id: d.ruleId,
+              name: d.name.trim(),
+              description: d.description.trim(),
+            })
+          ).rule?.id ?? d.ruleId)
+        : ((await crm.createWorkflowRule({ name: d.name.trim(), description: d.description.trim() })).rule
+            ?.id ?? "");
       await crm.publishWorkflowRuleVersion({
-        ruleId, triggerEventType: d.trigger,
-        conditions: d.conditions, actions: d.actions, activate,
+        ruleId,
+        triggerEventType: d.trigger,
+        conditions: d.conditions,
+        actions: d.actions,
+        activate,
       });
     },
     onSuccess: (_data, input) => {
@@ -153,11 +208,15 @@ export default function AutomationPage() {
   });
 
   if (!canRead) {
-    return <div>
-      <PageHeader title="Automation" />
-      <EmptyState title="Automation access required"
-        description="Rules are managed by CRM managers and administrators." />
-    </div>;
+    return (
+      <div>
+        <PageHeader title="Automation" />
+        <EmptyState
+          title="Automation access required"
+          description="Rules are managed by CRM managers and administrators."
+        />
+      </div>
+    );
   }
 
   const startNew = () => setDraft({ ...blankDraft(), trigger: triggers[0]?.eventType ?? "" });
@@ -166,7 +225,9 @@ export default function AutomationPage() {
     const detail = await crm.getWorkflowRule({ id: rule.id });
     const version = detail.activeVersion;
     setDraft({
-      ruleId: rule.id, name: rule.name, description: rule.description,
+      ruleId: rule.id,
+      name: rule.name,
+      description: rule.description,
       trigger: version?.triggerEventType ?? triggers[0]?.eventType ?? "",
       conditions: version?.conditions.map((condition) => ({ ...condition })) ?? [],
       actions: version?.actions.map((action) => ({ ...action })) ?? [blankAction()],
@@ -176,213 +237,425 @@ export default function AutomationPage() {
   const patch = (changes: Partial<Draft>) => setDraft((current) => current && { ...current, ...changes });
 
   const patchCondition = (index: number, changes: Partial<WorkflowCondition>) =>
-    setDraft((current) => current && {
-      ...current,
-      conditions: current.conditions.map((condition, i) => i === index ? { ...condition, ...changes } : condition),
-    });
+    setDraft(
+      (current) =>
+        current && {
+          ...current,
+          conditions: current.conditions.map((condition, i) =>
+            i === index ? { ...condition, ...changes } : condition,
+          ),
+        },
+    );
 
   const patchAction = (index: number, changes: Partial<WorkflowAction>) =>
-    setDraft((current) => current && {
-      ...current,
-      actions: current.actions.map((action, i) => i === index ? { ...action, ...changes } : action),
-    });
+    setDraft(
+      (current) =>
+        current && {
+          ...current,
+          actions: current.actions.map((action, i) => (i === index ? { ...action, ...changes } : action)),
+        },
+    );
 
-  return <div>
-    <PageHeader title="Automation"
-      actions={canWrite && triggers.length > 0 && <Button onClick={startNew}>New rule</Button>} />
-    <p className="mb-5 max-w-3xl text-sm text-slate-600">
-      Rules watch for one thing happening and do a fixed set of things in response. Editing a
-      running rule saves a new version rather than changing what is already running, so a rule&apos;s
-      history always says exactly what ran.
-    </p>
+  return (
+    <div>
+      <PageHeader
+        title="Automation"
+        actions={canWrite && triggers.length > 0 && <Button onClick={startNew}>New rule</Button>}
+      />
+      <p className="mb-5 max-w-3xl text-sm text-slate-600">
+        Rules watch for one thing happening and do a fixed set of things in response. Editing a running rule
+        saves a new version rather than changing what is already running, so a rule&apos;s history always says
+        exactly what ran.
+      </p>
 
-    {rulesQuery.isPending && <SkeletonRows rows={4} />}
-    {rulesQuery.error && renderQueryError(rulesQuery.error, {
-      onRetry: () => rulesQuery.refetch(),
-      forbiddenDescription: "You don't have permission to view automation rules.",
-    })}
-    {rulesQuery.data && rules.length === 0 && <EmptyState title="No automation rules"
-      description="A rule can create follow-up work the moment a lead arrives or a deal moves stage."
-      action={canWrite && <Button onClick={startNew}>New rule</Button>} />}
+      {rulesQuery.isPending && <SkeletonRows rows={4} />}
+      {rulesQuery.error &&
+        renderQueryError(rulesQuery.error, {
+          onRetry: () => rulesQuery.refetch(),
+          forbiddenDescription: "You don't have permission to view automation rules.",
+        })}
+      {rulesQuery.data && rules.length === 0 && (
+        <EmptyState
+          title="No automation rules"
+          description="A rule can create follow-up work the moment a lead arrives or a deal moves stage."
+          action={canWrite && <Button onClick={startNew}>New rule</Button>}
+        />
+      )}
 
-    {rules.length > 0 && <Table caption="Automation rules" rows={rules} getRowKey={(rule) => rule.id} columns={[
-      {
-        key: "name", header: "Rule", render: (rule) => <>
-          <div className="font-medium">{rule.name}</div>
-          {rule.description && <div className="text-xs text-slate-500">{rule.description}</div>}
-        </>,
-      },
-      {
-        key: "status", header: "Status",
-        render: (rule) => <Badge tone={STATUS_TONE[rule.status] ?? "neutral"}>{rule.status}</Badge>,
-      },
-      {
-        key: "actions", header: "Actions", headerHidden: true, render: (rule) => <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setHistory(rule)}>
-            History<span className="sr-only"> for {rule.name}</span>
-          </Button>
-          {canWrite && rule.status !== "archived" && <>
-            <Button variant="secondary" onClick={() => void startEdit(rule)}>
-              Edit<span className="sr-only"> {rule.name}</span>
-            </Button>
-            {rule.status === "active"
-              ? <Button variant="secondary"
-                  onClick={() => setStatus.mutate({ id: rule.id, status: "paused" })}>
-                  Pause<span className="sr-only"> {rule.name}</span>
-                </Button>
-              : rule.activeVersionId && <Button variant="secondary"
-                  onClick={() => setStatus.mutate({ id: rule.id, status: "active" })}>
-                  Switch on<span className="sr-only"> {rule.name}</span>
-                </Button>}
-            <Button variant="danger" onClick={() => setArchiving(rule)}>
-              Archive<span className="sr-only"> {rule.name}</span>
-            </Button>
-          </>}
-        </div>,
-      },
-    ]} />}
-
-    <Dialog open={Boolean(draft)} onClose={() => setDraft(null)}
-      title={draft?.ruleId ? "Edit rule" : "New rule"}
-      footer={draft && <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="secondary" onClick={() => setDraft(null)}>Cancel</Button>
-        <Button variant="secondary" disabled={save.isPending}
-          onClick={() => save.mutate({ draft, activate: false })}>Save without switching on</Button>
-        <Button disabled={save.isPending} onClick={() => save.mutate({ draft, activate: true })}>
-          Save and switch on
-        </Button>
-      </div>}>
-      {draft && <div className="space-y-4">
-        <Input label="Name" value={draft.name} onChange={(event) => patch({ name: event.target.value })} />
-        <Input label="Description" value={draft.description}
-          onChange={(event) => patch({ description: event.target.value })} />
-        <Select label="When this happens" value={draft.trigger}
-          onChange={(event) => patch({ trigger: event.target.value, conditions: [] })}
-          options={triggers.map((candidate) => ({
-            value: candidate.eventType, label: triggerLabel(candidate.eventType),
-          }))} />
-
-        <fieldset className="space-y-3 rounded-md border border-slate-200 p-3">
-          <legend className="px-1 text-sm font-medium text-slate-700">Only when</legend>
-          {draft.conditions.length === 0 &&
-            <p className="text-sm text-slate-500">Every {triggerLabel(draft.trigger).toLowerCase()} matches.</p>}
-          {draft.conditions.map((condition, index) => {
-            const field = trigger?.fields.find((candidate) => candidate.name === condition.field);
-            return <div key={index} className="grid gap-2 sm:grid-cols-3">
-              <Select label={`Field ${index + 1}`} value={condition.field}
-                onChange={(event) => patchCondition(index, {
-                  field: event.target.value,
-                  operator: trigger?.fields.find((c) => c.name === event.target.value)?.operators[0] ?? "eq",
-                })}
-                options={(trigger?.fields ?? []).map((candidate) => ({
-                  value: candidate.name, label: fieldLabel(candidate.name),
-                }))} />
-              <Select label={`Comparison ${index + 1}`} value={condition.operator}
-                onChange={(event) => patchCondition(index, { operator: event.target.value })}
-                options={(field?.operators ?? []).map((operator) => ({
-                  value: operator, label: OPERATOR_LABELS[operator] ?? operator,
-                }))} />
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Input label={`Value ${index + 1}`} value={condition.value}
-                    hint={condition.operator === "in" ? "Comma-separated" : undefined}
-                    onChange={(event) => patchCondition(index, { value: event.target.value })} />
-                </div>
-                <Button variant="secondary" onClick={() => patch({
-                  conditions: draft.conditions.filter((_, i) => i !== index),
-                })}>Remove<span className="sr-only"> condition {index + 1}</span></Button>
-              </div>
-            </div>;
-          })}
-          {trigger && draft.conditions.length < (catalogQuery.data?.maxConditions ?? 10) &&
-            <Button variant="secondary" onClick={() => patch({
-              conditions: [...draft.conditions, blankCondition(
-                trigger.fields[0]?.name ?? "", trigger.fields[0]?.operators[0] ?? "eq")],
-            })}>Add a condition</Button>}
-        </fieldset>
-
-        <fieldset className="space-y-3 rounded-md border border-slate-200 p-3">
-          <legend className="px-1 text-sm font-medium text-slate-700">Do this</legend>
-          {draft.actions.map((action, index) => <div key={index} className="space-y-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0">
-            <Select label={`Action ${index + 1}`} value={action.type}
-              onChange={(event) => patchAction(index, { type: event.target.value })}
-              options={(catalogQuery.data?.actionTypes ?? []).map((type) => ({
-                value: type, label: ACTION_LABELS[type] ?? type,
-              }))} />
-            {action.type !== "add_activity" &&
-              <Input label={`Title ${index + 1}`} value={action.title}
-                onChange={(event) => patchAction(index, { title: event.target.value })} />}
-            <Input label={action.type === "add_activity" ? `Note ${index + 1}` : `Details ${index + 1}`}
-              value={action.body} onChange={(event) => patchAction(index, { body: event.target.value })} />
-            {action.type === "add_activity" &&
-              <Input label={`Activity kind ${index + 1}`} value={action.activityKind}
-                onChange={(event) => patchAction(index, { activityKind: event.target.value })} />}
-            {action.type !== "add_activity" && <>
-              <Select label={`Assign to ${index + 1}`} value={action.assignee}
-                onChange={(event) => patchAction(index, { assignee: event.target.value })}
-                options={(catalogQuery.data?.assigneeSelectors ?? []).map((selector) => ({
-                  value: selector, label: ASSIGNEE_LABELS[selector] ?? selector,
-                }))} />
-              {action.assignee === "fixed_user" &&
-                <Input label={`Person ${index + 1}`} value={action.assigneeId}
-                  onChange={(event) => patchAction(index, { assigneeId: event.target.value })} />}
-            </>}
-            {action.type === "create_task" &&
-              <Input label={`Due in days ${index + 1}`} type="number" min={0} value={action.dueInDays}
-                onChange={(event) => patchAction(index, { dueInDays: Number(event.target.value) })} />}
-            {draft.actions.length > 1 &&
-              <Button variant="secondary" onClick={() => patch({
-                actions: draft.actions.filter((_, i) => i !== index),
-              })}>Remove<span className="sr-only"> action {index + 1}</span></Button>}
-          </div>)}
-          {draft.actions.length < (catalogQuery.data?.maxActions ?? 10) &&
-            <Button variant="secondary"
-              onClick={() => patch({ actions: [...draft.actions, blankAction()] })}>Add an action</Button>}
-        </fieldset>
-      </div>}
-    </Dialog>
-
-    <Dialog open={Boolean(history)} onClose={() => setHistory(null)}
-      title={history ? `History — ${history.name}` : "History"}>
-      {executionsQuery.isPending && <SkeletonRows rows={3} />}
-      {executionsQuery.data?.executions.length === 0 &&
-        <p className="text-sm text-slate-600">This rule has not been considered for any event yet.</p>}
-      {(executionsQuery.data?.executions.length ?? 0) > 0 &&
-        <Table caption="Rule history" rows={executionsQuery.data?.executions ?? []}
-          getRowKey={(execution) => execution.id} columns={[
-            { key: "event", header: "Event", render: (execution) => execution.sourceEventType },
+      {rules.length > 0 && (
+        <Table
+          caption="Automation rules"
+          rows={rules}
+          getRowKey={(rule) => rule.id}
+          columns={[
             {
-              key: "status", header: "Outcome", render: (execution) => <>
-                <Badge tone={EXECUTION_TONE[execution.status] ?? "neutral"}>{execution.status}</Badge>
-                {execution.status === "skipped" &&
-                  <div className="text-xs text-slate-500">Its conditions did not hold.</div>}
-                {execution.errorCategory &&
-                  <div className="text-xs text-slate-500">
-                    {FAILURE_REASONS[execution.errorCategory] ?? execution.errorCategory}
-                  </div>}
-              </>,
+              key: "name",
+              header: "Rule",
+              render: (rule) => (
+                <>
+                  <div className="font-medium">{rule.name}</div>
+                  {rule.description && <div className="text-xs text-slate-500">{rule.description}</div>}
+                </>
+              ),
             },
-            { key: "attempts", header: "Attempts", render: (execution) => String(execution.attempts) },
-          ]} />}
-    </Dialog>
+            {
+              key: "status",
+              header: "Status",
+              render: (rule) => <Badge tone={STATUS_TONE[rule.status] ?? "neutral"}>{rule.status}</Badge>,
+            },
+            {
+              key: "actions",
+              header: "Actions",
+              headerHidden: true,
+              render: (rule) => (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => setHistory(rule)}>
+                    History<span className="sr-only"> for {rule.name}</span>
+                  </Button>
+                  {canWrite && rule.status !== "archived" && (
+                    <>
+                      <Button variant="secondary" onClick={() => void startEdit(rule)}>
+                        Edit<span className="sr-only"> {rule.name}</span>
+                      </Button>
+                      {rule.status === "active" ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => setStatus.mutate({ id: rule.id, status: "paused" })}
+                        >
+                          Pause<span className="sr-only"> {rule.name}</span>
+                        </Button>
+                      ) : (
+                        rule.activeVersionId && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => setStatus.mutate({ id: rule.id, status: "active" })}
+                          >
+                            Switch on<span className="sr-only"> {rule.name}</span>
+                          </Button>
+                        )
+                      )}
+                      <Button variant="danger" onClick={() => setArchiving(rule)}>
+                        Archive<span className="sr-only"> {rule.name}</span>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      )}
 
-    <ConfirmDialog open={Boolean(archiving)} title="Archive this rule?"
-      description={`"${archiving?.name}" stops running. Archiving is permanent: a retired rule cannot be switched back on, and reinstating it means writing a new one. Its history is kept.`}
-      confirmLabel="Archive" onCancel={() => setArchiving(null)}
-      onConfirm={() => archiving && setStatus.mutate({ id: archiving.id, status: "archived" })} />
-  </div>;
+      <Dialog
+        open={Boolean(draft)}
+        onClose={() => setDraft(null)}
+        title={draft?.ruleId ? "Edit rule" : "New rule"}
+        footer={
+          draft && (
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDraft(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={save.isPending}
+                onClick={() => save.mutate({ draft, activate: false })}
+              >
+                Save without switching on
+              </Button>
+              <Button disabled={save.isPending} onClick={() => save.mutate({ draft, activate: true })}>
+                Save and switch on
+              </Button>
+            </div>
+          )
+        }
+      >
+        {draft && (
+          <div className="space-y-4">
+            <Input
+              label="Name"
+              value={draft.name}
+              onChange={(event) => patch({ name: event.target.value })}
+            />
+            <Input
+              label="Description"
+              value={draft.description}
+              onChange={(event) => patch({ description: event.target.value })}
+            />
+            <Select
+              label="When this happens"
+              value={draft.trigger}
+              onChange={(event) => patch({ trigger: event.target.value, conditions: [] })}
+              options={triggers.map((candidate) => ({
+                value: candidate.eventType,
+                label: triggerLabel(candidate.eventType),
+              }))}
+            />
+
+            <fieldset className="space-y-3 rounded-md border border-slate-200 p-3">
+              <legend className="px-1 text-sm font-medium text-slate-700">Only when</legend>
+              {draft.conditions.length === 0 && (
+                <p className="text-sm text-slate-500">
+                  Every {triggerLabel(draft.trigger).toLowerCase()} matches.
+                </p>
+              )}
+              {draft.conditions.map((condition, index) => {
+                const field = trigger?.fields.find((candidate) => candidate.name === condition.field);
+                return (
+                  <div key={index} className="grid gap-2 sm:grid-cols-3">
+                    <Select
+                      label={`Field ${index + 1}`}
+                      value={condition.field}
+                      onChange={(event) =>
+                        patchCondition(index, {
+                          field: event.target.value,
+                          operator:
+                            trigger?.fields.find((c) => c.name === event.target.value)?.operators[0] ?? "eq",
+                        })
+                      }
+                      options={(trigger?.fields ?? []).map((candidate) => ({
+                        value: candidate.name,
+                        label: fieldLabel(candidate.name),
+                      }))}
+                    />
+                    <Select
+                      label={`Comparison ${index + 1}`}
+                      value={condition.operator}
+                      onChange={(event) => patchCondition(index, { operator: event.target.value })}
+                      options={(field?.operators ?? []).map((operator) => ({
+                        value: operator,
+                        label: OPERATOR_LABELS[operator] ?? operator,
+                      }))}
+                    />
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Input
+                          label={`Value ${index + 1}`}
+                          value={condition.value}
+                          hint={condition.operator === "in" ? "Comma-separated" : undefined}
+                          onChange={(event) => patchCondition(index, { value: event.target.value })}
+                        />
+                      </div>
+                      <Button
+                        variant="secondary"
+                        onClick={() =>
+                          patch({
+                            conditions: draft.conditions.filter((_, i) => i !== index),
+                          })
+                        }
+                      >
+                        Remove<span className="sr-only"> condition {index + 1}</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              {trigger && draft.conditions.length < (catalogQuery.data?.maxConditions ?? 10) && (
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    patch({
+                      conditions: [
+                        ...draft.conditions,
+                        blankCondition(
+                          trigger.fields[0]?.name ?? "",
+                          trigger.fields[0]?.operators[0] ?? "eq",
+                        ),
+                      ],
+                    })
+                  }
+                >
+                  Add a condition
+                </Button>
+              )}
+            </fieldset>
+
+            <fieldset className="space-y-3 rounded-md border border-slate-200 p-3">
+              <legend className="px-1 text-sm font-medium text-slate-700">Do this</legend>
+              {draft.actions.map((action, index) => (
+                <div
+                  key={index}
+                  className="space-y-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0"
+                >
+                  <Select
+                    label={`Action ${index + 1}`}
+                    value={action.type}
+                    onChange={(event) => patchAction(index, changeActionType(event.target.value))}
+                    options={(catalogQuery.data?.actionTypes ?? []).map((type) => ({
+                      value: type,
+                      label: ACTION_LABELS[type] ?? type,
+                    }))}
+                  />
+                  {ASSIGNING_ACTIONS.has(action.type) && (
+                    <Input
+                      label={`Title ${index + 1}`}
+                      value={action.title}
+                      onChange={(event) => patchAction(index, { title: event.target.value })}
+                    />
+                  )}
+                  {action.type !== "assign_owner" && (
+                    <Input
+                      label={action.type === "add_activity" ? `Note ${index + 1}` : `Details ${index + 1}`}
+                      value={action.body}
+                      onChange={(event) => patchAction(index, { body: event.target.value })}
+                    />
+                  )}
+                  {action.type === "add_activity" && (
+                    <Input
+                      label={`Activity kind ${index + 1}`}
+                      value={action.activityKind}
+                      onChange={(event) => patchAction(index, { activityKind: event.target.value })}
+                    />
+                  )}
+                  {action.type === "assign_owner" && (
+                    <>
+                      <Input
+                        label={`People ${index + 1}`}
+                        value={action.rotationMembers.join(", ")}
+                        onChange={(event) =>
+                          patchAction(index, {
+                            // Comma-separated because a principal id has no commas in
+                            // it, and one field reads better than a list editor for
+                            // something typed once. Blanks are dropped here so a
+                            // trailing comma is not a validation error the author has
+                            // to go and find.
+                            rotationMembers: event.target.value
+                              .split(",")
+                              .map((m) => m.trim())
+                              .filter(Boolean),
+                          })
+                        }
+                      />
+                      <p className="text-xs text-slate-500">
+                        Records go to these people in turn, one after another. Order matters, and nobody may
+                        be listed twice.
+                      </p>
+                    </>
+                  )}
+                  {ASSIGNING_ACTIONS.has(action.type) && (
+                    <>
+                      <Select
+                        label={`Assign to ${index + 1}`}
+                        value={action.assignee}
+                        onChange={(event) => patchAction(index, { assignee: event.target.value })}
+                        options={(catalogQuery.data?.assigneeSelectors ?? []).map((selector) => ({
+                          value: selector,
+                          label: ASSIGNEE_LABELS[selector] ?? selector,
+                        }))}
+                      />
+                      {action.assignee === "fixed_user" && (
+                        <Input
+                          label={`Person ${index + 1}`}
+                          value={action.assigneeId}
+                          onChange={(event) => patchAction(index, { assigneeId: event.target.value })}
+                        />
+                      )}
+                    </>
+                  )}
+                  {action.type === "create_task" && (
+                    <Input
+                      label={`Due in days ${index + 1}`}
+                      type="number"
+                      min={0}
+                      value={action.dueInDays}
+                      onChange={(event) => patchAction(index, { dueInDays: Number(event.target.value) })}
+                    />
+                  )}
+                  {draft.actions.length > 1 && (
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        patch({
+                          actions: draft.actions.filter((_, i) => i !== index),
+                        })
+                      }
+                    >
+                      Remove<span className="sr-only"> action {index + 1}</span>
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {draft.actions.length < (catalogQuery.data?.maxActions ?? 10) && (
+                <Button
+                  variant="secondary"
+                  onClick={() => patch({ actions: [...draft.actions, blankAction()] })}
+                >
+                  Add an action
+                </Button>
+              )}
+            </fieldset>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(history)}
+        onClose={() => setHistory(null)}
+        title={history ? `History — ${history.name}` : "History"}
+      >
+        {executionsQuery.isPending && <SkeletonRows rows={3} />}
+        {executionsQuery.data?.executions.length === 0 && (
+          <p className="text-sm text-slate-600">This rule has not been considered for any event yet.</p>
+        )}
+        {(executionsQuery.data?.executions.length ?? 0) > 0 && (
+          <Table
+            caption="Rule history"
+            rows={executionsQuery.data?.executions ?? []}
+            getRowKey={(execution) => execution.id}
+            columns={[
+              { key: "event", header: "Event", render: (execution) => execution.sourceEventType },
+              {
+                key: "status",
+                header: "Outcome",
+                render: (execution) => (
+                  <>
+                    <Badge tone={EXECUTION_TONE[execution.status] ?? "neutral"}>{execution.status}</Badge>
+                    {execution.status === "skipped" && (
+                      <div className="text-xs text-slate-500">Its conditions did not hold.</div>
+                    )}
+                    {execution.errorCategory && (
+                      <div className="text-xs text-slate-500">
+                        {FAILURE_REASONS[execution.errorCategory] ?? execution.errorCategory}
+                      </div>
+                    )}
+                  </>
+                ),
+              },
+              { key: "attempts", header: "Attempts", render: (execution) => String(execution.attempts) },
+            ]}
+          />
+        )}
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(archiving)}
+        title="Archive this rule?"
+        description={`"${archiving?.name}" stops running. Archiving is permanent: a retired rule cannot be switched back on, and reinstating it means writing a new one. Its history is kept.`}
+        confirmLabel="Archive"
+        onCancel={() => setArchiving(null)}
+        onConfirm={() => archiving && setStatus.mutate({ id: archiving.id, status: "archived" })}
+      />
+    </div>
+  );
 }
 
 /** Event types are read by rule authors, not by machines, on this screen. */
 function triggerLabel(eventType: string) {
   switch (eventType) {
-    case "lead.created": return "A lead is created";
-    case "opportunity.stage_changed": return "An opportunity changes stage";
-    case "opportunity.closed_won": return "An opportunity is won";
-    default: return eventType;
+    case "lead.created":
+      return "A lead is created";
+    case "opportunity.stage_changed":
+      return "An opportunity changes stage";
+    case "opportunity.closed_won":
+      return "An opportunity is won";
+    default:
+      return eventType;
   }
 }
 
 function fieldLabel(name: string) {
-  return name.replace(/_id$/, "").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  return name
+    .replace(/_id$/, "")
+    .replace(/_/g, " ")
+    .replace(/^./, (c) => c.toUpperCase());
 }

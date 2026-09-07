@@ -358,6 +358,21 @@ type Store interface {
 	CurrentConsent(ctx context.Context, scope Scope, channelKind, address string) (*MessagingConsent, error)
 	ListConsent(ctx context.Context, scope Scope, channelKind, address string) ([]*MessagingConsent, error)
 
+	// Round-robin owner assignment (migrations/0029_lead_distribution.sql,
+	// lead_distribution.go). One operation, because the owner change, the
+	// record of what was decided, and the rotation's advance have to happen
+	// together: split apart, a failure between them either burns a turn on an
+	// assignment that never happened or reassigns a record nobody's turn
+	// covered.
+	//
+	// It is idempotent on ExecutionID. The engine re-runs an action if it
+	// crashes between performing it and persisting actions_completed, and a
+	// re-run that consumed a second turn would skip a member permanently.
+	AssignNextOwner(ctx context.Context, scope Scope, in AssignNextOwnerInput) (*OwnerAssignment, error)
+	// ListOwnerAssignments returns what one rule version has assigned, newest
+	// first — the read a manager checking fairness makes.
+	ListOwnerAssignments(ctx context.Context, scope Scope, ruleVersionID string, limit int) ([]*OwnerAssignment, error)
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the
