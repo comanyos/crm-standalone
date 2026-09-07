@@ -76,6 +76,12 @@ type apiFixture struct {
 	// exportJobID names a recorded export audit row, so a list-exports
 	// probe has something to try to leak.
 	exportJobID string
+	// consentID names this organization's withdrawal against contactEmail.
+	// Probes compare against the id rather than counting rows, because the
+	// probes share one service: another probe legitimately records
+	// organization B's own decision for the same address, and a count would
+	// then fail on its own side effect rather than on a leak.
+	consentID string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -113,12 +119,30 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		Contact: &crmv1.Contact{
 			Email: f.contactEmail, AccountId: f.accountID,
 			FirstName: label, LastName: "Buyer",
+			// A phone in full international form, so this contact derives
+			// every messaging channel rather than only email — a local
+			// number would come back unreachable and a channel probe would
+			// pass for want of anything to leak.
+			Phone: "+441632960001",
 		},
 	}))
 	if err != nil {
 		t.Fatalf("[%s] create contact: %v", label, err)
 	}
 	f.contactID = contact.Msg.GetContact().GetId()
+
+	// A withdrawal against this contact's own email, so a consent probe has a
+	// real decision to try to read across the tenant boundary. It is the most
+	// sensitive row shape the ledger holds: it names a person and says they
+	// refused to be contacted.
+	consent, err := s.RecordMessagingConsent(f.ctx, connect.NewRequest(&crmv1.RecordMessagingConsentRequest{
+		ChannelKind: "email", Address: f.contactEmail, State: "withdrawn",
+		Source: "manual", Evidence: label + " asked to be removed",
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed messaging consent: %v", label, err)
+	}
+	f.consentID = consent.Msg.GetConsent().GetId()
 
 	lead, err := s.CreateLead(f.ctx, connect.NewRequest(&crmv1.CreateLeadRequest{
 		Lead: &crmv1.Lead{Company: label + " Prospect", Source: "referral"},
@@ -1409,6 +1433,61 @@ var crossTenantProbes = map[string]isolationProbe{
 	"DeleteSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.DeleteSavedView(ctxB, connect.NewRequest(&crmv1.DeleteSavedViewRequest{Id: a.savedViewID}))
 		wantNotFound(t, "DeleteSavedView", err)
+	},
+	"ListContactChannels": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Naming organization A's contact id must read as absent, not as
+		// forbidden: a refusal that distinguishes the two confirms the id is
+		// real. Getting channels back would additionally hand over a phone
+		// number and email address.
+		_, err := s.ListContactChannels(ctxB, connect.NewRequest(&crmv1.ListContactChannelsRequest{
+			ContactId: a.contactID,
+		}))
+		wantNotFound(t, "ListContactChannels", err)
+	},
+	"ListMessagingConsent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Consent is keyed on an address rather than on a record id, so
+		// there is no foreign id to be refused — organization B simply asks
+		// about the same address. It must see its own ledger, which is
+		// empty for this address, not organization A's withdrawal.
+		res, err := s.ListMessagingConsent(ctxB, connect.NewRequest(&crmv1.ListMessagingConsentRequest{
+			ChannelKind: "email", Address: a.contactEmail,
+		}))
+		if err != nil {
+			t.Fatalf("ListMessagingConsent: %v", err)
+		}
+		for _, row := range res.Msg.GetConsent() {
+			if row.GetId() == a.consentID {
+				t.Error("ListMessagingConsent returned organization A's withdrawal for the same address")
+			}
+		}
+	},
+	"RecordMessagingConsent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// The write direction of the same property. Organization B records
+		// its own grant for an address organization A withdrew; the two must
+		// not collide, and A's withdrawal must still stand afterwards —
+		// otherwise one tenant could re-permit contact with somebody another
+		// tenant was told to stop contacting.
+		res, err := s.RecordMessagingConsent(ctxB, connect.NewRequest(&crmv1.RecordMessagingConsentRequest{
+			ChannelKind: "email", Address: a.contactEmail, State: "granted", Source: "manual",
+		}))
+		if err != nil {
+			t.Fatalf("RecordMessagingConsent: %v", err)
+		}
+		if res.Msg.GetConsent().GetState() != "granted" {
+			t.Errorf("organization B recorded %q, want its own grant", res.Msg.GetConsent().GetState())
+		}
+		rows, err := s.ListMessagingConsent(a.ctx, connect.NewRequest(&crmv1.ListMessagingConsentRequest{
+			ChannelKind: "email", Address: a.contactEmail,
+		}))
+		if err != nil {
+			t.Fatalf("ListMessagingConsent for organization A: %v", err)
+		}
+		if len(rows.Msg.GetConsent()) != 1 ||
+			rows.Msg.GetConsent()[0].GetId() != a.consentID ||
+			rows.Msg.GetConsent()[0].GetState() != "withdrawn" {
+			t.Error("organization B's grant reached organization A's ledger; a withdrawal must not be " +
+				"overturnable by another tenant")
+		}
 	},
 	"ListTaggedRecords": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		res, err := s.ListTaggedRecords(ctxB, connect.NewRequest(&crmv1.ListTaggedRecordsRequest{TagId: a.tagID}))

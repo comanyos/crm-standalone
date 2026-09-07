@@ -53,7 +53,8 @@
     "crm:workflow:read", "crm:workflow:write",
     "crm:notification:read", "crm:notification:write",
     "crm:tag:read", "crm:tag:write",
-    "crm:saved_view:read", "crm:saved_view:write"
+    "crm:saved_view:read", "crm:saved_view:write",
+    "crm:consent:read", "crm:consent:write"
   ],
   "roles": [
     {
@@ -81,9 +82,10 @@
         "crm:workflow:read", "crm:workflow:write",
         "crm:notification:read", "crm:notification:write",
         "crm:tag:read", "crm:tag:write",
-        "crm:saved_view:read", "crm:saved_view:write"
+        "crm:saved_view:read", "crm:saved_view:write",
+        "crm:consent:read", "crm:consent:write"
       ],
-      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role. Authoring automation belongs to this role rather than to every member: a rule acts on every record its trigger matches, on behalf of whoever wrote it, until somebody retires it. Tag authority (defining, renaming, deleting tags — a shared taxonomy every user sees) belongs here for the same reason pipeline configuration does. Saved views are personal presets with no shared authority at all, but this role still needs crm:saved_view:* to save one, the same as crm_member below."
+      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role. Authoring automation belongs to this role rather than to every member: a rule acts on every record its trigger matches, on behalf of whoever wrote it, until somebody retires it. Tag authority (defining, renaming, deleting tags — a shared taxonomy every user sees) belongs here for the same reason pipeline configuration does. Saved views are personal presets with no shared authority at all, but this role still needs crm:saved_view:* to save one, the same as crm_member below. The consent pair sits here too: a manager reviews and records whether the organization may contact somebody, which is the kind of claim the organization may later have to defend."
     },
     {
       "key": "crm_member",
@@ -104,9 +106,10 @@
         "crm:workflow:read",
         "crm:notification:read", "crm:notification:write",
         "crm:tag:read", "crm:tag:write",
-        "crm:saved_view:read", "crm:saved_view:write"
+        "crm:saved_view:read", "crm:saved_view:write",
+        "crm:consent:read", "crm:consent:write"
       ],
-      "rationale": "An individual contributor works their own contacts, leads, opportunities and activities, but does not create or rename the accounts they hang off, and does not configure pipelines. Tasks and notes are the bulk of an individual contributor's day, so both are read/write here. crm:pipeline:read is not optional despite pipelines being manager-owned: an opportunity is meaningless without its stage names, ordering and close-reason rules, so the opportunity form and board cannot render without it. It reads automation rules without authoring them, so a rep can see which rule created the task in front of them. Tags are read/write here, unlike pipelines: labeling and unlabeling records is routine daily work, not process configuration, so it sits with the rest of this role's record-level write access. Saved views need this role's own crm:saved_view:write even though a view carries no authority over any record — it is personal state, not shared configuration, but it is still a write."
+      "rationale": "An individual contributor works their own contacts, leads, opportunities and activities, but does not create or rename the accounts they hang off, and does not configure pipelines. Tasks and notes are the bulk of an individual contributor's day, so both are read/write here. crm:pipeline:read is not optional despite pipelines being manager-owned: an opportunity is meaningless without its stage names, ordering and close-reason rules, so the opportunity form and board cannot render without it. It reads automation rules without authoring them, so a rep can see which rule created the task in front of them. Tags are read/write here, unlike pipelines: labeling and unlabeling records is routine daily work, not process configuration, so it sits with the rest of this role's record-level write access. Saved views need this role's own crm:saved_view:write even though a view carries no authority over any record — it is personal state, not shared configuration, but it is still a write. Consent is read/write here for a reason specific to this role: the person who hears “stop calling me” is the one on the call, and a withdrawal that has to wait for a manager is a withdrawal that gets ignored."
     },
     {
       "key": "crm_viewer",
@@ -123,9 +126,10 @@
         "crm:summary:read",
         "crm:search:read",
         "crm:notification:read",
-        "crm:tag:read"
+        "crm:tag:read",
+        "crm:consent:read"
       ],
-      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list. It holds no crm:integration scope either: linking a Google mailbox is consent this role has no CRM records to sync into. It reads its notifications but cannot mark them read: acknowledging one is still a write, and holding no write authority is this role's defining property rather than an approximation of it. It sees which tags a record carries but cannot assign, remove, or define one. It holds no crm:saved_view scope at all, read or write, which is this role's defining no-write property carried to its logical end: a pure viewer cannot save even a personal filter preset in this version — a named limitation, not an oversight."
+      "rationale": "Read-only across the organization's CRM, including pipeline definitions for the same rendering reason as crm_member. Holds no :write scope of any kind, which is the property crm-api's role_matrix_test.go asserts directly rather than inferring from the list. It holds no crm:integration scope either: linking a Google mailbox is consent this role has no CRM records to sync into. It reads its notifications but cannot mark them read: acknowledging one is still a write, and holding no write authority is this role's defining property rather than an approximation of it. It sees which tags a record carries but cannot assign, remove, or define one. It holds no crm:saved_view scope at all, read or write, which is this role's defining no-write property carried to its logical end: a pure viewer cannot save even a personal filter preset in this version — a named limitation, not an oversight. The one exception to the no-write rule is not an exception at all: it holds crm:consent:read and not :write, so it can see that somebody opted out — which is what stops a wasted call — without being able to assert that a third party opted in."
     }
   ]
 }

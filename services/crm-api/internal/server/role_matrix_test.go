@@ -171,6 +171,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:notification:read": true, "crm:notification:write": true,
 			"crm:tag:read": true, "crm:tag:write": true,
 			"crm:saved_view:read": true, "crm:saved_view:write": true,
+			"crm:consent:read": true, "crm:consent:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -194,6 +195,9 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:notification:read": true, "crm:notification:write": true,
 			"crm:tag:read": true, "crm:tag:write": true,
 			"crm:saved_view:read": true, "crm:saved_view:write": true,
+			// A manager records and reviews whether the organization may
+			// contact somebody — a claim it may later have to defend.
+			"crm:consent:read": true, "crm:consent:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -225,6 +229,10 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:notification:read": true, "crm:notification:write": true,
 			"crm:tag:read": true, "crm:tag:write": true,
 			"crm:saved_view:read": true, "crm:saved_view:write": true,
+			// Write, unlike workflow authoring: the person who hears "stop
+			// calling me" is the one on the call, and a withdrawal that has
+			// to wait for a manager is a withdrawal that gets ignored.
+			"crm:consent:read": true, "crm:consent:write": true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -251,6 +259,11 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:notification:read": true, "crm:notification:write": false,
 			"crm:tag:read": true, "crm:tag:write": false,
 			"crm:saved_view:read": false, "crm:saved_view:write": false,
+			// The one read this role gains beyond the records themselves.
+			// Seeing that somebody opted out is what stops a wasted call;
+			// asserting that a third party opted in is authority it must not
+			// have, so the pair splits rather than being withheld entirely.
+			"crm:consent:read": true, "crm:consent:write": false,
 		},
 	}
 

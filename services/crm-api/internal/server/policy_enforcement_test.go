@@ -296,6 +296,16 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateSavedView(ctx, withToken(&crmv1.CreateSavedViewRequest{ObjectType: "account", Name: "x"}, tok))
 			return err
 		},
+		"crm:consent:write": func(tok string) error {
+			// Granting rather than withdrawing, because granting is the
+			// direction that adds authority: a principal who could assert
+			// that a third party opted in could re-permit somebody the
+			// organization had been told to stop contacting.
+			_, err := client.RecordMessagingConsent(ctx, withToken(&crmv1.RecordMessagingConsentRequest{
+				ChannelKind: "email", Address: "x@example.com", State: "granted",
+			}, tok))
+			return err
+		},
 	}
 
 	// Every write scope this service demands needs a probe here.

@@ -188,8 +188,15 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // tenant data. ExportAccounts is spelled to avoid matching any prefix here:
 // it writes an audit row, but the authority it needs is "may read
 // accounts," so it is guarded by crm:account:read like the data it exports.
+//
+// "Record" joined it for RecordMessagingConsent, which appends a row to the
+// consent ledger. The verb is deliberate there rather than "Create": the
+// ledger has no update and no delete, so "record" says what the operation is.
+// It is still a write, and one whose authority matters more than most —
+// asserting that a third party consented to be contacted is a claim the
+// organization may later have to defend.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

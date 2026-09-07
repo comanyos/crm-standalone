@@ -221,6 +221,22 @@ var crmScopes = map[string]string{
 	// tenant-wide aggregate rollups over records the caller could otherwise
 	// list one type at a time, not a new authorization surface.
 	"/crm.v1.CRMService/GetDashboardReport": "crm:summary:read",
+
+	// Messaging channels and consent (task_crm.md §2). Its own scope pair
+	// rather than the contact's, because the authority differs in a way that
+	// matters: seeing that somebody opted out is what stops a viewer wasting
+	// a call on them, while recording that they opted *in* is a claim about a
+	// third party's wishes that the organization may later have to defend.
+	// Read is broad, write is not — see crm-roles.json.
+	//
+	// ListContactChannels demands the consent scope rather than
+	// crm:contact:read even though it reads a Contact, because what it
+	// actually returns is the gate's verdict; the address is incidental. A
+	// caller who may read contacts but not consent still sees every contact
+	// field through GetContact.
+	"/crm.v1.CRMService/ListContactChannels":    "crm:consent:read",
+	"/crm.v1.CRMService/ListMessagingConsent":   "crm:consent:read",
+	"/crm.v1.CRMService/RecordMessagingConsent": "crm:consent:write",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

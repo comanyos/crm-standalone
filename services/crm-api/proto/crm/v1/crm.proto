@@ -283,7 +283,85 @@ service CRMService {
   // for the canonical metric semantics (currency, time zone, pipeline
   // status, and forecast) this report follows.
   rpc GetDashboardReport(GetDashboardReportRequest) returns (GetDashboardReportResponse);
+
+  // Messaging channels and consent (task_crm.md §2).
+  //
+  // ListContactChannels is the read every messaging UI makes. It returns one
+  // entry per channel a contact could be reached on, each already carrying
+  // the answer to "may we use this" — because that answer is
+  // domain.MayMessage's, and a browser that fetched the address and the
+  // consent rows separately would be re-deciding it client-side, which is
+  // exactly the check that must not be reimplementable.
+  //
+  // A channel whose number has no country code comes back unreachable with a
+  // reason rather than absent: a local number cannot be keyed unambiguously
+  // in the consent ledger, and inferring the country code would produce a
+  // different person's number. See internal/domain/messaging.go.
+  rpc ListContactChannels(ListContactChannelsRequest) returns (ListContactChannelsResponse);
+  // RecordMessagingConsent appends one decision. There is no update and no
+  // delete: withdrawing is a new row saying so, which is what lets the ledger
+  // answer when a decision was made and on what evidence.
+  rpc RecordMessagingConsent(RecordMessagingConsentRequest) returns (RecordMessagingConsentResponse);
+  // ListMessagingConsent is that history for one address on one channel,
+  // newest first — the read a compliance or support question needs.
+  rpc ListMessagingConsent(ListMessagingConsentRequest) returns (ListMessagingConsentResponse);
 }
+
+// MessagingChannel is one address a contact can be reached at, with the
+// gate's verdict already applied (internal/domain/messaging.go).
+message MessagingChannel {
+  // kind is one of: email, sms, voice, whatsapp.
+  string kind = 1;
+  // address is normalised — lower-cased for email, punctuation stripped and
+  // country code required for the phone kinds.
+  string address = 2;
+  // reachable reports whether the address can be used on this channel at all,
+  // before consent is considered. unreachable_reason says why not.
+  bool reachable = 3;
+  string unreachable_reason = 4;
+  // may_message is domain.MayMessage's answer: reachable, not suppressed, and
+  // not withdrawn. refusal_reason is a bounded code, never free text built
+  // from a record — see the Refusal* constants in internal/domain.
+  bool may_message = 5;
+  string refusal_reason = 6;
+  // consent_state is the newest recorded decision for this address, or empty
+  // when nobody has recorded one. Empty means unknown, not refused.
+  string consent_state = 7;
+}
+
+message ListContactChannelsRequest { string contact_id = 1; }
+message ListContactChannelsResponse { repeated MessagingChannel channels = 1; }
+
+// MessagingConsent is one immutable decision in the ledger.
+message MessagingConsent {
+  string id = 1;
+  string channel_kind = 2;
+  string address = 3;
+  // state is "granted" or "withdrawn".
+  string state = 4;
+  // source is one of: manual, import, capture, inbound_keyword.
+  string source = 5;
+  // evidence is a reference to what we were shown — a form submission id, a
+  // message id — never the message content itself.
+  string evidence = 6;
+  string recorded_by = 7;
+  google.protobuf.Timestamp recorded_at = 8;
+}
+
+message RecordMessagingConsentRequest {
+  string channel_kind = 1;
+  string address = 2;
+  string state = 3;
+  string source = 4;
+  string evidence = 5;
+}
+message RecordMessagingConsentResponse { MessagingConsent consent = 1; }
+
+message ListMessagingConsentRequest {
+  string channel_kind = 1;
+  string address = 2;
+}
+message ListMessagingConsentResponse { repeated MessagingConsent consent = 1; }
 
 // CustomValue carries one tenant-defined field value without weakening the
 // type safety of the fixed CRM schema. Exact decimals remain strings rather

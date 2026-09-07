@@ -340,6 +340,15 @@ const (
 	// CRMServiceGetDashboardReportProcedure is the fully-qualified name of the CRMService's
 	// GetDashboardReport RPC.
 	CRMServiceGetDashboardReportProcedure = "/crm.v1.CRMService/GetDashboardReport"
+	// CRMServiceListContactChannelsProcedure is the fully-qualified name of the CRMService's
+	// ListContactChannels RPC.
+	CRMServiceListContactChannelsProcedure = "/crm.v1.CRMService/ListContactChannels"
+	// CRMServiceRecordMessagingConsentProcedure is the fully-qualified name of the CRMService's
+	// RecordMessagingConsent RPC.
+	CRMServiceRecordMessagingConsentProcedure = "/crm.v1.CRMService/RecordMessagingConsent"
+	// CRMServiceListMessagingConsentProcedure is the fully-qualified name of the CRMService's
+	// ListMessagingConsent RPC.
+	CRMServiceListMessagingConsentProcedure = "/crm.v1.CRMService/ListMessagingConsent"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -598,6 +607,27 @@ type CRMServiceClient interface {
 	// for the canonical metric semantics (currency, time zone, pipeline
 	// status, and forecast) this report follows.
 	GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error)
+	// Messaging channels and consent (task_crm.md §2).
+	//
+	// ListContactChannels is the read every messaging UI makes. It returns one
+	// entry per channel a contact could be reached on, each already carrying
+	// the answer to "may we use this" — because that answer is
+	// domain.MayMessage's, and a browser that fetched the address and the
+	// consent rows separately would be re-deciding it client-side, which is
+	// exactly the check that must not be reimplementable.
+	//
+	// A channel whose number has no country code comes back unreachable with a
+	// reason rather than absent: a local number cannot be keyed unambiguously
+	// in the consent ledger, and inferring the country code would produce a
+	// different person's number. See internal/domain/messaging.go.
+	ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error)
+	// RecordMessagingConsent appends one decision. There is no update and no
+	// delete: withdrawing is a new row saying so, which is what lets the ledger
+	// answer when a decision was made and on what evidence.
+	RecordMessagingConsent(context.Context, *connect.Request[v1.RecordMessagingConsentRequest]) (*connect.Response[v1.RecordMessagingConsentResponse], error)
+	// ListMessagingConsent is that history for one address on one channel,
+	// newest first — the read a compliance or support question needs.
+	ListMessagingConsent(context.Context, *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1289,6 +1319,24 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("GetDashboardReport")),
 			connect.WithClientOptions(opts...),
 		),
+		listContactChannels: connect.NewClient[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse](
+			httpClient,
+			baseURL+CRMServiceListContactChannelsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListContactChannels")),
+			connect.WithClientOptions(opts...),
+		),
+		recordMessagingConsent: connect.NewClient[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse](
+			httpClient,
+			baseURL+CRMServiceRecordMessagingConsentProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("RecordMessagingConsent")),
+			connect.WithClientOptions(opts...),
+		),
+		listMessagingConsent: connect.NewClient[v1.ListMessagingConsentRequest, v1.ListMessagingConsentResponse](
+			httpClient,
+			baseURL+CRMServiceListMessagingConsentProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListMessagingConsent")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1407,6 +1455,9 @@ type cRMServiceClient struct {
 	exportAccounts                *connect.Client[v1.ExportAccountsRequest, v1.ExportAccountsResponse]
 	listExportJobs                *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
 	getDashboardReport            *connect.Client[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse]
+	listContactChannels           *connect.Client[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse]
+	recordMessagingConsent        *connect.Client[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse]
+	listMessagingConsent          *connect.Client[v1.ListMessagingConsentRequest, v1.ListMessagingConsentResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -1974,6 +2025,21 @@ func (c *cRMServiceClient) GetDashboardReport(ctx context.Context, req *connect.
 	return c.getDashboardReport.CallUnary(ctx, req)
 }
 
+// ListContactChannels calls crm.v1.CRMService.ListContactChannels.
+func (c *cRMServiceClient) ListContactChannels(ctx context.Context, req *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error) {
+	return c.listContactChannels.CallUnary(ctx, req)
+}
+
+// RecordMessagingConsent calls crm.v1.CRMService.RecordMessagingConsent.
+func (c *cRMServiceClient) RecordMessagingConsent(ctx context.Context, req *connect.Request[v1.RecordMessagingConsentRequest]) (*connect.Response[v1.RecordMessagingConsentResponse], error) {
+	return c.recordMessagingConsent.CallUnary(ctx, req)
+}
+
+// ListMessagingConsent calls crm.v1.CRMService.ListMessagingConsent.
+func (c *cRMServiceClient) ListMessagingConsent(ctx context.Context, req *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error) {
+	return c.listMessagingConsent.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2230,6 +2296,27 @@ type CRMServiceHandler interface {
 	// for the canonical metric semantics (currency, time zone, pipeline
 	// status, and forecast) this report follows.
 	GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error)
+	// Messaging channels and consent (task_crm.md §2).
+	//
+	// ListContactChannels is the read every messaging UI makes. It returns one
+	// entry per channel a contact could be reached on, each already carrying
+	// the answer to "may we use this" — because that answer is
+	// domain.MayMessage's, and a browser that fetched the address and the
+	// consent rows separately would be re-deciding it client-side, which is
+	// exactly the check that must not be reimplementable.
+	//
+	// A channel whose number has no country code comes back unreachable with a
+	// reason rather than absent: a local number cannot be keyed unambiguously
+	// in the consent ledger, and inferring the country code would produce a
+	// different person's number. See internal/domain/messaging.go.
+	ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error)
+	// RecordMessagingConsent appends one decision. There is no update and no
+	// delete: withdrawing is a new row saying so, which is what lets the ledger
+	// answer when a decision was made and on what evidence.
+	RecordMessagingConsent(context.Context, *connect.Request[v1.RecordMessagingConsentRequest]) (*connect.Response[v1.RecordMessagingConsentResponse], error)
+	// ListMessagingConsent is that history for one address on one channel,
+	// newest first — the read a compliance or support question needs.
+	ListMessagingConsent(context.Context, *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -2917,6 +3004,24 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("GetDashboardReport")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceListContactChannelsHandler := connect.NewUnaryHandler(
+		CRMServiceListContactChannelsProcedure,
+		svc.ListContactChannels,
+		connect.WithSchema(cRMServiceMethods.ByName("ListContactChannels")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceRecordMessagingConsentHandler := connect.NewUnaryHandler(
+		CRMServiceRecordMessagingConsentProcedure,
+		svc.RecordMessagingConsent,
+		connect.WithSchema(cRMServiceMethods.ByName("RecordMessagingConsent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListMessagingConsentHandler := connect.NewUnaryHandler(
+		CRMServiceListMessagingConsentProcedure,
+		svc.ListMessagingConsent,
+		connect.WithSchema(cRMServiceMethods.ByName("ListMessagingConsent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -3145,6 +3250,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListExportJobsHandler.ServeHTTP(w, r)
 		case CRMServiceGetDashboardReportProcedure:
 			cRMServiceGetDashboardReportHandler.ServeHTTP(w, r)
+		case CRMServiceListContactChannelsProcedure:
+			cRMServiceListContactChannelsHandler.ServeHTTP(w, r)
+		case CRMServiceRecordMessagingConsentProcedure:
+			cRMServiceRecordMessagingConsentHandler.ServeHTTP(w, r)
+		case CRMServiceListMessagingConsentProcedure:
+			cRMServiceListMessagingConsentHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3604,4 +3715,16 @@ func (UnimplementedCRMServiceHandler) ListExportJobs(context.Context, *connect.R
 
 func (UnimplementedCRMServiceHandler) GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetDashboardReport is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListContactChannels is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) RecordMessagingConsent(context.Context, *connect.Request[v1.RecordMessagingConsentRequest]) (*connect.Response[v1.RecordMessagingConsentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.RecordMessagingConsent is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListMessagingConsent(context.Context, *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListMessagingConsent is not implemented"))
 }
