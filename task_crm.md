@@ -107,7 +107,7 @@ below.
 | 3 | Click-to-chat outbound (WhatsApp/SMS/tel deep links) + logged activity | **Build.** Cheapest real capability in this file. | **Done, pending a real-device check** |
 | 4 | Provider-sent messaging (WhatsApp BSP, SMS, `gmail.send`) | **Defer** until §3 shows demand. | Not started — D2, D3, D4 |
 | 5 | Message templates + 1-touch quick replies | **Build** (literal first, merge fields after §5.3). | **Done, including merge fields** |
-| 6 | Messaging actions in the workflow engine | **Build** after §3 and §5. | Not started — needs D6 (quiet hours) |
+| 6 | Messaging actions in the workflow engine | **Build** after §3 and §5. | **Done** — drafts rather than sends, so D6 does not apply |
 | 7 | Bulk / campaign sending | **Defer.** Highest legal risk, lowest fit for a B2B CRM. | Not started — D3, legal review |
 | 8 | Automatic lead distribution (round-robin / rules) | **Build.** Small, self-contained, no external dependency. | **Done** |
 | 9 | Trackable file sharing (PDF open tracking) | **Defer.** | Not started — D5 |
@@ -116,7 +116,7 @@ below.
 
 ## What has been delivered
 
-Five sections, in the order the sequencing at the bottom of this file gives.
+Six sections, in the order the sequencing at the bottom of this file gives.
 Each was verified the way this repository requires — against live PostgreSQL
 with row-level security, over real HTTP with real signed tokens where the
 change reaches that far — not merely written.
@@ -212,12 +212,72 @@ ownership, which is D4 territory. It reuses the existing notification entity
 and the `notify` workflow action; push is a delivery channel for a
 notification the product already creates, not a new system.
 
+**§6 — automations draft messages.** `migrations/0032_outbound_messages.sql`,
+the `draft_message` workflow action. The section that composes the three
+before it: §2 decides whether contacting somebody is permitted, §5 supplies
+the wording, §3 is what the rep taps.
+
+**It drafts and does not send**, because nothing here can deliver a message —
+that is §4. Two consequences follow, and both were listed above as blockers
+that turn out not to be:
+
+*D6 (quiet hours) does not apply.* A draft waiting in a queue wakes nobody,
+and the human who sends it does so during their own working hours by
+construction. D6 becomes required the instant anything drains the queue
+automatically, which is why `status` already separates pending from sent.
+
+*Server-side rendering is safe here.* The blocker in
+`docs/WORKFLOW_AUTOMATION.md` is about *arbitrary* interpolation and still
+stands. It does not reach this vocabulary because the allowlist is
+fixed-schema fields (field-level visibility applies to custom fields only) and
+scopes are type-level, so a rule author can already read every record a rule
+could fire on. The second reason would expire if record-level authorization
+lands — the code says so where somebody adding it will look.
+
+Consent is checked twice, and the second check is the point: a rule can draft
+on Monday and a rep can open the queue on Wednesday. A draft to somebody who
+opted out in between stays visible and refused rather than vanishing, because
+a draft that disappeared would look like the CRM lost it.
+
 ### What that leaves
 
-**Nothing unblocked is left.** Every remaining section waits on a decision
-listed below: §6 on D6 (quiet hours), §4 on D2/D3/D4, §7 on legal review,
-§9 on D5, §10.2 on a push-provider choice, §11 on D3. §10.4 — a native mobile
-app — is marked do-not-build and should stay that way.
+**Nothing unblocked is left, and the remaining sections should not be built
+speculatively.** Each is held for a specific reason, not for want of time:
+
+**§4 — provider-sent messaging.** Needs D2 (provider and cost owner), D3
+(retention) and D4 (secret/KMS ownership). The `gmail.send` rung is genuinely
+ready — the OAuth scope is already requested, the connection lifecycle exists,
+and §6's queue already has the `pending → sent` transition a sender would
+drive — but it cannot be *verified* without a real Google OAuth client, and an
+unverifiable network integration is worse than none. Note also that anything
+draining the queue automatically makes D6 required.
+
+**§7 — bulk campaigns.** Still the recommendation not to build. It is the
+highest-risk surface here for platform bans and regulatory exposure, one
+tenant's behaviour damages a sender reputation shared with every other, and it
+is the feature least suited to a multi-tenant B2B CRM. Needs a documented
+legal review before any of it.
+
+**§9 — trackable files.** Blocked on D5, which also blocks ordinary
+attachments (`task.md` §5.2). Building open-tracking before attachments exist
+is out of order, and a second storage path would have to be undone.
+
+**§10.2 — push.** Needs a provider choice (Web Push/VAPID is the no-vendor
+option), key ownership under D4, and a Go dependency this tree does not have.
+It also cannot be verified in this environment, which refuses to register a
+service worker at all.
+
+**§11 — Meta Conversions API.** Needs D3 with sharper edges than the rest,
+because it is the only feature that sends customer PII *outbound to an ad
+platform*, plus a Meta dataset id and access token.
+
+One thing checked rather than assumed: §11 has **no "capture it now or lose it
+forever" dependency**. A capture delivery keeps the whole original payload
+alongside the lead it created (`lead_capture_deliveries.raw_payload` and
+`lead_id`), so any `fbclid`, `gclid` or `leadgen_id` a caller sent is already
+recoverable and attributable later. Deferring §11 costs no data.
+
+§10.4 — a native mobile app — is marked do-not-build and should stay that way.
 
 Three verification gaps are worth carrying forward rather than leaving in
 commit messages.

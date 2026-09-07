@@ -490,7 +490,7 @@ Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
 retryable.
 
-## M7 — Privyr parity: speed-to-lead (65%)
+## M7 — Privyr parity: speed-to-lead (75%)
 
 Dependencies: none for the delivered items; the rest are listed with the
 product-owner decision each waits on in `task_crm.md`.
@@ -581,9 +581,31 @@ this milestone — covers only the genuine zeroes.
 
   **Push on a new lead (§10.2) is not done** — it needs a provider choice and
   key ownership. A native app is explicitly **not** planned; see §10.4.
-- [ ] Messaging actions in the workflow engine (§6), provider-sent messaging
-  (§4), bulk campaigns (§7), trackable files (§9) and ad-conversion feedback
-  (§11) each wait on a named decision listed in `task_crm.md`.
+- [x] **Automations draft messages** (`task_crm.md` §6,
+  `migrations/0032_outbound_messages.sql`). A `draft_message` workflow action
+  that checks consent, renders a template and leaves a personalised message in
+  the record owner's queue, one tap from being sent through the click-to-chat
+  links. It drafts and does not send: nothing here can deliver a message.
+
+  Two blockers listed against this section turned out not to apply, and the
+  reasons are recorded rather than assumed. D6 (quiet hours) governs automatic
+  *sending* — a draft in a queue wakes nobody — and becomes required the
+  moment anything drains it. And server-side template rendering is safe for
+  this vocabulary because the merge allowlist is fixed-schema fields while
+  field-level visibility covers custom fields only, and because type-level
+  scopes mean a rule author can already read every record a rule could fire
+  on; that second reason expires if record-level authorization ever lands.
+
+  Consent is re-checked when the queue is read and again when a rep presses
+  send, because a rule can draft on Monday and a rep can open the queue on
+  Wednesday.
+
+- [ ] Provider-sent messaging (§4), bulk campaigns (§7), trackable files (§9),
+  push (§10.2) and ad-conversion feedback (§11) are each held for a stated
+  reason in `task_crm.md` rather than merely unstarted — a provider contract,
+  a legal review, object-storage ownership, a push provider, and an outbound
+  PII decision respectively. §4's `gmail.send` rung is ready but cannot be
+  verified without a real Google client.
 
 Acceptance criteria: an external lead source delivers into the correct tenant
 and fires existing automations unchanged; a rep reaches a contact in one tap
