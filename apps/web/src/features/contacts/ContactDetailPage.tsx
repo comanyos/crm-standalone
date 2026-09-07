@@ -15,6 +15,7 @@ import { TasksPanel } from "../../components/TasksPanel";
 import { NotesPanel } from "../../components/NotesPanel";
 import { TagsPanel } from "../../components/TagsPanel";
 import { ContactChannelsPanel } from "../../components/ContactChannelsPanel";
+import { DraftedMessagesPanel } from "../../components/DraftedMessagesPanel";
 import type { ReactNode } from "react";
 
 export default function ContactDetailPage() {
@@ -133,6 +134,7 @@ export default function ContactDetailPage() {
           />
         </dl>
       </section>
+      <DraftedMessagesPanel subjectType="contact" subjectId={id} />
       <ContactChannelsPanel
         contactId={id}
         firstName={contact.firstName}

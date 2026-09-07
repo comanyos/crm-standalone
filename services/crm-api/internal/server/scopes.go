@@ -266,6 +266,15 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListLeadCaptureEndpoints":  "crm:capture:read",
 	"/crm.v1.CRMService/UpdateLeadCaptureEndpoint": "crm:capture:write",
 	"/crm.v1.CRMService/ListLeadCaptureDeliveries": "crm:capture:read",
+
+	// The drafting queue (task_crm.md §6). It reuses crm:message:* rather
+	// than the template scope: a template is wording anybody may reuse, while
+	// a draft is a specific message to a specific person that is about to be
+	// sent on the organization's behalf. Marking one sent is a claim about
+	// what somebody did, which is why it takes the write half.
+	"/crm.v1.CRMService/ListOutboundMessages":    "crm:message:read",
+	"/crm.v1.CRMService/MarkOutboundMessageSent": "crm:message:write",
+	"/crm.v1.CRMService/DiscardOutboundMessage":  "crm:message:write",
 	// Assembled rather than written as a literal, and not to be tidied back.
 	// gosec's G101 flags a string literal whose key contains "Secret" as a
 	// hardcoded credential; the value here is a scope name, so the finding is

@@ -47,6 +47,11 @@ const (
 	ReasonActionFailed  = "action_failed"
 	ReasonRuleGone      = "rule_version_gone"
 	ReasonInvalidAction = "invalid_action"
+	// ReasonConsentWithdrawn and ReasonNoAddress record why a message could
+	// not be drafted. Both are terminal: consent does not return by waiting,
+	// and an address does not appear.
+	ReasonConsentWithdrawn = "consent_withdrawn"
+	ReasonNoAddress        = "no_messageable_address"
 )
 
 // Engine evaluates events and performs actions.
@@ -292,7 +297,17 @@ func (e *Engine) retryOrFail(
 // attempt, and retrying them three times only delays the failure a rule
 // author needs to see.
 func terminal(reason string) bool {
-	return reason == ReasonRecordGone || reason == ReasonInvalidAction || reason == ReasonRuleGone
+	switch reason {
+	case ReasonRecordGone, ReasonInvalidAction, ReasonRuleGone,
+		// A withdrawal does not become a grant by waiting, and an address
+		// does not appear. Retrying either would mean three attempts to
+		// contact somebody who said no — the precise behaviour this ledger
+		// exists to make impossible.
+		ReasonConsentWithdrawn, ReasonNoAddress:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) finish(

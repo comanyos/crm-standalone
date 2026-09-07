@@ -374,6 +374,7 @@ func workflowVersionToProto(v *domain.WorkflowRuleVersion) *crmv1.WorkflowRuleVe
 			Assignee: action.Assignee, AssigneeId: action.AssigneeID,
 			Priority: action.Priority, DueInDays: int32(action.DueInDays),
 			ActivityKind: action.ActivityKind, RotationMembers: action.RotationMembers,
+			ChannelKind: action.ChannelKind, TemplateId: action.TemplateID,
 		})
 	}
 	return &crmv1.WorkflowRuleVersion{
@@ -402,6 +403,7 @@ func workflowActionsFromProto(in []*crmv1.WorkflowAction) []domain.WorkflowActio
 			Assignee: action.GetAssignee(), AssigneeID: action.GetAssigneeId(),
 			Priority: action.GetPriority(), DueInDays: int(action.GetDueInDays()),
 			ActivityKind: action.GetActivityKind(), RotationMembers: action.GetRotationMembers(),
+			ChannelKind: action.GetChannelKind(), TemplateID: action.GetTemplateId(),
 		})
 	}
 	return out

@@ -347,7 +347,68 @@ service CRMService {
   // with its outcome, including the rejected ones. Without it every failure
   // is a support call.
   rpc ListLeadCaptureDeliveries(ListLeadCaptureDeliveriesRequest) returns (ListLeadCaptureDeliveriesResponse);
+
+  // Messages an automation has drafted (task_crm.md §6).
+  //
+  // Drafts, never sends. Nothing in this service delivers a message —
+  // provider-sent messaging is §4 and waits on a provider contract — so a
+  // rule decides who to contact, checks that contacting them is permitted,
+  // and writes the wording; a rep sends it in one tap through the same
+  // click-to-chat links they use by hand.
+  //
+  // MarkOutboundMessageSent records that a human sent it. It is the honest
+  // verb: the service did not send anything and must not claim to.
+  rpc ListOutboundMessages(ListOutboundMessagesRequest) returns (ListOutboundMessagesResponse);
+  rpc MarkOutboundMessageSent(MarkOutboundMessageSentRequest) returns (MarkOutboundMessageSentResponse);
+  rpc DiscardOutboundMessage(DiscardOutboundMessageRequest) returns (DiscardOutboundMessageResponse);
 }
+
+// OutboundMessage is one message an automation drafted for a person to send.
+message OutboundMessage {
+  string id = 1;
+  // subject_type is lead or contact — the record types that carry an address
+  // of their own.
+  string subject_type = 2;
+  string subject_id = 3;
+  string channel_kind = 4;
+  // address is normalised, and was consent-checked when the draft was made.
+  // It is checked again before sending, because consent can be withdrawn in
+  // between.
+  string address = 5;
+  string subject = 6;
+  string body = 7;
+  // status is pending, sent or discarded.
+  string status = 8;
+  string assignee_id = 9;
+  string rule_version_id = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp sent_at = 12;
+  string sent_by = 13;
+  string discard_reason = 14;
+  // may_still_send re-checks consent at read time. A draft written yesterday
+  // to somebody who opted out this morning must not be offered for sending,
+  // and the queue is exactly where that gap shows up.
+  bool may_still_send = 15;
+  string refusal_reason = 16;
+}
+
+message ListOutboundMessagesRequest {
+  // status narrows the queue; empty returns every state.
+  string status = 1;
+  // subject_type and subject_id narrow to one record's drafts.
+  string subject_type = 2;
+  string subject_id = 3;
+  // mine_only limits the queue to the caller's own drafts.
+  bool mine_only = 4;
+  int32 limit = 5;
+}
+message ListOutboundMessagesResponse { repeated OutboundMessage messages = 1; }
+
+message MarkOutboundMessageSentRequest { string id = 1; }
+message MarkOutboundMessageSentResponse { OutboundMessage message = 1; }
+
+message DiscardOutboundMessageRequest { string id = 1; }
+message DiscardOutboundMessageResponse { OutboundMessage message = 1; }
 
 // LeadCaptureEndpoint is one issued URL. It never carries the signing secret:
 // that is returned once at creation and rotation and then only stored sealed.
@@ -1338,6 +1399,14 @@ message WorkflowAction {
   // chooses the assignee from this list, and naming one too would give it two
   // answers to the same question.
   repeated string rotation_members = 9;
+  // channel_kind and template_id apply to draft_message (task_crm.md §6).
+  //
+  // The template is named rather than copied, so editing the wording changes
+  // what future runs draft — the opposite of the rule's own literal text,
+  // which is frozen in its version. A rule version has to say what it did;
+  // nobody wants to publish a new one to fix a typo in an opener.
+  string channel_kind = 10;
+  string template_id = 11;
 }
 
 // WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer

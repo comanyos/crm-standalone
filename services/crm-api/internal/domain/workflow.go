@@ -214,7 +214,7 @@ func operatorsFor(kind fieldKind) []string {
 // WorkflowActionTypes and WorkflowAssigneeSelectors are the remaining halves
 // of the authoring catalog.
 func WorkflowActionTypes() []string {
-	return []string{ActionCreateTask, ActionAddActivity, ActionNotify, ActionAssignOwner}
+	return []string{ActionCreateTask, ActionAddActivity, ActionNotify, ActionAssignOwner, ActionDraftMessage}
 }
 
 // MaxRotationMembers reports the bound on an assign_owner action's member
@@ -270,6 +270,11 @@ const (
 	// it would need all of that again, and would be the one nobody remembered
 	// to give it to.
 	ActionAssignOwner = "assign_owner"
+	// ActionDraftMessage writes a consent-checked, personalised message for a
+	// rep to send in one tap (task_crm.md §6). It drafts rather than sends,
+	// because nothing in this codebase can deliver a message — see
+	// internal/domain/outbound_message.go.
+	ActionDraftMessage = "draft_message"
 )
 
 // maxRotationMembers bounds a rotation. The limit exists because the member
@@ -325,6 +330,15 @@ type WorkflowAction struct {
 	// cannot be configured; a second strategy can be a second action type,
 	// which is also how it would get its own validation.
 	RotationMembers []string `json:"rotation_members,omitempty"`
+
+	// ChannelKind and TemplateID apply to draft_message. The template is
+	// named rather than copied so editing the wording changes what future
+	// runs draft — the opposite of the rule's own text, which is frozen in
+	// its version. That asymmetry is deliberate: a rule version has to say
+	// what it did, but nobody wants to publish a new version to fix a typo in
+	// an opener.
+	ChannelKind string `json:"channel_kind,omitempty"`
+	TemplateID  string `json:"template_id,omitempty"`
 }
 
 const (
@@ -367,6 +381,21 @@ func (a *WorkflowAction) Validate() error {
 		return a.validateAssignee(true)
 	case ActionAssignOwner:
 		return a.validateRotation()
+	case ActionDraftMessage:
+		if !TemplateChannelKinds[a.ChannelKind] {
+			return fmt.Errorf("%w: %q is not a channel a message can be drafted for (allowed: %s)",
+				ErrInvalid, a.ChannelKind, strings.Join(SortedTemplateChannelKinds(), ", "))
+		}
+		if strings.TrimSpace(a.TemplateID) == "" {
+			return fmt.Errorf("%w: a draft_message action needs a template", ErrInvalid)
+		}
+		// No assignee selector: a draft goes to whoever owns the record when
+		// the rule runs, resolved then rather than named now.
+		if a.Assignee != "" || strings.TrimSpace(a.AssigneeID) != "" {
+			return fmt.Errorf("%w: a draft_message action goes to the record's owner "+
+				"and must not also name an assignee", ErrInvalid)
+		}
+		return a.bounded()
 	default:
 		return fmt.Errorf("%w: %q is not a workflow action this version supports", ErrInvalid, a.Type)
 	}

@@ -213,6 +213,7 @@ type MemStore struct {
 	messageTemplate  *memTable[*MessageTemplate]
 	captureEndpoint  *memTable[*LeadCaptureEndpoint]
 	captureDelivery  *memTable[*LeadCaptureDelivery]
+	outbound         *memTable[*OutboundMessage]
 
 	// capture holds the cross-tenant token index, which is what makes
 	// ResolveCaptureEndpoint possible without a tenant — see
@@ -272,6 +273,7 @@ func NewMemStore() *MemStore {
 		messageTemplate:  newMemTable(cloneMessageTemplate),
 		captureEndpoint:  newMemTable(cloneLeadCaptureEndpoint),
 		captureDelivery:  newMemTable(cloneLeadCaptureDelivery),
+		outbound:         newMemTable(cloneOutboundMessage),
 		capture:          newCaptureTables(),
 		assignment:       newAssignmentTables(),
 		google:           newGoogleTables(),

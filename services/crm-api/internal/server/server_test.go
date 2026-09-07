@@ -189,6 +189,10 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // it writes an audit row, but the authority it needs is "may read
 // accounts," so it is guarded by crm:account:read like the data it exports.
 //
+// "Discard" joined it for DiscardOutboundMessage: it retires a drafted
+// message, which is a state change on a row and not a read, however much
+// "discard" sounds like throwing away something that did not matter.
+//
 // "Rotate" joined it for RotateLeadCaptureSecret. It reads as maintenance and
 // is not: it replaces the signing secret, which immediately stops every
 // caller configured with the old one. That is a write with a blast radius,
@@ -202,7 +206,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // asserting that a third party consented to be contacted is a claim the
 // organization may later have to defend.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate", "Discard"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

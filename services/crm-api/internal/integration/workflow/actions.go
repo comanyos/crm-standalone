@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -42,6 +43,8 @@ func (e *Engine) act(
 		return e.notify(ctx, scope, version, action, execution, subject)
 	case domain.ActionAssignOwner:
 		return e.assignOwner(ctx, scope, action, execution, subject)
+	case domain.ActionDraftMessage:
+		return e.draftMessage(ctx, scope, action, execution, subject)
 	default:
 		// A version that stored an action type this build does not know is
 		// terminal: it will not become known by retrying.
@@ -261,4 +264,126 @@ func (e *Engine) assignOwner(
 			"execution", execution.ID, "member", assignment.MemberID)
 	}
 	return "", nil
+}
+
+// draftMessage writes a consent-checked, personalised message for a rep to
+// send in one tap (task_crm.md §6).
+//
+// It drafts and does not send, because nothing in this codebase can deliver a
+// message — that is task_crm.md §4 and waits on a provider contract. What
+// this does is the part that needed the three sections before it: §2 decides
+// whether contacting this person is permitted, §5 supplies the wording, and
+// §3's links are what the rep taps.
+//
+// Consent is checked here rather than trusted from anywhere, and a refusal is
+// terminal. A withdrawal will not become a grant by retrying, and a rule that
+// kept retrying against somebody who opted out is the exact behaviour the
+// ledger exists to prevent.
+func (e *Engine) draftMessage(
+	ctx context.Context, scope domain.Scope,
+	action domain.WorkflowAction, execution *domain.WorkflowExecution, subject subjectSnapshot,
+) (string, error) {
+	template, err := e.store.GetMessageTemplate(ctx, scope, action.TemplateID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			// The template was deleted after the rule was published. Terminal:
+			// it will not come back, and a rule pointing at nothing should
+			// surface in the ledger rather than retry three times first.
+			return ReasonInvalidAction, err
+		}
+		return ReasonActionFailed, err
+	}
+	if template.ChannelKind != action.ChannelKind {
+		// The template was edited onto another channel. Also terminal, and
+		// worth its own path: drafting an email body as a WhatsApp message
+		// would send a subject line nobody sees and a paragraph nobody reads.
+		return ReasonInvalidAction, errors.New("template is for a different channel")
+	}
+
+	channel, values, reason, err := e.messagingTarget(ctx, scope, execution, action.ChannelKind)
+	if err != nil {
+		return reason, err
+	}
+
+	permitted, refusal, err := domain.MayMessage(ctx, e.store, scope, channel)
+	if err != nil {
+		return ReasonActionFailed, err
+	}
+	if !permitted {
+		return refusalReason(refusal), fmt.Errorf("may not message this contact: %s", refusal)
+	}
+
+	body := domain.RenderMergeFields(template.Body, values)
+	if strings.TrimSpace(body) == "" {
+		return ReasonInvalidAction, errors.New("the template rendered to nothing")
+	}
+
+	if _, _, err := e.store.DraftOutboundMessage(ctx, scope, &domain.OutboundMessage{
+		SubjectType: execution.SubjectType,
+		SubjectID:   execution.SubjectID,
+		ChannelKind: action.ChannelKind,
+		Address:     channel.Address,
+		Subject:     domain.RenderMergeFields(template.Subject, values),
+		Body:        body,
+		Status:      domain.OutboundPending,
+		// The record's owner as it is now, not as the event found it — the
+		// same rule every other action follows.
+		AssigneeID:    subject.OwnerID,
+		RuleVersionID: execution.RuleVersionID,
+		ExecutionID:   execution.ID,
+	}); err != nil {
+		return ReasonActionFailed, err
+	}
+	return "", nil
+}
+
+// messagingTarget resolves who a draft is addressed to, and the values its
+// template will be rendered with.
+//
+// Only a Lead is supported today, and that is a narrowing rather than an
+// oversight: a Lead carries its own address, while an Opportunity's
+// "contact" would mean choosing one of an account's contacts — a decision
+// nobody has made, and the wrong one sends a customer somebody else's
+// follow-up.
+func (e *Engine) messagingTarget(
+	ctx context.Context, scope domain.Scope, execution *domain.WorkflowExecution, channelKind string,
+) (domain.MessagingChannel, map[string]string, string, error) {
+	switch execution.SubjectType {
+	case domain.SubjectLead:
+		lead, err := e.store.GetLead(ctx, scope, execution.SubjectID)
+		if err != nil {
+			return domain.MessagingChannel{}, nil, gone(err), err
+		}
+		if channelKind != domain.ChannelEmail {
+			// A Lead has an email and no phone in this schema, so SMS and
+			// WhatsApp have nothing to address. Terminal.
+			return domain.MessagingChannel{}, nil, ReasonInvalidAction,
+				errors.New("a lead can only be messaged by email")
+		}
+		address, err := domain.NormalizeChannelAddress(domain.ChannelEmail, lead.ContactEmail)
+		if err != nil {
+			return domain.MessagingChannel{}, nil, ReasonNoAddress, err
+		}
+		return domain.MessagingChannel{Kind: domain.ChannelEmail, Address: address, Reachable: true},
+			domain.MergeValuesForLead(lead, ""), "", nil
+	default:
+		return domain.MessagingChannel{}, nil, ReasonInvalidAction,
+			fmt.Errorf("%s records cannot be messaged directly", execution.SubjectType)
+	}
+}
+
+// refusalReason maps a consent refusal onto the ledger's bounded set.
+//
+// All of them are terminal. A withdrawal does not become a grant by waiting,
+// an unreachable address does not gain a country code, and a suppressed
+// person did not ask to be contacted later.
+func refusalReason(refusal string) string {
+	switch refusal {
+	case domain.RefusalConsentWithdrawn:
+		return ReasonConsentWithdrawn
+	case domain.RefusalSuppressed:
+		return ReasonConsentWithdrawn
+	default:
+		return ReasonNoAddress
+	}
 }

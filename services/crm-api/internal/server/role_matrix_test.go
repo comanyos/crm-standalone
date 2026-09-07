@@ -174,6 +174,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:consent:read": true, "crm:consent:write": true,
 			"crm:template:read": true, "crm:template:write": true,
 			"crm:capture:read": true, "crm:capture:write": true,
+			"crm:message:read": true, "crm:message:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -202,6 +203,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:consent:read": true, "crm:consent:write": true,
 			"crm:template:read": true, "crm:template:write": true,
 			"crm:capture:read": true, "crm:capture:write": true,
+			"crm:message:read": true, "crm:message:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -245,6 +247,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// different thing from being allowed to type a lead in. The
 			// delivery log also holds the payloads people submitted.
 			"crm:capture:read": false, "crm:capture:write": false,
+			// An automation writes the message; this role is who sends it.
+			"crm:message:read": true, "crm:message:write": true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -279,6 +283,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// Sees what colleagues send, cannot author it.
 			"crm:template:read": true, "crm:template:write": false,
 			"crm:capture:read": false, "crm:capture:write": false,
+			// Sees the queue, cannot claim a message went out.
+			"crm:message:read": true, "crm:message:write": false,
 		},
 	}
 

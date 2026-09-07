@@ -414,6 +414,20 @@ type Store interface {
 	ListCaptureDeliveries(ctx context.Context, scope Scope, endpointID string, limit int) ([]*LeadCaptureDelivery, error)
 	TouchCaptureEndpoint(ctx context.Context, scope Scope, id, reason string) error
 
+	// Messages an automation has drafted (migrations/0032_outbound_messages.sql,
+	// outbound_message.go). Drafts, never sends: nothing in this codebase
+	// delivers a message, so a rule decides who/when/what and a rep sends it
+	// in one tap. DraftOutboundMessage is idempotent on the execution id,
+	// because the engine re-runs an action after a crash between performing
+	// it and recording that it did.
+	DraftOutboundMessage(ctx context.Context, scope Scope, v *OutboundMessage) (*OutboundMessage, bool, error)
+	GetOutboundMessage(ctx context.Context, scope Scope, id string) (*OutboundMessage, error)
+	ListOutboundMessages(ctx context.Context, scope Scope, filter OutboundMessageFilter, limit int) ([]*OutboundMessage, error)
+	// ResolveOutboundMessage moves a pending draft to sent or discarded. It
+	// requires the draft to still be pending, so two reps working the same
+	// queue cannot both claim one.
+	ResolveOutboundMessage(ctx context.Context, scope Scope, id, status, actor, reason string) (*OutboundMessage, error)
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the

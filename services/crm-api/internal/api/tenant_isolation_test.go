@@ -76,6 +76,10 @@ type apiFixture struct {
 	// exportJobID names a recorded export audit row, so a list-exports
 	// probe has something to try to leak.
 	exportJobID string
+	// outboundMessageID names a message an automation drafted for this
+	// organization — a specific message to a named person, which is among the
+	// most sensitive rows a tenant owns.
+	outboundMessageID string
 	// captureEndpointID names a lead capture endpoint this organization
 	// issued, so a capture probe has a token to try to read and a delivery
 	// log — holding the payloads people submitted — to try to enumerate.
@@ -176,6 +180,21 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] create lead: %v", label, err)
 	}
 	f.leadID = lead.Msg.GetLead().GetId()
+
+	// A drafted message, seeded through the store: drafting is something the
+	// workflow engine does, and there is no RPC that writes one.
+	draft, _, err := s.store.DraftOutboundMessage(f.ctx, domain.Scope{TenantID: tenantID, OrgID: orgID},
+		&domain.OutboundMessage{
+			SubjectType: domain.SubjectLead, SubjectID: f.leadID,
+			ChannelKind: "email", Address: f.contactEmail,
+			Subject: label + " confidential offer",
+			Body:    "Hi, " + label + " has a confidential offer for you.",
+			Status:  domain.OutboundPending, AssigneeID: "owner-" + label,
+		})
+	if err != nil {
+		t.Fatalf("[%s] seed outbound message: %v", label, err)
+	}
+	f.outboundMessageID = draft.ID
 
 	opportunity, err := s.CreateOpportunity(f.ctx, connect.NewRequest(&crmv1.CreateOpportunityRequest{
 		Opportunity: &crmv1.Opportunity{Name: label + " Renewal", AccountId: f.accountID},
@@ -1458,6 +1477,31 @@ var crossTenantProbes = map[string]isolationProbe{
 	"DeleteSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.DeleteSavedView(ctxB, connect.NewRequest(&crmv1.DeleteSavedViewRequest{Id: a.savedViewID}))
 		wantNotFound(t, "DeleteSavedView", err)
+	},
+	"ListOutboundMessages": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListOutboundMessages(ctxB, connect.NewRequest(&crmv1.ListOutboundMessagesRequest{}))
+		if err != nil {
+			t.Fatalf("ListOutboundMessages: %v", err)
+		}
+		for _, message := range res.Msg.GetMessages() {
+			if message.GetId() == a.outboundMessageID {
+				t.Error("ListOutboundMessages returned organization A's drafted message")
+			}
+		}
+	},
+	"MarkOutboundMessageSent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Marking another organization's draft sent would both destroy their
+		// queue and attribute the send to the wrong person.
+		_, err := s.MarkOutboundMessageSent(ctxB, connect.NewRequest(&crmv1.MarkOutboundMessageSentRequest{
+			Id: a.outboundMessageID,
+		}))
+		wantNotFound(t, "MarkOutboundMessageSent", err)
+	},
+	"DiscardOutboundMessage": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DiscardOutboundMessage(ctxB, connect.NewRequest(&crmv1.DiscardOutboundMessageRequest{
+			Id: a.outboundMessageID,
+		}))
+		wantNotFound(t, "DiscardOutboundMessage", err)
 	},
 	"CreateLeadCaptureEndpoint": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		// Two tenants issuing endpoints must get distinct tokens, or one

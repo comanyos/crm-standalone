@@ -296,6 +296,14 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateSavedView(ctx, withToken(&crmv1.CreateSavedViewRequest{ObjectType: "account", Name: "x"}, tok))
 			return err
 		},
+		"crm:message:write": func(tok string) error {
+			// Marking sent rather than discarding: claiming a message went
+			// out to a customer is the assertion that must not be reachable
+			// without authority.
+			_, err := client.MarkOutboundMessageSent(ctx,
+				withToken(&crmv1.MarkOutboundMessageSentRequest{Id: "x"}, tok))
+			return err
+		},
 		"crm:capture:write": func(tok string) error {
 			// Creating rather than updating: minting a URL is the call that
 			// hands out standing authority to create records, so it is the

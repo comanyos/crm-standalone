@@ -36,6 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   add_activity: "Log an activity",
   notify: "Send a notification",
   assign_owner: "Assign to the next person in a rotation",
+  draft_message: "Draft a message for someone to send",
 };
 
 /** The patch that switching an action's type needs, beyond the type itself.
@@ -49,13 +50,26 @@ function changeActionType(type: string): Partial<WorkflowAction> {
   if (type === "assign_owner") {
     return { type, assignee: "", assigneeId: "", title: "", body: "" };
   }
-  return { type, rotationMembers: [], assignee: "record_owner" };
+  if (type === "draft_message") {
+    // Like assign_owner, this one decides its own recipient — the record's
+    // owner — so the server refuses an action that also names an assignee.
+    return { type, assignee: "", assigneeId: "", title: "", body: "", rotationMembers: [] };
+  }
+  return { type, rotationMembers: [], assignee: "record_owner", channelKind: "", templateId: "" };
 }
 
 /** Actions that hand work to a person the author names. assign_owner is
  * absent on purpose: it picks the assignee from its own rotation, and the
  * server refuses an action that does both. */
 const ASSIGNING_ACTIONS = new Set(["create_task", "notify"]);
+
+/** Channels a template — and therefore a draft — can be written for. Voice is
+ * absent because a dialer has nowhere to put a message. */
+const DRAFT_CHANNELS = [
+  { value: "email", label: "Email" },
+  { value: "sms", label: "SMS" },
+  { value: "whatsapp", label: "WhatsApp" },
+];
 
 const OPERATOR_LABELS: Record<string, string> = {
   eq: "is",
@@ -113,6 +127,8 @@ const blankAction = (): WorkflowAction =>
     dueInDays: 0,
     activityKind: "note",
     rotationMembers: [],
+    channelKind: "",
+    templateId: "",
   }) as WorkflowAction;
 
 const blankDraft = (): Draft => ({
@@ -136,6 +152,11 @@ export default function AutomationPage() {
   const [archiving, setArchiving] = useState<WorkflowRule | null>(null);
   const [history, setHistory] = useState<WorkflowRule | null>(null);
 
+  const templatesQuery = useQuery({
+    queryKey: ["crm.listMessageTemplates"],
+    queryFn: () => crm.listMessageTemplates({}),
+    enabled: canRead,
+  });
   const catalogQuery = useQuery({
     queryKey: ["crm.describeWorkflowCatalog"],
     queryFn: () => crm.describeWorkflowCatalog({}),
@@ -493,7 +514,32 @@ export default function AutomationPage() {
                       onChange={(event) => patchAction(index, { title: event.target.value })}
                     />
                   )}
-                  {action.type !== "assign_owner" && (
+                  {action.type === "draft_message" && (
+                    <>
+                      <Select
+                        label={`Channel ${index + 1}`}
+                        value={action.channelKind || "email"}
+                        onChange={(event) => patchAction(index, { channelKind: event.target.value })}
+                        options={DRAFT_CHANNELS}
+                      />
+                      <Select
+                        label={`Template ${index + 1}`}
+                        value={action.templateId}
+                        onChange={(event) => patchAction(index, { templateId: event.target.value })}
+                        options={[
+                          { value: "", label: "Choose a template" },
+                          ...(templatesQuery.data?.templates ?? [])
+                            .filter((t) => t.channelKind === (action.channelKind || "email"))
+                            .map((t) => ({ value: t.id, label: t.name })),
+                        ]}
+                      />
+                      <p className="text-xs text-slate-500">
+                        The message is drafted for whoever owns the record and waits in their queue — nothing
+                        is sent automatically. Contacts who have opted out are skipped.
+                      </p>
+                    </>
+                  )}
+                  {action.type !== "assign_owner" && action.type !== "draft_message" && (
                     <Input
                       label={action.type === "add_activity" ? `Note ${index + 1}` : `Details ${index + 1}`}
                       value={action.body}

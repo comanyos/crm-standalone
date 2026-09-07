@@ -353,6 +353,20 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] seed capture delivery: %v", label, err)
 	}
 
+	// One drafted message, so outbound_messages is asserted to filter rather
+	// than only to have a policy. It is a specific message to a named person,
+	// which makes it among the most sensitive rows a tenant owns.
+	if _, _, err := s.DraftOutboundMessage(ctx, f.scope, &OutboundMessage{
+		SubjectType: SubjectLead, SubjectID: f.leadID,
+		ChannelKind: ChannelEmail,
+		Address:     fmt.Sprintf("%s-%d@example.com", label, stamp),
+		Subject:     label + " confidential offer",
+		Body:        "Hi, " + label + " has a confidential offer for you.",
+		Status:      OutboundPending, AssigneeID: "owner-" + label,
+	}); err != nil {
+		t.Fatalf("[%s] seed outbound message: %v", label, err)
+	}
+
 	// One template, so message_templates is asserted to filter rather than
 	// only to have a policy. Wording an organization sends its customers is
 	// its own — and a competitor's opener is exactly the kind of thing a

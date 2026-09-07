@@ -379,6 +379,15 @@ const (
 	// CRMServiceListLeadCaptureDeliveriesProcedure is the fully-qualified name of the CRMService's
 	// ListLeadCaptureDeliveries RPC.
 	CRMServiceListLeadCaptureDeliveriesProcedure = "/crm.v1.CRMService/ListLeadCaptureDeliveries"
+	// CRMServiceListOutboundMessagesProcedure is the fully-qualified name of the CRMService's
+	// ListOutboundMessages RPC.
+	CRMServiceListOutboundMessagesProcedure = "/crm.v1.CRMService/ListOutboundMessages"
+	// CRMServiceMarkOutboundMessageSentProcedure is the fully-qualified name of the CRMService's
+	// MarkOutboundMessageSent RPC.
+	CRMServiceMarkOutboundMessageSentProcedure = "/crm.v1.CRMService/MarkOutboundMessageSent"
+	// CRMServiceDiscardOutboundMessageProcedure is the fully-qualified name of the CRMService's
+	// DiscardOutboundMessage RPC.
+	CRMServiceDiscardOutboundMessageProcedure = "/crm.v1.CRMService/DiscardOutboundMessage"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -698,6 +707,19 @@ type CRMServiceClient interface {
 	// with its outcome, including the rejected ones. Without it every failure
 	// is a support call.
 	ListLeadCaptureDeliveries(context.Context, *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error)
+	// Messages an automation has drafted (task_crm.md §6).
+	//
+	// Drafts, never sends. Nothing in this service delivers a message —
+	// provider-sent messaging is §4 and waits on a provider contract — so a
+	// rule decides who to contact, checks that contacting them is permitted,
+	// and writes the wording; a rep sends it in one tap through the same
+	// click-to-chat links they use by hand.
+	//
+	// MarkOutboundMessageSent records that a human sent it. It is the honest
+	// verb: the service did not send anything and must not claim to.
+	ListOutboundMessages(context.Context, *connect.Request[v1.ListOutboundMessagesRequest]) (*connect.Response[v1.ListOutboundMessagesResponse], error)
+	MarkOutboundMessageSent(context.Context, *connect.Request[v1.MarkOutboundMessageSentRequest]) (*connect.Response[v1.MarkOutboundMessageSentResponse], error)
+	DiscardOutboundMessage(context.Context, *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1467,6 +1489,24 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListLeadCaptureDeliveries")),
 			connect.WithClientOptions(opts...),
 		),
+		listOutboundMessages: connect.NewClient[v1.ListOutboundMessagesRequest, v1.ListOutboundMessagesResponse](
+			httpClient,
+			baseURL+CRMServiceListOutboundMessagesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListOutboundMessages")),
+			connect.WithClientOptions(opts...),
+		),
+		markOutboundMessageSent: connect.NewClient[v1.MarkOutboundMessageSentRequest, v1.MarkOutboundMessageSentResponse](
+			httpClient,
+			baseURL+CRMServiceMarkOutboundMessageSentProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("MarkOutboundMessageSent")),
+			connect.WithClientOptions(opts...),
+		),
+		discardOutboundMessage: connect.NewClient[v1.DiscardOutboundMessageRequest, v1.DiscardOutboundMessageResponse](
+			httpClient,
+			baseURL+CRMServiceDiscardOutboundMessageProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DiscardOutboundMessage")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1598,6 +1638,9 @@ type cRMServiceClient struct {
 	updateLeadCaptureEndpoint      *connect.Client[v1.UpdateLeadCaptureEndpointRequest, v1.UpdateLeadCaptureEndpointResponse]
 	rotateLeadCaptureSecret        *connect.Client[v1.RotateLeadCaptureSecretRequest, v1.RotateLeadCaptureSecretResponse]
 	listLeadCaptureDeliveries      *connect.Client[v1.ListLeadCaptureDeliveriesRequest, v1.ListLeadCaptureDeliveriesResponse]
+	listOutboundMessages           *connect.Client[v1.ListOutboundMessagesRequest, v1.ListOutboundMessagesResponse]
+	markOutboundMessageSent        *connect.Client[v1.MarkOutboundMessageSentRequest, v1.MarkOutboundMessageSentResponse]
+	discardOutboundMessage         *connect.Client[v1.DiscardOutboundMessageRequest, v1.DiscardOutboundMessageResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -2230,6 +2273,21 @@ func (c *cRMServiceClient) ListLeadCaptureDeliveries(ctx context.Context, req *c
 	return c.listLeadCaptureDeliveries.CallUnary(ctx, req)
 }
 
+// ListOutboundMessages calls crm.v1.CRMService.ListOutboundMessages.
+func (c *cRMServiceClient) ListOutboundMessages(ctx context.Context, req *connect.Request[v1.ListOutboundMessagesRequest]) (*connect.Response[v1.ListOutboundMessagesResponse], error) {
+	return c.listOutboundMessages.CallUnary(ctx, req)
+}
+
+// MarkOutboundMessageSent calls crm.v1.CRMService.MarkOutboundMessageSent.
+func (c *cRMServiceClient) MarkOutboundMessageSent(ctx context.Context, req *connect.Request[v1.MarkOutboundMessageSentRequest]) (*connect.Response[v1.MarkOutboundMessageSentResponse], error) {
+	return c.markOutboundMessageSent.CallUnary(ctx, req)
+}
+
+// DiscardOutboundMessage calls crm.v1.CRMService.DiscardOutboundMessage.
+func (c *cRMServiceClient) DiscardOutboundMessage(ctx context.Context, req *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error) {
+	return c.discardOutboundMessage.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2547,6 +2605,19 @@ type CRMServiceHandler interface {
 	// with its outcome, including the rejected ones. Without it every failure
 	// is a support call.
 	ListLeadCaptureDeliveries(context.Context, *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error)
+	// Messages an automation has drafted (task_crm.md §6).
+	//
+	// Drafts, never sends. Nothing in this service delivers a message —
+	// provider-sent messaging is §4 and waits on a provider contract — so a
+	// rule decides who to contact, checks that contacting them is permitted,
+	// and writes the wording; a rep sends it in one tap through the same
+	// click-to-chat links they use by hand.
+	//
+	// MarkOutboundMessageSent records that a human sent it. It is the honest
+	// verb: the service did not send anything and must not claim to.
+	ListOutboundMessages(context.Context, *connect.Request[v1.ListOutboundMessagesRequest]) (*connect.Response[v1.ListOutboundMessagesResponse], error)
+	MarkOutboundMessageSent(context.Context, *connect.Request[v1.MarkOutboundMessageSentRequest]) (*connect.Response[v1.MarkOutboundMessageSentResponse], error)
+	DiscardOutboundMessage(context.Context, *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -3312,6 +3383,24 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListLeadCaptureDeliveries")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceListOutboundMessagesHandler := connect.NewUnaryHandler(
+		CRMServiceListOutboundMessagesProcedure,
+		svc.ListOutboundMessages,
+		connect.WithSchema(cRMServiceMethods.ByName("ListOutboundMessages")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceMarkOutboundMessageSentHandler := connect.NewUnaryHandler(
+		CRMServiceMarkOutboundMessageSentProcedure,
+		svc.MarkOutboundMessageSent,
+		connect.WithSchema(cRMServiceMethods.ByName("MarkOutboundMessageSent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDiscardOutboundMessageHandler := connect.NewUnaryHandler(
+		CRMServiceDiscardOutboundMessageProcedure,
+		svc.DiscardOutboundMessage,
+		connect.WithSchema(cRMServiceMethods.ByName("DiscardOutboundMessage")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -3566,6 +3655,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceRotateLeadCaptureSecretHandler.ServeHTTP(w, r)
 		case CRMServiceListLeadCaptureDeliveriesProcedure:
 			cRMServiceListLeadCaptureDeliveriesHandler.ServeHTTP(w, r)
+		case CRMServiceListOutboundMessagesProcedure:
+			cRMServiceListOutboundMessagesHandler.ServeHTTP(w, r)
+		case CRMServiceMarkOutboundMessageSentProcedure:
+			cRMServiceMarkOutboundMessageSentHandler.ServeHTTP(w, r)
+		case CRMServiceDiscardOutboundMessageProcedure:
+			cRMServiceDiscardOutboundMessageHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -4077,4 +4172,16 @@ func (UnimplementedCRMServiceHandler) RotateLeadCaptureSecret(context.Context, *
 
 func (UnimplementedCRMServiceHandler) ListLeadCaptureDeliveries(context.Context, *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListLeadCaptureDeliveries is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListOutboundMessages(context.Context, *connect.Request[v1.ListOutboundMessagesRequest]) (*connect.Response[v1.ListOutboundMessagesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListOutboundMessages is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) MarkOutboundMessageSent(context.Context, *connect.Request[v1.MarkOutboundMessageSentRequest]) (*connect.Response[v1.MarkOutboundMessageSentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.MarkOutboundMessageSent is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DiscardOutboundMessage(context.Context, *connect.Request[v1.DiscardOutboundMessageRequest]) (*connect.Response[v1.DiscardOutboundMessageResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DiscardOutboundMessage is not implemented"))
 }
