@@ -324,7 +324,114 @@ service CRMService {
   // written for and the merge fields it may use, so the editor offers exactly
   // what the server accepts rather than holding its own copy of the list.
   rpc DescribeMessageTemplateCatalog(DescribeMessageTemplateCatalogRequest) returns (DescribeMessageTemplateCatalogResponse);
+
+  // Inbound lead capture (task_crm.md §1, docs/LEAD_CAPTURE.md).
+  //
+  // These administer the endpoints; the deliveries themselves arrive on an
+  // unauthenticated HTTP route, not through this service.
+  //
+  // Creating an endpoint is tenant-wide authority to create records — anybody
+  // holding the URL and the secret can make leads — so it sits behind its own
+  // crm:capture scope pair rather than crm:lead:write. A member who may
+  // create a lead by hand still may not mint a URL that lets the internet do
+  // it.
+  //
+  // The signing secret is returned exactly once, by Create and by Rotate. It
+  // is stored sealed and there is no RPC that reads one back: a secret an API
+  // can return is a secret every future bug can leak.
+  rpc CreateLeadCaptureEndpoint(CreateLeadCaptureEndpointRequest) returns (CreateLeadCaptureEndpointResponse);
+  rpc ListLeadCaptureEndpoints(ListLeadCaptureEndpointsRequest) returns (ListLeadCaptureEndpointsResponse);
+  rpc UpdateLeadCaptureEndpoint(UpdateLeadCaptureEndpointRequest) returns (UpdateLeadCaptureEndpointResponse);
+  rpc RotateLeadCaptureSecret(RotateLeadCaptureSecretRequest) returns (RotateLeadCaptureSecretResponse);
+  // ListLeadCaptureDeliveries is this feature's own debugger: every delivery
+  // with its outcome, including the rejected ones. Without it every failure
+  // is a support call.
+  rpc ListLeadCaptureDeliveries(ListLeadCaptureDeliveriesRequest) returns (ListLeadCaptureDeliveriesResponse);
 }
+
+// LeadCaptureEndpoint is one issued URL. It never carries the signing secret:
+// that is returned once at creation and rotation and then only stored sealed.
+message LeadCaptureEndpoint {
+  string id = 1;
+  string name = 2;
+  // token is the unguessable path segment. It is not a secret — it appears in
+  // the caller's own logs — but it is what resolves the tenant, so it is only
+  // ever shown to somebody who already holds crm:capture:read.
+  string token = 3;
+  string source_kind = 4;
+  // field_mapping maps the caller's field names onto lead fields, using the
+  // same vocabulary as CSV import.
+  map<string, string> field_mapping = 5;
+  string default_owner_id = 6;
+  // status is active or disabled.
+  string status = 7;
+  string created_by = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp last_delivery_at = 11;
+  // last_error is a bounded reason code from the most recent delivery, so an
+  // administrator can see at a glance which endpoint has stopped working.
+  string last_error = 12;
+}
+
+// LeadCaptureDelivery is one POST received.
+message LeadCaptureDelivery {
+  string id = 1;
+  string endpoint_id = 2;
+  string dedup_key = 3;
+  // outcome is created, duplicate, rejected or failed.
+  string outcome = 4;
+  string reason = 5;
+  // raw_payload is what arrived, kept because "the lead came in but the phone
+  // number is missing" is unanswerable without it.
+  string raw_payload = 6;
+  string lead_id = 7;
+  google.protobuf.Timestamp received_at = 8;
+}
+
+message CreateLeadCaptureEndpointRequest {
+  string name = 1;
+  map<string, string> field_mapping = 2;
+  string default_owner_id = 3;
+}
+message CreateLeadCaptureEndpointResponse {
+  LeadCaptureEndpoint endpoint = 1;
+  // signing_secret is shown exactly once. There is no way to read it back.
+  string signing_secret = 2;
+  // delivery_url is the full URL to configure, assembled server-side so a
+  // client cannot get the path wrong.
+  string delivery_url = 3;
+}
+
+message ListLeadCaptureEndpointsRequest {}
+message ListLeadCaptureEndpointsResponse {
+  repeated LeadCaptureEndpoint endpoints = 1;
+  // base_url is the prefix a delivery URL is built from, so the UI can show a
+  // complete URL for each endpoint without hard-coding the route.
+  string base_url = 2;
+}
+
+message UpdateLeadCaptureEndpointRequest {
+  string id = 1;
+  string name = 2;
+  map<string, string> field_mapping = 3;
+  string default_owner_id = 4;
+  string status = 5;
+}
+message UpdateLeadCaptureEndpointResponse { LeadCaptureEndpoint endpoint = 1; }
+
+message RotateLeadCaptureSecretRequest { string id = 1; }
+message RotateLeadCaptureSecretResponse {
+  LeadCaptureEndpoint endpoint = 1;
+  // The new secret, shown once. The previous one stops working immediately.
+  string signing_secret = 2;
+}
+
+message ListLeadCaptureDeliveriesRequest {
+  string endpoint_id = 1;
+  int32 limit = 2;
+}
+message ListLeadCaptureDeliveriesResponse { repeated LeadCaptureDelivery deliveries = 1; }
 
 // MessageTemplate is one piece of reusable wording.
 message MessageTemplate {

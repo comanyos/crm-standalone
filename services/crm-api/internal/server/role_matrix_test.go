@@ -173,6 +173,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:saved_view:read": true, "crm:saved_view:write": true,
 			"crm:consent:read": true, "crm:consent:write": true,
 			"crm:template:read": true, "crm:template:write": true,
+			"crm:capture:read": true, "crm:capture:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -200,6 +201,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// contact somebody — a claim it may later have to defend.
 			"crm:consent:read": true, "crm:consent:write": true,
 			"crm:template:read": true, "crm:template:write": true,
+			"crm:capture:read": true, "crm:capture:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -238,6 +240,11 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// Read/write for the same reason tags are: wording a rep uses on
 			// their own calls is daily work, not process configuration.
 			"crm:template:read": true, "crm:template:write": true,
+			// Not a member's: issuing an endpoint mints a URL that lets
+			// anybody holding it create leads without a session, which is a
+			// different thing from being allowed to type a lead in. The
+			// delivery log also holds the payloads people submitted.
+			"crm:capture:read": false, "crm:capture:write": false,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -271,6 +278,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:consent:read": true, "crm:consent:write": false,
 			// Sees what colleagues send, cannot author it.
 			"crm:template:read": true, "crm:template:write": false,
+			"crm:capture:read": false, "crm:capture:write": false,
 		},
 	}
 

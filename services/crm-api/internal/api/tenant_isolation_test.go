@@ -76,6 +76,10 @@ type apiFixture struct {
 	// exportJobID names a recorded export audit row, so a list-exports
 	// probe has something to try to leak.
 	exportJobID string
+	// captureEndpointID names a lead capture endpoint this organization
+	// issued, so a capture probe has a token to try to read and a delivery
+	// log — holding the payloads people submitted — to try to enumerate.
+	captureEndpointID string
 	// templateID names a message template this organization authored, so a
 	// template probe has wording to try to read, rewrite or delete.
 	templateID string
@@ -138,6 +142,15 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 	// real decision to try to read across the tenant boundary. It is the most
 	// sensitive row shape the ledger holds: it names a person and says they
 	// refused to be contacted.
+	capture, err := s.CreateLeadCaptureEndpoint(f.ctx, connect.NewRequest(&crmv1.CreateLeadCaptureEndpointRequest{
+		Name:         label + " website form",
+		FieldMapping: map[string]string{"email": "contact_email"},
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed capture endpoint: %v", label, err)
+	}
+	f.captureEndpointID = capture.Msg.GetEndpoint().GetId()
+
 	template, err := s.CreateMessageTemplate(f.ctx, connect.NewRequest(&crmv1.CreateMessageTemplateRequest{
 		Name: label + " confidential opener", ChannelKind: "whatsapp",
 		Body: "Hi {{contact.first_name}}, " + label + " has a confidential offer for you.",
@@ -1445,6 +1458,68 @@ var crossTenantProbes = map[string]isolationProbe{
 	"DeleteSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.DeleteSavedView(ctxB, connect.NewRequest(&crmv1.DeleteSavedViewRequest{Id: a.savedViewID}))
 		wantNotFound(t, "DeleteSavedView", err)
+	},
+	"CreateLeadCaptureEndpoint": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Two tenants issuing endpoints must get distinct tokens, or one
+		// organization's URL would deliver into the other's records.
+		res, err := s.CreateLeadCaptureEndpoint(ctxB, connect.NewRequest(&crmv1.CreateLeadCaptureEndpointRequest{
+			Name: "victim website form", FieldMapping: map[string]string{"email": "contact_email"},
+		}))
+		if err != nil {
+			t.Fatalf("CreateLeadCaptureEndpoint: %v", err)
+		}
+		if res.Msg.GetEndpoint().GetId() == a.captureEndpointID {
+			t.Error("organization B was handed organization A's endpoint id")
+		}
+		own, err := s.ListLeadCaptureEndpoints(a.ctx, connect.NewRequest(&crmv1.ListLeadCaptureEndpointsRequest{}))
+		if err != nil {
+			t.Fatalf("ListLeadCaptureEndpoints for A: %v", err)
+		}
+		for _, endpoint := range own.Msg.GetEndpoints() {
+			if endpoint.GetToken() == res.Msg.GetEndpoint().GetToken() {
+				t.Error("two organizations were issued the same delivery token")
+			}
+		}
+	},
+	"ListLeadCaptureEndpoints": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListLeadCaptureEndpoints(ctxB, connect.NewRequest(&crmv1.ListLeadCaptureEndpointsRequest{}))
+		if err != nil {
+			t.Fatalf("ListLeadCaptureEndpoints: %v", err)
+		}
+		for _, endpoint := range res.Msg.GetEndpoints() {
+			if endpoint.GetId() == a.captureEndpointID {
+				t.Error("ListLeadCaptureEndpoints returned organization A's endpoint, token included")
+			}
+		}
+	},
+	"UpdateLeadCaptureEndpoint": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateLeadCaptureEndpoint(ctxB, connect.NewRequest(&crmv1.UpdateLeadCaptureEndpointRequest{
+			Id: a.captureEndpointID, Name: "seized", Status: "active",
+			FieldMapping: map[string]string{"email": "contact_email"},
+		}))
+		wantNotFound(t, "UpdateLeadCaptureEndpoint", err)
+	},
+	"RotateLeadCaptureSecret": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// The worst of the capture probes to fail: rotating another
+		// organization's secret would break every caller they configured, and
+		// hand the attacker the replacement.
+		_, err := s.RotateLeadCaptureSecret(ctxB, connect.NewRequest(&crmv1.RotateLeadCaptureSecretRequest{
+			Id: a.captureEndpointID,
+		}))
+		wantNotFound(t, "RotateLeadCaptureSecret", err)
+	},
+	"ListLeadCaptureDeliveries": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// The delivery log holds the payloads people submitted to another
+		// organization's forms.
+		res, err := s.ListLeadCaptureDeliveries(ctxB, connect.NewRequest(&crmv1.ListLeadCaptureDeliveriesRequest{
+			EndpointId: a.captureEndpointID,
+		}))
+		if err != nil {
+			t.Fatalf("ListLeadCaptureDeliveries: %v", err)
+		}
+		if len(res.Msg.GetDeliveries()) != 0 {
+			t.Error("ListLeadCaptureDeliveries returned organization A's submitted payloads")
+		}
 	},
 	"CreateMessageTemplate": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		// Names are unique per channel per tenant, so reusing organization A's

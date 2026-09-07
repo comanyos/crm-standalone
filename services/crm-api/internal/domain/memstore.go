@@ -211,6 +211,13 @@ type MemStore struct {
 	customRecord     *memTable[*CustomRecord]
 	consent          *memTable[*MessagingConsent]
 	messageTemplate  *memTable[*MessageTemplate]
+	captureEndpoint  *memTable[*LeadCaptureEndpoint]
+	captureDelivery  *memTable[*LeadCaptureDelivery]
+
+	// capture holds the cross-tenant token index, which is what makes
+	// ResolveCaptureEndpoint possible without a tenant — see
+	// memstore_lead_capture.go.
+	capture *captureTables
 
 	// assignment holds the round-robin cursors and the per-execution record
 	// of what each one decided — not memTables, see
@@ -263,6 +270,9 @@ func NewMemStore() *MemStore {
 		customRecord:     newMemTable(cloneCustomRecord),
 		consent:          newMemTable(cloneMessagingConsent),
 		messageTemplate:  newMemTable(cloneMessageTemplate),
+		captureEndpoint:  newMemTable(cloneLeadCaptureEndpoint),
+		captureDelivery:  newMemTable(cloneLeadCaptureDelivery),
+		capture:          newCaptureTables(),
 		assignment:       newAssignmentTables(),
 		google:           newGoogleTables(),
 		gmail:            newGmailTables(),

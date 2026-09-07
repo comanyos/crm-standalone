@@ -55,7 +55,8 @@
     "crm:tag:read", "crm:tag:write",
     "crm:saved_view:read", "crm:saved_view:write",
     "crm:consent:read", "crm:consent:write",
-    "crm:template:read", "crm:template:write"
+    "crm:template:read", "crm:template:write",
+    "crm:capture:read", "crm:capture:write"
   ],
   "roles": [
     {
@@ -85,9 +86,10 @@
         "crm:tag:read", "crm:tag:write",
         "crm:saved_view:read", "crm:saved_view:write",
         "crm:consent:read", "crm:consent:write",
-        "crm:template:read", "crm:template:write"
+        "crm:template:read", "crm:template:write",
+        "crm:capture:read", "crm:capture:write"
       ],
-      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role. Authoring automation belongs to this role rather than to every member: a rule acts on every record its trigger matches, on behalf of whoever wrote it, until somebody retires it. Tag authority (defining, renaming, deleting tags — a shared taxonomy every user sees) belongs here for the same reason pipeline configuration does. Saved views are personal presets with no shared authority at all, but this role still needs crm:saved_view:* to save one, the same as crm_member below. The consent pair sits here too: a manager reviews and records whether the organization may contact somebody, which is the kind of claim the organization may later have to defend. Message templates are read/write here too, as shared wording the organization uses with its customers."
+      "rationale": "Runs the sales process: every CRM record plus the pipeline definitions the process is shaped by. The same scope set as crm_admin, enumerated rather than wildcarded, so a scope added for a future entity does not silently accrue to this role. Authoring automation belongs to this role rather than to every member: a rule acts on every record its trigger matches, on behalf of whoever wrote it, until somebody retires it. Tag authority (defining, renaming, deleting tags — a shared taxonomy every user sees) belongs here for the same reason pipeline configuration does. Saved views are personal presets with no shared authority at all, but this role still needs crm:saved_view:* to save one, the same as crm_member below. The consent pair sits here too: a manager reviews and records whether the organization may contact somebody, which is the kind of claim the organization may later have to defend. Message templates are read/write here too, as shared wording the organization uses with its customers. Lead capture endpoints are manager authority and not a member's: issuing one mints a URL that lets anybody holding it create leads without a session, which is a different thing from being allowed to type a lead in."
     },
     {
       "key": "crm_member",

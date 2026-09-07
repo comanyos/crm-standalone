@@ -296,6 +296,14 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateSavedView(ctx, withToken(&crmv1.CreateSavedViewRequest{ObjectType: "account", Name: "x"}, tok))
 			return err
 		},
+		"crm:capture:write": func(tok string) error {
+			// Creating rather than updating: minting a URL is the call that
+			// hands out standing authority to create records, so it is the
+			// one that must not be reachable without capture authority.
+			_, err := client.CreateLeadCaptureEndpoint(ctx,
+				withToken(&crmv1.CreateLeadCaptureEndpointRequest{Name: "x"}, tok))
+			return err
+		},
 		"crm:template:write": func(tok string) error {
 			_, err := client.CreateMessageTemplate(ctx, withToken(&crmv1.CreateMessageTemplateRequest{
 				Name: "x", ChannelKind: "whatsapp", Body: "hi",

@@ -11,6 +11,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/privacy"
+	"github.com/santoshguru/crm/internal/secrets"
 )
 
 // CRMService implements the module's domain API over a tenant-scoped Store.
@@ -29,6 +30,11 @@ type CRMService struct {
 	// privacy is never nil: erasure must work for content collected before
 	// the integration was switched off.
 	privacy *privacy.Service
+	// capture seals lead-capture signing secrets, and is nil when the
+	// deployment set no LEAD_CAPTURE_SECRET_KEY. Only the two RPCs that mint
+	// a secret need it; listing endpoints and reading the delivery log work
+	// either way, so an administrator can still see what exists.
+	capture *secrets.Sealer
 }
 
 // NewCRMService wires the domain service. The integration arguments may all
@@ -36,7 +42,7 @@ type CRMService struct {
 func NewCRMService(
 	cfg config.Config, store domain.Store, googleSvc *google.Service,
 	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
-	privacySvc *privacy.Service,
+	privacySvc *privacy.Service, captureSealer *secrets.Sealer,
 ) *CRMService {
 	if privacySvc == nil {
 		// Unlike the Google services, this one is not optional: a
@@ -51,6 +57,7 @@ func NewCRMService(
 	return &CRMService{
 		cfg: cfg, store: store, google: googleSvc,
 		gmail: gmailSyncer, calendar: calendarSyncer, privacy: privacySvc,
+		capture: captureSealer,
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
 	"github.com/santoshguru/crm/internal/integration/privacy"
+	"github.com/santoshguru/crm/internal/secrets"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -59,8 +60,20 @@ func newTestServiceWithStore() (*CRMService, domain.Store) {
 	privacySvc := privacy.New(store, 0, nil)
 	syncer := gmail.NewSyncer(store, gmail.New(transport), googleSvc, privacySvc, nil)
 	calendarSyncer := calendar.NewSyncer(store, calendar.New(transport), googleSvc, privacySvc, nil)
-	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer, privacySvc), store
+	// A real sealer, so the lead-capture RPCs behave here as they do in a
+	// configured deployment rather than reporting "not enabled" — the tests
+	// that care about the unconfigured state build their own service.
+	sealer, err := secrets.New(testCaptureKey)
+	if err != nil {
+		panic("api tests: build capture sealer: " + err.Error())
+	}
+	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer,
+		privacySvc, sealer), store
 }
+
+// testCaptureKey seals lead-capture secrets in this package's tests. Base64
+// of 32 bytes of nothing in particular; no real key is ever committed.
+const testCaptureKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 // testGoogleTokenKey is the sealing key this package's Google tests share, so
 // a fixture can seal a credential the service can later open. It is 32 bytes

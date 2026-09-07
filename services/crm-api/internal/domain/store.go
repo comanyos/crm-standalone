@@ -385,6 +385,27 @@ type Store interface {
 	UpdateMessageTemplate(ctx context.Context, scope Scope, v *MessageTemplate) (*MessageTemplate, error)
 	DeleteMessageTemplate(ctx context.Context, scope Scope, id string) error
 
+	// Inbound lead capture (migrations/0031_lead_capture.sql,
+	// lead_capture.go, docs/LEAD_CAPTURE.md).
+	CreateLeadCaptureEndpoint(ctx context.Context, scope Scope, v *LeadCaptureEndpoint) (*LeadCaptureEndpoint, error)
+	GetLeadCaptureEndpoint(ctx context.Context, scope Scope, id string) (*LeadCaptureEndpoint, error)
+	ListLeadCaptureEndpoints(ctx context.Context, scope Scope) ([]*LeadCaptureEndpoint, error)
+	UpdateLeadCaptureEndpoint(ctx context.Context, scope Scope, v *LeadCaptureEndpoint) (*LeadCaptureEndpoint, error)
+	RotateLeadCaptureSecret(ctx context.Context, scope Scope, id string, sealed []byte) (*LeadCaptureEndpoint, error)
+	// ResolveCaptureEndpoint is the fifth and last method allowed to cross
+	// tenants, held to the same rule as DueOutboxTenants and
+	// ResolveGoogleOAuthStateTenant: it answers only "which tenant does this
+	// opaque, unguessable token belong to", returning identifiers and the
+	// sealed secret needed to check a signature. Every read and write that
+	// follows takes a real Scope built from the answer.
+	ResolveCaptureEndpoint(ctx context.Context, token string) (CaptureEndpointRef, error)
+	// RecordCaptureDelivery writes one delivery and reports whether this
+	// caller created it. Every webhook provider retries, so a repeat is the
+	// ordinary case: the second arrival gets false and the stored row.
+	RecordCaptureDelivery(ctx context.Context, scope Scope, v *LeadCaptureDelivery) (*LeadCaptureDelivery, bool, error)
+	ListCaptureDeliveries(ctx context.Context, scope Scope, endpointID string, limit int) ([]*LeadCaptureDelivery, error)
+	TouchCaptureEndpoint(ctx context.Context, scope Scope, id, reason string) error
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the

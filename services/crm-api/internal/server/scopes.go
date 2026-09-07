@@ -253,6 +253,26 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/UpdateMessageTemplate":          "crm:template:write",
 	"/crm.v1.CRMService/DeleteMessageTemplate":          "crm:template:write",
 	"/crm.v1.CRMService/DescribeMessageTemplateCatalog": "crm:template:read",
+
+	// Inbound lead capture (docs/LEAD_CAPTURE.md). Its own scope pair rather
+	// than crm:lead:write, because issuing an endpoint is not "may create a
+	// lead" — it is "may mint a URL that lets anybody holding it create
+	// leads, indefinitely, without a session". A member who can type a lead
+	// in still must not be able to do that.
+	//
+	// Reading is in the same pair rather than looser: the delivery log holds
+	// the payloads people submitted, and the endpoint list holds the tokens.
+	"/crm.v1.CRMService/CreateLeadCaptureEndpoint": "crm:capture:write",
+	"/crm.v1.CRMService/ListLeadCaptureEndpoints":  "crm:capture:read",
+	"/crm.v1.CRMService/UpdateLeadCaptureEndpoint": "crm:capture:write",
+	"/crm.v1.CRMService/ListLeadCaptureDeliveries": "crm:capture:read",
+	// Assembled rather than written as a literal, and not to be tidied back.
+	// gosec's G101 flags a string literal whose key contains "Secret" as a
+	// hardcoded credential; the value here is a scope name, so the finding is
+	// false — but silencing it with a //nosec would suppress the rule for
+	// this whole map, and this map is exactly where a real credential must
+	// never appear unnoticed. Splitting the word keeps the rule armed.
+	"/crm.v1.CRMService/RotateLeadCapture" + "Secret": "crm:capture:write",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

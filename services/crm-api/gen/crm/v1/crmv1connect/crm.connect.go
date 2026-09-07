@@ -364,6 +364,21 @@ const (
 	// CRMServiceDescribeMessageTemplateCatalogProcedure is the fully-qualified name of the CRMService's
 	// DescribeMessageTemplateCatalog RPC.
 	CRMServiceDescribeMessageTemplateCatalogProcedure = "/crm.v1.CRMService/DescribeMessageTemplateCatalog"
+	// CRMServiceCreateLeadCaptureEndpointProcedure is the fully-qualified name of the CRMService's
+	// CreateLeadCaptureEndpoint RPC.
+	CRMServiceCreateLeadCaptureEndpointProcedure = "/crm.v1.CRMService/CreateLeadCaptureEndpoint"
+	// CRMServiceListLeadCaptureEndpointsProcedure is the fully-qualified name of the CRMService's
+	// ListLeadCaptureEndpoints RPC.
+	CRMServiceListLeadCaptureEndpointsProcedure = "/crm.v1.CRMService/ListLeadCaptureEndpoints"
+	// CRMServiceUpdateLeadCaptureEndpointProcedure is the fully-qualified name of the CRMService's
+	// UpdateLeadCaptureEndpoint RPC.
+	CRMServiceUpdateLeadCaptureEndpointProcedure = "/crm.v1.CRMService/UpdateLeadCaptureEndpoint"
+	// CRMServiceRotateLeadCaptureSecretProcedure is the fully-qualified name of the CRMService's
+	// RotateLeadCaptureSecret RPC.
+	CRMServiceRotateLeadCaptureSecretProcedure = "/crm.v1.CRMService/RotateLeadCaptureSecret"
+	// CRMServiceListLeadCaptureDeliveriesProcedure is the fully-qualified name of the CRMService's
+	// ListLeadCaptureDeliveries RPC.
+	CRMServiceListLeadCaptureDeliveriesProcedure = "/crm.v1.CRMService/ListLeadCaptureDeliveries"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -661,6 +676,28 @@ type CRMServiceClient interface {
 	// written for and the merge fields it may use, so the editor offers exactly
 	// what the server accepts rather than holding its own copy of the list.
 	DescribeMessageTemplateCatalog(context.Context, *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error)
+	// Inbound lead capture (task_crm.md §1, docs/LEAD_CAPTURE.md).
+	//
+	// These administer the endpoints; the deliveries themselves arrive on an
+	// unauthenticated HTTP route, not through this service.
+	//
+	// Creating an endpoint is tenant-wide authority to create records — anybody
+	// holding the URL and the secret can make leads — so it sits behind its own
+	// crm:capture scope pair rather than crm:lead:write. A member who may
+	// create a lead by hand still may not mint a URL that lets the internet do
+	// it.
+	//
+	// The signing secret is returned exactly once, by Create and by Rotate. It
+	// is stored sealed and there is no RPC that reads one back: a secret an API
+	// can return is a secret every future bug can leak.
+	CreateLeadCaptureEndpoint(context.Context, *connect.Request[v1.CreateLeadCaptureEndpointRequest]) (*connect.Response[v1.CreateLeadCaptureEndpointResponse], error)
+	ListLeadCaptureEndpoints(context.Context, *connect.Request[v1.ListLeadCaptureEndpointsRequest]) (*connect.Response[v1.ListLeadCaptureEndpointsResponse], error)
+	UpdateLeadCaptureEndpoint(context.Context, *connect.Request[v1.UpdateLeadCaptureEndpointRequest]) (*connect.Response[v1.UpdateLeadCaptureEndpointResponse], error)
+	RotateLeadCaptureSecret(context.Context, *connect.Request[v1.RotateLeadCaptureSecretRequest]) (*connect.Response[v1.RotateLeadCaptureSecretResponse], error)
+	// ListLeadCaptureDeliveries is this feature's own debugger: every delivery
+	// with its outcome, including the rejected ones. Without it every failure
+	// is a support call.
+	ListLeadCaptureDeliveries(context.Context, *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1400,6 +1437,36 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("DescribeMessageTemplateCatalog")),
 			connect.WithClientOptions(opts...),
 		),
+		createLeadCaptureEndpoint: connect.NewClient[v1.CreateLeadCaptureEndpointRequest, v1.CreateLeadCaptureEndpointResponse](
+			httpClient,
+			baseURL+CRMServiceCreateLeadCaptureEndpointProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateLeadCaptureEndpoint")),
+			connect.WithClientOptions(opts...),
+		),
+		listLeadCaptureEndpoints: connect.NewClient[v1.ListLeadCaptureEndpointsRequest, v1.ListLeadCaptureEndpointsResponse](
+			httpClient,
+			baseURL+CRMServiceListLeadCaptureEndpointsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListLeadCaptureEndpoints")),
+			connect.WithClientOptions(opts...),
+		),
+		updateLeadCaptureEndpoint: connect.NewClient[v1.UpdateLeadCaptureEndpointRequest, v1.UpdateLeadCaptureEndpointResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateLeadCaptureEndpointProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateLeadCaptureEndpoint")),
+			connect.WithClientOptions(opts...),
+		),
+		rotateLeadCaptureSecret: connect.NewClient[v1.RotateLeadCaptureSecretRequest, v1.RotateLeadCaptureSecretResponse](
+			httpClient,
+			baseURL+CRMServiceRotateLeadCaptureSecretProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("RotateLeadCaptureSecret")),
+			connect.WithClientOptions(opts...),
+		),
+		listLeadCaptureDeliveries: connect.NewClient[v1.ListLeadCaptureDeliveriesRequest, v1.ListLeadCaptureDeliveriesResponse](
+			httpClient,
+			baseURL+CRMServiceListLeadCaptureDeliveriesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListLeadCaptureDeliveries")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1526,6 +1593,11 @@ type cRMServiceClient struct {
 	updateMessageTemplate          *connect.Client[v1.UpdateMessageTemplateRequest, v1.UpdateMessageTemplateResponse]
 	deleteMessageTemplate          *connect.Client[v1.DeleteMessageTemplateRequest, v1.DeleteMessageTemplateResponse]
 	describeMessageTemplateCatalog *connect.Client[v1.DescribeMessageTemplateCatalogRequest, v1.DescribeMessageTemplateCatalogResponse]
+	createLeadCaptureEndpoint      *connect.Client[v1.CreateLeadCaptureEndpointRequest, v1.CreateLeadCaptureEndpointResponse]
+	listLeadCaptureEndpoints       *connect.Client[v1.ListLeadCaptureEndpointsRequest, v1.ListLeadCaptureEndpointsResponse]
+	updateLeadCaptureEndpoint      *connect.Client[v1.UpdateLeadCaptureEndpointRequest, v1.UpdateLeadCaptureEndpointResponse]
+	rotateLeadCaptureSecret        *connect.Client[v1.RotateLeadCaptureSecretRequest, v1.RotateLeadCaptureSecretResponse]
+	listLeadCaptureDeliveries      *connect.Client[v1.ListLeadCaptureDeliveriesRequest, v1.ListLeadCaptureDeliveriesResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -2133,6 +2205,31 @@ func (c *cRMServiceClient) DescribeMessageTemplateCatalog(ctx context.Context, r
 	return c.describeMessageTemplateCatalog.CallUnary(ctx, req)
 }
 
+// CreateLeadCaptureEndpoint calls crm.v1.CRMService.CreateLeadCaptureEndpoint.
+func (c *cRMServiceClient) CreateLeadCaptureEndpoint(ctx context.Context, req *connect.Request[v1.CreateLeadCaptureEndpointRequest]) (*connect.Response[v1.CreateLeadCaptureEndpointResponse], error) {
+	return c.createLeadCaptureEndpoint.CallUnary(ctx, req)
+}
+
+// ListLeadCaptureEndpoints calls crm.v1.CRMService.ListLeadCaptureEndpoints.
+func (c *cRMServiceClient) ListLeadCaptureEndpoints(ctx context.Context, req *connect.Request[v1.ListLeadCaptureEndpointsRequest]) (*connect.Response[v1.ListLeadCaptureEndpointsResponse], error) {
+	return c.listLeadCaptureEndpoints.CallUnary(ctx, req)
+}
+
+// UpdateLeadCaptureEndpoint calls crm.v1.CRMService.UpdateLeadCaptureEndpoint.
+func (c *cRMServiceClient) UpdateLeadCaptureEndpoint(ctx context.Context, req *connect.Request[v1.UpdateLeadCaptureEndpointRequest]) (*connect.Response[v1.UpdateLeadCaptureEndpointResponse], error) {
+	return c.updateLeadCaptureEndpoint.CallUnary(ctx, req)
+}
+
+// RotateLeadCaptureSecret calls crm.v1.CRMService.RotateLeadCaptureSecret.
+func (c *cRMServiceClient) RotateLeadCaptureSecret(ctx context.Context, req *connect.Request[v1.RotateLeadCaptureSecretRequest]) (*connect.Response[v1.RotateLeadCaptureSecretResponse], error) {
+	return c.rotateLeadCaptureSecret.CallUnary(ctx, req)
+}
+
+// ListLeadCaptureDeliveries calls crm.v1.CRMService.ListLeadCaptureDeliveries.
+func (c *cRMServiceClient) ListLeadCaptureDeliveries(ctx context.Context, req *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error) {
+	return c.listLeadCaptureDeliveries.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2428,6 +2525,28 @@ type CRMServiceHandler interface {
 	// written for and the merge fields it may use, so the editor offers exactly
 	// what the server accepts rather than holding its own copy of the list.
 	DescribeMessageTemplateCatalog(context.Context, *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error)
+	// Inbound lead capture (task_crm.md §1, docs/LEAD_CAPTURE.md).
+	//
+	// These administer the endpoints; the deliveries themselves arrive on an
+	// unauthenticated HTTP route, not through this service.
+	//
+	// Creating an endpoint is tenant-wide authority to create records — anybody
+	// holding the URL and the secret can make leads — so it sits behind its own
+	// crm:capture scope pair rather than crm:lead:write. A member who may
+	// create a lead by hand still may not mint a URL that lets the internet do
+	// it.
+	//
+	// The signing secret is returned exactly once, by Create and by Rotate. It
+	// is stored sealed and there is no RPC that reads one back: a secret an API
+	// can return is a secret every future bug can leak.
+	CreateLeadCaptureEndpoint(context.Context, *connect.Request[v1.CreateLeadCaptureEndpointRequest]) (*connect.Response[v1.CreateLeadCaptureEndpointResponse], error)
+	ListLeadCaptureEndpoints(context.Context, *connect.Request[v1.ListLeadCaptureEndpointsRequest]) (*connect.Response[v1.ListLeadCaptureEndpointsResponse], error)
+	UpdateLeadCaptureEndpoint(context.Context, *connect.Request[v1.UpdateLeadCaptureEndpointRequest]) (*connect.Response[v1.UpdateLeadCaptureEndpointResponse], error)
+	RotateLeadCaptureSecret(context.Context, *connect.Request[v1.RotateLeadCaptureSecretRequest]) (*connect.Response[v1.RotateLeadCaptureSecretResponse], error)
+	// ListLeadCaptureDeliveries is this feature's own debugger: every delivery
+	// with its outcome, including the rejected ones. Without it every failure
+	// is a support call.
+	ListLeadCaptureDeliveries(context.Context, *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -3163,6 +3282,36 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("DescribeMessageTemplateCatalog")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateLeadCaptureEndpointHandler := connect.NewUnaryHandler(
+		CRMServiceCreateLeadCaptureEndpointProcedure,
+		svc.CreateLeadCaptureEndpoint,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateLeadCaptureEndpoint")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListLeadCaptureEndpointsHandler := connect.NewUnaryHandler(
+		CRMServiceListLeadCaptureEndpointsProcedure,
+		svc.ListLeadCaptureEndpoints,
+		connect.WithSchema(cRMServiceMethods.ByName("ListLeadCaptureEndpoints")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateLeadCaptureEndpointHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateLeadCaptureEndpointProcedure,
+		svc.UpdateLeadCaptureEndpoint,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateLeadCaptureEndpoint")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceRotateLeadCaptureSecretHandler := connect.NewUnaryHandler(
+		CRMServiceRotateLeadCaptureSecretProcedure,
+		svc.RotateLeadCaptureSecret,
+		connect.WithSchema(cRMServiceMethods.ByName("RotateLeadCaptureSecret")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListLeadCaptureDeliveriesHandler := connect.NewUnaryHandler(
+		CRMServiceListLeadCaptureDeliveriesProcedure,
+		svc.ListLeadCaptureDeliveries,
+		connect.WithSchema(cRMServiceMethods.ByName("ListLeadCaptureDeliveries")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -3407,6 +3556,16 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceDeleteMessageTemplateHandler.ServeHTTP(w, r)
 		case CRMServiceDescribeMessageTemplateCatalogProcedure:
 			cRMServiceDescribeMessageTemplateCatalogHandler.ServeHTTP(w, r)
+		case CRMServiceCreateLeadCaptureEndpointProcedure:
+			cRMServiceCreateLeadCaptureEndpointHandler.ServeHTTP(w, r)
+		case CRMServiceListLeadCaptureEndpointsProcedure:
+			cRMServiceListLeadCaptureEndpointsHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateLeadCaptureEndpointProcedure:
+			cRMServiceUpdateLeadCaptureEndpointHandler.ServeHTTP(w, r)
+		case CRMServiceRotateLeadCaptureSecretProcedure:
+			cRMServiceRotateLeadCaptureSecretHandler.ServeHTTP(w, r)
+		case CRMServiceListLeadCaptureDeliveriesProcedure:
+			cRMServiceListLeadCaptureDeliveriesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3898,4 +4057,24 @@ func (UnimplementedCRMServiceHandler) DeleteMessageTemplate(context.Context, *co
 
 func (UnimplementedCRMServiceHandler) DescribeMessageTemplateCatalog(context.Context, *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DescribeMessageTemplateCatalog is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateLeadCaptureEndpoint(context.Context, *connect.Request[v1.CreateLeadCaptureEndpointRequest]) (*connect.Response[v1.CreateLeadCaptureEndpointResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateLeadCaptureEndpoint is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListLeadCaptureEndpoints(context.Context, *connect.Request[v1.ListLeadCaptureEndpointsRequest]) (*connect.Response[v1.ListLeadCaptureEndpointsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListLeadCaptureEndpoints is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateLeadCaptureEndpoint(context.Context, *connect.Request[v1.UpdateLeadCaptureEndpointRequest]) (*connect.Response[v1.UpdateLeadCaptureEndpointResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateLeadCaptureEndpoint is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) RotateLeadCaptureSecret(context.Context, *connect.Request[v1.RotateLeadCaptureSecretRequest]) (*connect.Response[v1.RotateLeadCaptureSecretResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.RotateLeadCaptureSecret is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListLeadCaptureDeliveries(context.Context, *connect.Request[v1.ListLeadCaptureDeliveriesRequest]) (*connect.Response[v1.ListLeadCaptureDeliveriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListLeadCaptureDeliveries is not implemented"))
 }

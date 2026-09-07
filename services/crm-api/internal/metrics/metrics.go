@@ -39,6 +39,16 @@ var (
 		Name: "crm_google_oauth_flows_total",
 		Help: "Google connection lifecycle outcomes partitioned by safe outcome code.",
 	}, []string{"outcome"})
+	// LeadCaptureDeliveries counts inbound lead-capture deliveries. The only
+	// label is the bounded reason/outcome set in internal/domain
+	// (CaptureReason*, Delivery*) — never a tenant, an endpoint id, or any
+	// part of a submitted payload. An endpoint id would be unbounded in
+	// cardinality and would also make one tenant's traffic readable from a
+	// shared metrics endpoint.
+	LeadCaptureDeliveries = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_lead_capture_deliveries_total",
+		Help: "Inbound lead capture deliveries partitioned by safe outcome code.",
+	}, []string{"outcome"})
 	// GmailSyncPassesTotal counts sync passes by outcome. The label is the
 	// bounded reason-code set in internal/integration/gmail — never a
 	// mailbox, a tenant, or a provider message.

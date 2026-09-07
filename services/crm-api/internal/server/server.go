@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -19,9 +21,11 @@ import (
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
+	"github.com/santoshguru/crm/internal/integration/leadcapture"
 	"github.com/santoshguru/crm/internal/integration/privacy"
 	"github.com/santoshguru/crm/internal/metrics"
 	"github.com/santoshguru/crm/internal/platform"
+	"github.com/santoshguru/crm/internal/secrets"
 	"github.com/santoshguru/crm/internal/tracing"
 )
 
@@ -29,16 +33,24 @@ const moduleID = "crm"
 
 // Server holds the wired CRM HTTP server.
 type Server struct {
-	cfg       config.Config
-	store     domain.Store
-	emitter   *platform.Emitter
-	authn     *auth.Authenticator
-	google    *google.Service
-	privacy   *privacy.Service
-	gmail     *gmail.Syncer
-	calendar  *calendar.Syncer
-	mux       *http.ServeMux
-	readiness func(context.Context) error
+	cfg      config.Config
+	store    domain.Store
+	emitter  *platform.Emitter
+	authn    *auth.Authenticator
+	google   *google.Service
+	privacy  *privacy.Service
+	gmail    *gmail.Syncer
+	calendar *calendar.Syncer
+	// leadCapture is nil when LEAD_CAPTURE_SECRET_KEY is unset. The route is
+	// then not registered at all, rather than registered and failing: an
+	// endpoint that cannot verify a signature must not exist.
+	leadCapture *leadcapture.Service
+	// captureSealer is the same key the ingestion service uses, handed to the
+	// API layer so issuing an endpoint and verifying its deliveries cannot
+	// drift onto two different keys.
+	captureSealer *secrets.Sealer
+	mux           *http.ServeMux
+	readiness     func(context.Context) error
 }
 
 // New builds the server and registers routes.
@@ -84,6 +96,17 @@ func New(
 		gmailSyncer = gmail.NewSyncer(store, gmail.New(nil), googleSvc, privacySvc, slog.Default())
 		calendarSyncer = calendar.NewSyncer(store, calendar.New(nil), googleSvc, privacySvc, slog.Default())
 	}
+	captureSealer, err := newCaptureSealer(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var captureSvc *leadcapture.Service
+	if captureSealer != nil {
+		captureSvc, err = leadcapture.New(store, captureSealer, slog.Default())
+		if err != nil {
+			return nil, err
+		}
+	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
 		cfg:      cfg,
@@ -94,7 +117,11 @@ func New(
 		privacy:  privacySvc,
 		gmail:    gmailSyncer,
 		calendar: calendarSyncer,
-		mux:      http.NewServeMux(),
+
+		leadCapture:   captureSvc,
+		captureSealer: captureSealer,
+
+		mux: http.NewServeMux(),
 	}
 	if pinger, ok := store.(interface{ Ping(context.Context) error }); ok {
 		s.readiness = pinger.Ping
@@ -200,7 +227,8 @@ func (s *Server) routes() {
 	s.mux.Handle(modPath, modHandler)
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
-		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar, s.privacy), interceptors)
+		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar, s.privacy,
+			s.captureSealer), interceptors)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect
@@ -209,6 +237,35 @@ func (s *Server) routes() {
 	// for authentication is the one-time state record written before the
 	// redirect — see internal/integration/google.
 	s.mux.Handle("GET "+googleCallbackPath, s.googleCallbackHandler())
+
+	// Inbound lead capture, likewise outside the interceptor: the caller is a
+	// third-party server with no CRM session. It is registered only when a
+	// sealing key is configured, because without one no signature can be
+	// checked and an endpoint that accepts unsigned posts is an open
+	// lead-injection hole. See internal/integration/leadcapture and
+	// docs/LEAD_CAPTURE.md.
+	if s.leadCapture != nil {
+		s.mux.Handle(leadCapturePrefix, s.leadCaptureHandler())
+	}
+}
+
+// newCaptureSealer builds the lead-capture sealer, or returns nil when the
+// deployment supplied no key.
+//
+// Nil is "off", and off is a real state: a deployment that has not decided to
+// accept inbound leads should not have a URL that does. A malformed key is an
+// error rather than off, for the same reason a partial Google configuration
+// is — silently disabling a feature somebody configured is worse than
+// refusing to start.
+func newCaptureSealer(cfg config.Config) (*secrets.Sealer, error) {
+	if strings.TrimSpace(cfg.LeadCaptureSecretKey) == "" {
+		return nil, nil
+	}
+	sealer, err := secrets.New(cfg.LeadCaptureSecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("lead capture: %w", err)
+	}
+	return sealer, nil
 }
 
 // newGoogleService builds the Google integration, or returns nil when the

@@ -326,6 +326,33 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] record messaging consent: %v", label, err)
 	}
 
+	// A capture endpoint and one delivery, so both tables are asserted to
+	// filter rather than only to have a policy. The endpoint row holds the
+	// token that resolves an unauthenticated POST to this tenant, and the
+	// delivery row holds a payload somebody submitted — between them, the two
+	// most sensitive additions in this migration set.
+	captureToken, err := NewCaptureToken()
+	if err != nil {
+		t.Fatalf("[%s] capture token: %v", label, err)
+	}
+	captureEndpoint, err := s.CreateLeadCaptureEndpoint(ctx, f.scope, &LeadCaptureEndpoint{
+		Name: label + " website form", Token: captureToken, SourceKind: SourceKindGeneric,
+		SecretCiphertext: []byte("sealed-capture-" + label), Status: CaptureActive,
+		FieldMapping: map[string]string{"email": "contact_email"},
+		CreatedBy:    "owner-" + label,
+	})
+	if err != nil {
+		t.Fatalf("[%s] seed capture endpoint: %v", label, err)
+	}
+	if _, _, err := s.RecordCaptureDelivery(ctx, f.scope, &LeadCaptureDelivery{
+		EndpointID: captureEndpoint.ID,
+		DedupKey:   fmt.Sprintf("provider:evt-%s-%d", label, stamp),
+		Outcome:    DeliveryCreated,
+		RawPayload: fmt.Sprintf(`{"email":"%s-%d@example.com"}`, label, stamp),
+	}); err != nil {
+		t.Fatalf("[%s] seed capture delivery: %v", label, err)
+	}
+
 	// One template, so message_templates is asserted to filter rather than
 	// only to have a policy. Wording an organization sends its customers is
 	// its own — and a competitor's opener is exactly the kind of thing a

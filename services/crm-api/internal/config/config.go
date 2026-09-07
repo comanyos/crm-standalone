@@ -80,6 +80,17 @@ type Config struct {
 	GoogleOAuthClientSecret string
 	GoogleOAuthRedirectURL  string
 	GoogleOAuthTokenKey     string
+	// LeadCaptureSecretKey seals inbound lead-capture signing secrets
+	// (docs/LEAD_CAPTURE.md). Deliberately its own key rather than reusing
+	// GOOGLE_OAUTH_TOKEN_KEY: lead capture must not require a configured
+	// Google OAuth client, and two purposes sharing one key means rotating
+	// either forces re-encrypting both.
+	//
+	// Absent means the feature is off — the route is not registered and the
+	// administration RPCs refuse — rather than degraded. An endpoint that
+	// cannot check a signature is an open lead-injection hole, so there is no
+	// unsealed mode to fall back to.
+	LeadCaptureSecretKey string
 
 	// WebAppBaseURL is where the OAuth callback sends the browser once it has
 	// finished. It is configuration rather than something read from the
@@ -89,6 +100,15 @@ type Config struct {
 	// callback renders a self-contained result page instead, which is correct
 	// for a deployment that has not said where its web application lives.
 	WebAppBaseURL string
+	// PublicBaseURL is this API's own public origin, used to assemble the
+	// lead-capture delivery URLs an administrator hands to a third party
+	// (docs/LEAD_CAPTURE.md).
+	//
+	// Configured rather than derived from a request's Host header: an origin
+	// taken from a header is attacker-controlled, and this one ends up pasted
+	// into somebody's integration settings, where a poisoned value would
+	// silently redirect their leads.
+	PublicBaseURL string
 
 	// SyncRetentionDays bounds how long synced communication content is kept.
 	// Zero — the default — means keep it until somebody asks for it to go,
@@ -120,7 +140,9 @@ func Load() Config {
 		GoogleOAuthClientSecret: env("GOOGLE_OAUTH_CLIENT_SECRET", ""),
 		GoogleOAuthRedirectURL:  env("GOOGLE_OAUTH_REDIRECT_URL", ""),
 		GoogleOAuthTokenKey:     env("GOOGLE_OAUTH_TOKEN_KEY", ""),
+		LeadCaptureSecretKey:    env("LEAD_CAPTURE_SECRET_KEY", ""),
 		WebAppBaseURL:           strings.TrimRight(env("CRM_WEB_APP_BASE_URL", ""), "/"),
+		PublicBaseURL:           strings.TrimRight(env("CRM_PUBLIC_BASE_URL", ""), "/"),
 		SyncRetentionDays:       envInt("SYNC_RETENTION_DAYS", 0),
 	}
 }
@@ -204,6 +226,7 @@ func (c Config) validateGoogleOAuth() error {
 		"GOOGLE_OAUTH_CLIENT_SECRET": c.GoogleOAuthClientSecret,
 		"GOOGLE_OAUTH_REDIRECT_URL":  c.GoogleOAuthRedirectURL,
 		"GOOGLE_OAUTH_TOKEN_KEY":     c.GoogleOAuthTokenKey,
+		"LEAD_CAPTURE_SECRET_KEY":    c.LeadCaptureSecretKey,
 	}
 	configured := 0
 	for _, value := range values {

@@ -69,6 +69,8 @@ with the checked-in local defaults.
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | *(unset — Google integration disabled)* | Required together when Google integration is enabled |
 | `GOOGLE_OAUTH_REDIRECT_URL` | *(unset)* | Required with Google integration; `https://` |
 | `GOOGLE_OAUTH_TOKEN_KEY` | *(unset)* | Required with Google integration; base64-encoded 32-byte encryption key |
+| `LEAD_CAPTURE_SECRET_KEY` | *(unset)* | Enables inbound lead capture; base64-encoded 32-byte key sealing each endpoint's HMAC signing secret. Unset means the feature is off and the route is not registered — there is deliberately no unsigned mode. Its own key rather than `GOOGLE_OAUTH_TOKEN_KEY` so lead capture does not require a configured Google client, and so rotating either does not force re-encrypting both. See [LEAD_CAPTURE.md](LEAD_CAPTURE.md). |
+| `CRM_PUBLIC_BASE_URL` | *(unset)* | This API's own public origin, used only to assemble the lead-capture delivery URL an administrator hands to a third party. Configured rather than read from a `Host` header, because that value ends up pasted into somebody's integration settings. Unset shows the path alone. |
 | `CRM_WEB_APP_BASE_URL` | *(unset — the OAuth callback renders its own result page)* | `https://` when set; the origin the Google callback returns the browser to |
 | `SYNC_RETENTION_DAYS` | `0` (keep synced email and meetings indefinitely) | Set deliberately; see `docs/GOOGLE_INTEGRATION.md` |
 

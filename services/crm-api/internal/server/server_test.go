@@ -189,6 +189,12 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // it writes an audit row, but the authority it needs is "may read
 // accounts," so it is guarded by crm:account:read like the data it exports.
 //
+// "Rotate" joined it for RotateLeadCaptureSecret. It reads as maintenance and
+// is not: it replaces the signing secret, which immediately stops every
+// caller configured with the old one. That is a write with a blast radius,
+// and precisely the operation that must not be reachable without the
+// authority to issue endpoints in the first place.
+//
 // "Record" joined it for RecordMessagingConsent, which appends a row to the
 // consent ledger. The verb is deliberate there rather than "Create": the
 // ledger has no update and no delete, so "record" says what the operation is.
@@ -196,7 +202,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // asserting that a third party consented to be contacted is a claim the
 // organization may later have to defend.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}
