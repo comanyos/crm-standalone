@@ -233,6 +233,15 @@ services:
       AUTH_JWKS_URL: http://authincore:8080/oauth2/keys
       NATS_URL: nats://nats:4222
       CORS_ALLOWED_ORIGINS: ${CRM_WEB_ORIGIN:-http://localhost:3000}
+      # Inbound lead capture (docs/LEAD_CAPTURE.md). Unset means the feature
+      # is off and the route is not registered — there is deliberately no
+      # unsigned mode, so a deployment either has a key or has no endpoint.
+      LEAD_CAPTURE_SECRET_KEY: ${LEAD_CAPTURE_SECRET_KEY:-}
+      # This API's own public origin, used only to assemble the delivery URL
+      # an administrator hands to a third party. Configured rather than read
+      # from a Host header, since that value gets pasted into somebody's
+      # integration settings.
+      CRM_PUBLIC_BASE_URL: ${CRM_PUBLIC_URL:-http://localhost:19431}
     ports:
       - "19431:9431"
     depends_on:

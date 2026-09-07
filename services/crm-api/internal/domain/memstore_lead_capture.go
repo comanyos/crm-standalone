@@ -183,6 +183,20 @@ func (s *MemStore) RecordCaptureDelivery(
 	return stored, true, nil
 }
 
+// LinkCaptureDeliveryLead records which lead a delivery became.
+func (s *MemStore) LinkCaptureDeliveryLead(_ context.Context, scope Scope, deliveryID, leadID string) error {
+	s.capture.mu.Lock()
+	defer s.capture.mu.Unlock()
+
+	delivery, err := s.captureDelivery.get(scope, deliveryID)
+	if err != nil {
+		return err
+	}
+	delivery.LeadID = leadID
+	_, err = s.captureDelivery.update(scope, delivery)
+	return err
+}
+
 // ListCaptureDeliveries returns one endpoint's deliveries, newest first.
 func (s *MemStore) ListCaptureDeliveries(
 	_ context.Context, scope Scope, endpointID string, limit int,

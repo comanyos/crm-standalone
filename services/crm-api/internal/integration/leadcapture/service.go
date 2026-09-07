@@ -53,6 +53,7 @@ type Store interface {
 	GetLeadCaptureEndpoint(ctx context.Context, scope domain.Scope, id string) (*domain.LeadCaptureEndpoint, error)
 	RecordCaptureDelivery(ctx context.Context, scope domain.Scope, v *domain.LeadCaptureDelivery) (*domain.LeadCaptureDelivery, bool, error)
 	CreateLead(ctx context.Context, scope domain.Scope, v *domain.Lead) (*domain.Lead, error)
+	LinkCaptureDeliveryLead(ctx context.Context, scope domain.Scope, deliveryID, leadID string) error
 	TouchCaptureEndpoint(ctx context.Context, scope domain.Scope, id, reason string) error
 }
 
@@ -187,6 +188,15 @@ func (s *Service) Deliver(ctx context.Context, token string, body []byte, signat
 		// docs/LEAD_CAPTURE.md's named narrowings for why there is no second
 		// retry queue on this side.
 		return Result{Accepted: true, Reason: domain.CaptureReasonStoreFailed}
+	}
+
+	// The delivery row was claimed before the lead existed, so it is only now
+	// that it can say what it became. A failure here leaves a "created"
+	// delivery with no lead id — worth logging and not worth failing the
+	// delivery over, since the lead itself is safely stored.
+	if err := s.store.LinkCaptureDeliveryLead(ctx, scope, delivery.ID, stored.ID); err != nil {
+		s.log.Warn("a capture delivery could not be linked to the lead it created",
+			"tenant", ref.TenantID, "delivery", delivery.ID)
 	}
 
 	_ = s.store.TouchCaptureEndpoint(ctx, scope, ref.EndpointID, domain.CaptureReasonNone)

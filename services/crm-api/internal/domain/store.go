@@ -403,6 +403,14 @@ type Store interface {
 	// caller created it. Every webhook provider retries, so a repeat is the
 	// ordinary case: the second arrival gets false and the stored row.
 	RecordCaptureDelivery(ctx context.Context, scope Scope, v *LeadCaptureDelivery) (*LeadCaptureDelivery, bool, error)
+	// LinkCaptureDeliveryLead records which lead a delivery became.
+	//
+	// Separate from RecordCaptureDelivery because the delivery row is claimed
+	// *before* the lead is created — that claim is what decides whether this
+	// delivery does anything at all, so it cannot wait for a lead id. Without
+	// this second write the delivery log would say "created" and not say what
+	// it created, and a provider's retry would be answered with an empty id.
+	LinkCaptureDeliveryLead(ctx context.Context, scope Scope, deliveryID, leadID string) error
 	ListCaptureDeliveries(ctx context.Context, scope Scope, endpointID string, limit int) ([]*LeadCaptureDelivery, error)
 	TouchCaptureEndpoint(ctx context.Context, scope Scope, id, reason string) error
 

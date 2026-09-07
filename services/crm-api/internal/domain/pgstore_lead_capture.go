@@ -283,6 +283,23 @@ func scanCaptureDelivery(row pgx.Row) (*LeadCaptureDelivery, error) {
 	return &v, nil
 }
 
+// LinkCaptureDeliveryLead records which lead a delivery became.
+func (s *PgStore) LinkCaptureDeliveryLead(ctx context.Context, scope Scope, deliveryID, leadID string) error {
+	if !scope.Valid() {
+		return ErrNoTenant
+	}
+	tag, err := s.db.Exec(ctx, scope,
+		`UPDATE lead_capture_deliveries SET lead_id = $3
+		  WHERE tenant_id = $1 AND id = $2`, scope.TenantID, deliveryID, leadID)
+	if err != nil {
+		return fmt.Errorf("link capture delivery lead: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ListCaptureDeliveries returns one endpoint's deliveries, newest first —
 // the log that makes this feature debuggable without a support call.
 func (s *PgStore) ListCaptureDeliveries(

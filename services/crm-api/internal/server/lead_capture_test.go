@@ -266,8 +266,9 @@ func TestLeadCaptureIsIdempotent(t *testing.T) {
 		}
 	}
 
-	if leads := h.leads(t); len(leads) != 1 {
-		t.Errorf("three deliveries of one event created %d leads, want 1", len(leads))
+	leads := h.leads(t)
+	if len(leads) != 1 {
+		t.Fatalf("three deliveries of one event created %d leads, want 1", len(leads))
 	}
 	deliveries, err := h.store.ListCaptureDeliveries(context.Background(), h.scope, h.endpointID, 10)
 	if err != nil {
@@ -275,6 +276,15 @@ func TestLeadCaptureIsIdempotent(t *testing.T) {
 	}
 	if len(deliveries) != 1 {
 		t.Errorf("the delivery log has %d rows, want 1", len(deliveries))
+	}
+	// The delivery names the lead it became. The row is claimed before the
+	// lead exists, so this is a second write — and without it the log says
+	// "created" without saying what, which is the first question anybody
+	// reading it has. Found by a live delivery against the running stack,
+	// where the column came back empty.
+	if deliveries[0].LeadID != leads[0].ID {
+		t.Errorf("delivery lead_id = %q, want the lead it created (%q)",
+			deliveries[0].LeadID, leads[0].ID)
 	}
 }
 

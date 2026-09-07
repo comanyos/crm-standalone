@@ -214,3 +214,28 @@ func TestNegativeRetentionIsRejected(t *testing.T) {
 		t.Fatal("a negative SYNC_RETENTION_DAYS was accepted")
 	}
 }
+
+// TestGoogleOAuthGroupIsGoogleOnly is a regression test for a real outage in
+// development: LEAD_CAPTURE_SECRET_KEY was added to validateGoogleOAuth's
+// value map, which made setting it look like a half-configured Google client
+// and crash-looped the service on startup.
+//
+// The check is all-or-nothing by design — a client ID without a token key is
+// a CRM that offers a Connect button and cannot seal what it receives — so
+// every value in that group must genuinely belong to Google. Adding an
+// unrelated key to it is easy, silent in review, and immediately fatal.
+func TestGoogleOAuthGroupIsGoogleOnly(t *testing.T) {
+	// Lead capture configured, Google not configured at all. This is the
+	// ordinary state of a deployment that accepts inbound leads and has not
+	// connected any mailboxes.
+	cfg := Config{LeadCaptureSecretKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}
+	if err := cfg.validateGoogleOAuth(); err != nil {
+		t.Fatalf("setting a non-Google key tripped the Google configuration check: %v", err)
+	}
+
+	// The check itself still works: a partial Google configuration is refused.
+	partial := Config{GoogleOAuthClientID: "id-only"}
+	if err := partial.validateGoogleOAuth(); err == nil {
+		t.Error("a half-configured Google client was accepted; the all-or-nothing check is not working")
+	}
+}

@@ -226,7 +226,6 @@ func (c Config) validateGoogleOAuth() error {
 		"GOOGLE_OAUTH_CLIENT_SECRET": c.GoogleOAuthClientSecret,
 		"GOOGLE_OAUTH_REDIRECT_URL":  c.GoogleOAuthRedirectURL,
 		"GOOGLE_OAUTH_TOKEN_KEY":     c.GoogleOAuthTokenKey,
-		"LEAD_CAPTURE_SECRET_KEY":    c.LeadCaptureSecretKey,
 	}
 	configured := 0
 	for _, value := range values {
