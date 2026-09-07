@@ -37,8 +37,8 @@ break them.
   `TestUnscopedQuerySeesNothingInAnyTenantTable` — a policy that exists but is
   never asserted to filter is the failure mode the metadata-layer tables are
   already in.
-- **Migrations are append-only.** Next free number is `0028_*.sql`. Never edit
-  a shipped migration.
+- **Migrations are append-only.** 0028–0030 are taken by the work below; the
+  next free number is `0031_*.sql`. Never edit a shipped migration.
 - **Deny by default.** Every new procedure needs an entry in
   `services/crm-api/internal/server/scopes.go`. `assertPolicyIsTotal` refuses
   to start a server whose policy does not decide every served procedure, so a
@@ -100,19 +100,84 @@ below.
 
 ## The gap list
 
-| § | Gap | Verdict | Blocked on |
+| § | Gap | Verdict | Status |
 | --- | --- | --- | --- |
-| 1 | Inbound lead capture webhooks (Facebook Lead Ads, Google Ads, WordPress, Zapier, web forms) | **Build.** Highest value per unit of work. | Egress/ingress policy decision |
-| 2 | Contact channel model + consent/opt-out ledger | **Build first.** Prerequisite for §3–§7. | Nothing |
-| 3 | Click-to-chat outbound (WhatsApp/SMS/tel deep links) + logged activity | **Build.** Cheapest real capability in this file. | Nothing |
-| 4 | Provider-sent messaging (WhatsApp BSP, SMS, `gmail.send`) | **Defer** until §3 shows demand. | Provider choice, cost, secret/KMS ownership |
-| 5 | Message templates + 1-touch quick replies | **Build** (literal first, merge fields after §5.3). | Field-visibility model |
-| 6 | Messaging actions in the workflow engine | **Build** after §3 and §5. | §2, §3, §5 |
-| 7 | Bulk / campaign sending | **Defer.** Highest legal risk, lowest fit for a B2B CRM. | §2, §4, legal review |
-| 8 | Automatic lead distribution (round-robin / rules) | **Build.** Small, self-contained, no external dependency. | Nothing |
-| 9 | Trackable file sharing (PDF open tracking) | **Defer.** | Object storage ownership (already blocking `task.md` §5.2) |
-| 10 | Mobile speed-to-lead (PWA, push, tap-to-act) | **Build §10.1–10.3.** Native app: **do not build.** | Push provider decision |
-| 11 | Meta Conversions API / ad conversion feedback | **Defer.** | §1 must exist first |
+| 1 | Inbound lead capture webhooks (Facebook Lead Ads, Google Ads, WordPress, Zapier, web forms) | **Build.** Highest value per unit of work. | **Not started** — blocked on D1 |
+| 2 | Contact channel model + consent/opt-out ledger | **Build first.** Prerequisite for §3–§7. | **Done** — see below |
+| 3 | Click-to-chat outbound (WhatsApp/SMS/tel deep links) + logged activity | **Build.** Cheapest real capability in this file. | **Done, pending a real-device check** |
+| 4 | Provider-sent messaging (WhatsApp BSP, SMS, `gmail.send`) | **Defer** until §3 shows demand. | Not started — D2, D3, D4 |
+| 5 | Message templates + 1-touch quick replies | **Build** (literal first, merge fields after §5.3). | **Done, including merge fields** |
+| 6 | Messaging actions in the workflow engine | **Build** after §3 and §5. | Not started — needs D6 (quiet hours) |
+| 7 | Bulk / campaign sending | **Defer.** Highest legal risk, lowest fit for a B2B CRM. | Not started — D3, legal review |
+| 8 | Automatic lead distribution (round-robin / rules) | **Build.** Small, self-contained, no external dependency. | **Done** |
+| 9 | Trackable file sharing (PDF open tracking) | **Defer.** | Not started — D5 |
+| 10 | Mobile speed-to-lead (PWA, push, tap-to-act) | **Build §10.1–10.3.** Native app: **do not build.** | Not started |
+| 11 | Meta Conversions API / ad conversion feedback | **Defer.** | Not started — §1 first |
+
+## What has been delivered
+
+Four sections, in the order the sequencing at the bottom of this file gives.
+Each was verified the way this repository requires — against live PostgreSQL
+with row-level security, over real HTTP with real signed tokens where the
+change reaches that far — not merely written.
+
+**§2 — the consent ledger and its gate.** `migrations/0028_messaging_consent.sql`,
+`internal/domain/messaging.go`. One gate, `MayMessage`, that every send path
+passes through, and an append-only ledger behind it. Channels are *derived*
+from `Contact.Email`/`Contact.Phone` rather than stored, so there is no
+channel table and no data migration; the sketch above proposed one and it
+turned out not to be needed. Three RPCs behind a new `crm:consent` scope pair,
+split so a viewer can see that somebody opted out without being able to assert
+that they opted in.
+
+Two defects were found by its own tests and fixed, each with the test that
+fails without the fix. A same-instant tie between a grant and a withdrawal
+resolved at random, because stamps truncate to the microsecond and ids are
+random — a tie now resolves to `withdrawn`, since we do not know which came
+first and the restrictive answer is the safe one. And a local phone number and
+its international form were different consent keys, so a withdrawal against
+`+15550100000` did not stop a message to `555 010 0000`. Inferring the country
+code would have been worse than the bug — guessing `+1` for a tenant elsewhere
+yields a reachable *different person's* number — so a number without a country
+code can now be neither messaged nor recorded against, and the UI says which
+code is missing.
+
+**§3 — click-to-chat.** `apps/web/src/lib/messagingLinks.ts`,
+`components/ContactChannelsPanel.tsx`. `wa.me` / `sms:` / `tel:` / `mailto:`
+links that open the user's own app with the message pre-filled. The panel
+renders the server's verdict rather than computing one, so no second
+implementation of `MayMessage` exists in TypeScript. The timeline entry says
+**opened**, never *sent*: all we know is what was handed to the operating
+system.
+
+Still open, as this section's own acceptance criteria require: a real-device
+check. Deep-link behaviour differs by OS and cannot be proven in jsdom, and the
+`sms:` body spelling (`?&body=`) is empirical rather than specified.
+
+**§5 — message templates.** `migrations/0030_message_templates.sql`,
+`internal/domain/message_template.go`. Merge fields shipped in this version
+rather than waiting for §5.3, because rendering happens in the browser from
+the record already on screen — a user cannot leak to themselves what they are
+looking at — and the vocabulary is an allowlist of fields any role that can
+read the record can already read. The field-visibility model is still required
+for a *server-side* render, which is what an automated send needs, so §6
+inherits that blocker unchanged.
+
+**§8 — lead distribution.** `migrations/0029_lead_distribution.sql`,
+`internal/domain/lead_distribution.go`. An `assign_owner` workflow action
+rather than an engine of its own, so it inherits rule versioning, conditions,
+the execution ledger, retries and loop prevention. Nine concurrent assignments
+through a real connection pool take nine distinct turns with an even split;
+a failed assignment leaves the rotation exactly where it was rather than
+burning a turn.
+
+### What that leaves
+
+The remaining unblocked work is §10.1–10.3 (installability, push,
+mobile-viewport tests) and §6 (messaging automation, which additionally wants
+D6). Everything else is behind a decision listed below. **§1 is the highest-value
+item in this file and needs only D1** — one decision, and no provider,
+contract or cost.
 
 ---
 

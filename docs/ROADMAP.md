@@ -164,8 +164,9 @@ Dependencies: M1 browser authentication contract and generated Connect client
 or an equivalent typed contract client.
 
 - [x] `apps/web` (React + TS strict + Vite), a design-system primitive set,
-  an app shell (sidebar/topbar/command palette/toasts — desktop-only, not
-  yet responsive to mobile/tablet), and the full auth session boundary:
+  an app shell (sidebar/topbar/command palette/toasts; responsive since
+  the drawer/stacking/a11y work recorded in `task.md` § Web application — the
+  earlier "desktop-only" note here was stale), and the full auth session boundary:
   OIDC Authorization Code + PKCE login/callback, token renewal (refresh-token
   grant, not silent-iframe — AuthinCore's `X-Frame-Options: DENY` rules that
   out), logout, and error/not-found/unavailable states. Verified live end to
@@ -488,6 +489,81 @@ webhook security decisions from the product owner.
 Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
 retryable.
+
+## M7 — Privyr parity: speed-to-lead (35%)
+
+Dependencies: none for the delivered items; the rest are listed with the
+product-owner decision each waits on in `task_crm.md`.
+
+`task_crm.md` is the engineering source of truth for this milestone. It asks a
+narrower question than M0–M6: what does Privyr do that this codebase cannot do
+at all? Most of Privyr's surface this product already exceeds, so the file — and
+this milestone — covers only the genuine zeroes.
+
+- [x] **Messaging consent ledger and its gate** (`task_crm.md` §2,
+  `migrations/0028_messaging_consent.sql`). One function, `domain.MayMessage`,
+  that every send path passes through, over an append-only ledger keyed on
+  (channel, address) rather than on a contact — so a re-import cannot resurrect
+  permission from somebody who said no. Messaging channels are derived from
+  `Contact.Email`/`Contact.Phone` rather than stored, so no channel table
+  exists. Verified over real HTTP with real tokens against RLS-bound
+  PostgreSQL: the read/withdraw/re-read loop, the scope split, and that one
+  tenant can neither read nor overturn another's withdrawal.
+
+  Two defects found by its own tests and fixed: a same-instant grant/withdrawal
+  tie resolved at random (it now resolves to withdrawn, since a tie means the
+  order is unknown and the restrictive answer is the safe one), and a local
+  phone number and its international form were different consent keys, so a
+  withdrawal against one did not stop a message to the other. A number without
+  a country code is now refused at both ends rather than having one guessed —
+  guessing `+1` for a tenant elsewhere produces a reachable *different
+  person's* number.
+
+- [~] **Click-to-chat outreach** (`task_crm.md` §3). WhatsApp, SMS, phone and
+  email actions on a contact, opening the user's own app with the message
+  pre-filled. Nothing is sent from the CRM, and the timeline entry says
+  "opened" rather than "sent" for exactly that reason. Covered by 12 component
+  tests including an axe-core scan, plus unit tests for the two things that
+  fail silently at the recipient's end: `wa.me` wants bare digits where `tel:`
+  wants the `+`, and `mailto:` needs `%20` where `URLSearchParams` emits `+`.
+  **Open:** a real-device check, which its own acceptance criteria require —
+  deep-link behaviour differs by OS and the `sms:` body spelling is empirical.
+
+- [x] **Message templates** (`task_crm.md` §5,
+  `migrations/0030_message_templates.sql`). Tenant-shared wording with an
+  allowlisted `{{merge}}` vocabulary, refused at save time if unknown. Merge
+  fields shipped in this version rather than waiting on the field-visibility
+  model, because rendering happens in the browser from the record already on
+  screen — a user cannot leak to themselves what they are looking at. A
+  server-side render, which an automated send needs, still inherits that
+  blocker.
+
+- [x] **Round-robin lead distribution** (`task_crm.md` §8,
+  `migrations/0029_lead_distribution.sql`). An `assign_owner` workflow action
+  rather than a second engine, so it inherits rule versioning, conditions, the
+  execution ledger, retries and loop prevention. The cursor is locked
+  `FOR UPDATE` and the owner change, the ledger row and the advance are one
+  transaction. Verified against live PostgreSQL: nine concurrent assignments
+  take nine distinct turns with an even split, and a failed assignment leaves
+  the rotation exactly where it was rather than burning a turn.
+
+- [ ] **Inbound lead capture** (`task_crm.md` §1). The highest-value item in
+  the file and the head of Privyr's whole value chain. Needs one decision (D1:
+  are unauthenticated inbound webhook endpoints acceptable, and behind what) —
+  no provider, contract or recurring cost.
+- [ ] Mobile speed-to-lead: installability, push on a new lead, and a
+  mobile-viewport browser test (`task_crm.md` §10.1–10.3). A native app is
+  explicitly **not** planned — see §10.4 for why.
+- [ ] Messaging actions in the workflow engine (§6), provider-sent messaging
+  (§4), bulk campaigns (§7), trackable files (§9) and ad-conversion feedback
+  (§11) each wait on a named decision listed in `task_crm.md`.
+
+Acceptance criteria: an external lead source delivers into the correct tenant
+and fires existing automations unchanged; a rep reaches a contact in one tap
+and the timeline records the attempt honestly; consent is durable, auditable
+and enforced by a single gate proven total by a test; new leads distribute
+across a team exactly once each. **Two of the four are met**; the first waits
+on D1 and the second on a real-device check.
 
 ## M6 — Production readiness and release (25%)
 
