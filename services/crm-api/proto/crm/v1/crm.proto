@@ -305,6 +305,73 @@ service CRMService {
   // ListMessagingConsent is that history for one address on one channel,
   // newest first — the read a compliance or support question needs.
   rpc ListMessagingConsent(ListMessagingConsentRequest) returns (ListMessagingConsentResponse);
+
+  // Message templates (task_crm.md §5). Reusable wording per channel, shared
+  // across the tenant the way tags are rather than owned per user.
+  //
+  // A body may carry {{placeholders}} from a fixed allowlist, refused at save
+  // time if unknown — a template that shipped "{{contact.phone}}" verbatim is
+  // a mistake the author hears about from the recipient, if at all. Nothing
+  // expands one on the server: the browser substitutes from the record it is
+  // already showing, for somebody already looking at it, which is why this
+  // needs none of the field-visibility model that still blocks templated
+  // workflow action text.
+  rpc CreateMessageTemplate(CreateMessageTemplateRequest) returns (CreateMessageTemplateResponse);
+  rpc ListMessageTemplates(ListMessageTemplatesRequest) returns (ListMessageTemplatesResponse);
+  rpc UpdateMessageTemplate(UpdateMessageTemplateRequest) returns (UpdateMessageTemplateResponse);
+  rpc DeleteMessageTemplate(DeleteMessageTemplateRequest) returns (DeleteMessageTemplateResponse);
+  // DescribeMessageTemplateCatalog reports the channels a template may be
+  // written for and the merge fields it may use, so the editor offers exactly
+  // what the server accepts rather than holding its own copy of the list.
+  rpc DescribeMessageTemplateCatalog(DescribeMessageTemplateCatalogRequest) returns (DescribeMessageTemplateCatalogResponse);
+}
+
+// MessageTemplate is one piece of reusable wording.
+message MessageTemplate {
+  string id = 1;
+  string name = 2;
+  // channel_kind is email, sms or whatsapp. Voice is absent: a dialer has
+  // nowhere to put a message.
+  string channel_kind = 3;
+  // subject applies to email templates only.
+  string subject = 4;
+  string body = 5;
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateMessageTemplateRequest {
+  string name = 1;
+  string channel_kind = 2;
+  string subject = 3;
+  string body = 4;
+}
+message CreateMessageTemplateResponse { MessageTemplate template = 1; }
+
+message ListMessageTemplatesRequest {
+  // channel_kind narrows the list; empty returns every channel's.
+  string channel_kind = 1;
+}
+message ListMessageTemplatesResponse { repeated MessageTemplate templates = 1; }
+
+message UpdateMessageTemplateRequest {
+  string id = 1;
+  string name = 2;
+  string channel_kind = 3;
+  string subject = 4;
+  string body = 5;
+}
+message UpdateMessageTemplateResponse { MessageTemplate template = 1; }
+
+message DeleteMessageTemplateRequest { string id = 1; }
+message DeleteMessageTemplateResponse {}
+
+message DescribeMessageTemplateCatalogRequest {}
+message DescribeMessageTemplateCatalogResponse {
+  repeated string channel_kinds = 1;
+  // merge_fields are the only placeholders a body may name.
+  repeated string merge_fields = 2;
 }
 
 // MessagingChannel is one address a contact can be reached at, with the

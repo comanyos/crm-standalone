@@ -28,6 +28,7 @@ import CalendarPage from "./features/calendar/CalendarPage";
 import CustomFieldsPage from "./features/settings/CustomFieldsPage";
 import CustomObjectsPage from "./features/settings/CustomObjectsPage";
 import TagsPage from "./features/settings/TagsPage";
+import MessageTemplatesPage from "./features/settings/MessageTemplatesPage";
 import IntegrationsPage from "./features/integrations/IntegrationsPage";
 import AutomationPage from "./features/automation/AutomationPage";
 
@@ -89,6 +90,7 @@ export const router = createBrowserRouter(
         <Route path="/settings/custom-fields" element={<CustomFieldsPage />} />
         <Route path="/settings/custom-objects" element={<CustomObjectsPage />} />
         <Route path="/settings/tags" element={<TagsPage />} />
+        <Route path="/settings/message-templates" element={<MessageTemplatesPage />} />
         <Route path="/settings/integrations" element={<IntegrationsPage />} />
       </Route>
 

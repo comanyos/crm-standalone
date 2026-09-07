@@ -76,6 +76,9 @@ type apiFixture struct {
 	// exportJobID names a recorded export audit row, so a list-exports
 	// probe has something to try to leak.
 	exportJobID string
+	// templateID names a message template this organization authored, so a
+	// template probe has wording to try to read, rewrite or delete.
+	templateID string
 	// consentID names this organization's withdrawal against contactEmail.
 	// Probes compare against the id rather than counting rows, because the
 	// probes share one service: another probe legitimately records
@@ -135,6 +138,15 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 	// real decision to try to read across the tenant boundary. It is the most
 	// sensitive row shape the ledger holds: it names a person and says they
 	// refused to be contacted.
+	template, err := s.CreateMessageTemplate(f.ctx, connect.NewRequest(&crmv1.CreateMessageTemplateRequest{
+		Name: label + " confidential opener", ChannelKind: "whatsapp",
+		Body: "Hi {{contact.first_name}}, " + label + " has a confidential offer for you.",
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed message template: %v", label, err)
+	}
+	f.templateID = template.Msg.GetTemplate().GetId()
+
 	consent, err := s.RecordMessagingConsent(f.ctx, connect.NewRequest(&crmv1.RecordMessagingConsentRequest{
 		ChannelKind: "email", Address: f.contactEmail, State: "withdrawn",
 		Source: "manual", Evidence: label + " asked to be removed",
@@ -1433,6 +1445,52 @@ var crossTenantProbes = map[string]isolationProbe{
 	"DeleteSavedView": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		_, err := s.DeleteSavedView(ctxB, connect.NewRequest(&crmv1.DeleteSavedViewRequest{Id: a.savedViewID}))
 		wantNotFound(t, "DeleteSavedView", err)
+	},
+	"CreateMessageTemplate": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Names are unique per channel per tenant, so reusing organization A's
+		// name in organization B must succeed with a distinct id rather than
+		// colliding with — or overwriting — A's wording.
+		res, err := s.CreateMessageTemplate(ctxB, connect.NewRequest(&crmv1.CreateMessageTemplateRequest{
+			Name: "victim confidential opener", ChannelKind: "whatsapp", Body: "Hello",
+		}))
+		if err != nil {
+			t.Fatalf("CreateMessageTemplate: %v", err)
+		}
+		if res.Msg.GetTemplate().GetId() == a.templateID {
+			t.Error("CreateMessageTemplate handed organization B organization A's template id")
+		}
+	},
+	"ListMessageTemplates": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListMessageTemplates(ctxB, connect.NewRequest(&crmv1.ListMessageTemplatesRequest{}))
+		if err != nil {
+			t.Fatalf("ListMessageTemplates: %v", err)
+		}
+		for _, template := range res.Msg.GetTemplates() {
+			if template.GetId() == a.templateID {
+				t.Error("ListMessageTemplates returned organization A's wording")
+			}
+		}
+	},
+	"UpdateMessageTemplate": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateMessageTemplate(ctxB, connect.NewRequest(&crmv1.UpdateMessageTemplateRequest{
+			Id: a.templateID, Name: "seized", ChannelKind: "whatsapp", Body: "Rewritten",
+		}))
+		wantNotFound(t, "UpdateMessageTemplate", err)
+	},
+	"DeleteMessageTemplate": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteMessageTemplate(ctxB, connect.NewRequest(&crmv1.DeleteMessageTemplateRequest{
+			Id: a.templateID,
+		}))
+		wantNotFound(t, "DeleteMessageTemplate", err)
+	},
+	"DescribeMessageTemplateCatalog": func(t *testing.T, s *CRMService, ctxB context.Context, _ apiFixture) {
+		// Two static allowlists, identical for every tenant — there is nothing
+		// here to leak. The probe exists so the sweep stays total: an RPC with
+		// no entry is a decision nobody made, and this one is a decision.
+		if _, err := s.DescribeMessageTemplateCatalog(ctxB,
+			connect.NewRequest(&crmv1.DescribeMessageTemplateCatalogRequest{})); err != nil {
+			t.Fatalf("DescribeMessageTemplateCatalog: %v", err)
+		}
 	},
 	"ListContactChannels": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		// Naming organization A's contact id must read as absent, not as

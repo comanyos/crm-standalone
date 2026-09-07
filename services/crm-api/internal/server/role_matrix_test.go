@@ -172,6 +172,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			"crm:tag:read": true, "crm:tag:write": true,
 			"crm:saved_view:read": true, "crm:saved_view:write": true,
 			"crm:consent:read": true, "crm:consent:write": true,
+			"crm:template:read": true, "crm:template:write": true,
 		},
 		"crm_manager": {
 			"crm:account:read": true, "crm:account:write": true,
@@ -198,6 +199,7 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// A manager records and reviews whether the organization may
 			// contact somebody — a claim it may later have to defend.
 			"crm:consent:read": true, "crm:consent:write": true,
+			"crm:template:read": true, "crm:template:write": true,
 		},
 		"crm_member": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -233,6 +235,9 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// calling me" is the one on the call, and a withdrawal that has
 			// to wait for a manager is a withdrawal that gets ignored.
 			"crm:consent:read": true, "crm:consent:write": true,
+			// Read/write for the same reason tags are: wording a rep uses on
+			// their own calls is daily work, not process configuration.
+			"crm:template:read": true, "crm:template:write": true,
 		},
 		"crm_viewer": {
 			"crm:account:read": true, "crm:account:write": false,
@@ -264,6 +269,8 @@ func TestEachRoleReachesItsIntendedProcedures(t *testing.T) {
 			// asserting that a third party opted in is authority it must not
 			// have, so the pair splits rather than being withheld entirely.
 			"crm:consent:read": true, "crm:consent:write": false,
+			// Sees what colleagues send, cannot author it.
+			"crm:template:read": true, "crm:template:write": false,
 		},
 	}
 

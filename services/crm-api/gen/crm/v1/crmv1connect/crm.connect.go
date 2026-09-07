@@ -349,6 +349,21 @@ const (
 	// CRMServiceListMessagingConsentProcedure is the fully-qualified name of the CRMService's
 	// ListMessagingConsent RPC.
 	CRMServiceListMessagingConsentProcedure = "/crm.v1.CRMService/ListMessagingConsent"
+	// CRMServiceCreateMessageTemplateProcedure is the fully-qualified name of the CRMService's
+	// CreateMessageTemplate RPC.
+	CRMServiceCreateMessageTemplateProcedure = "/crm.v1.CRMService/CreateMessageTemplate"
+	// CRMServiceListMessageTemplatesProcedure is the fully-qualified name of the CRMService's
+	// ListMessageTemplates RPC.
+	CRMServiceListMessageTemplatesProcedure = "/crm.v1.CRMService/ListMessageTemplates"
+	// CRMServiceUpdateMessageTemplateProcedure is the fully-qualified name of the CRMService's
+	// UpdateMessageTemplate RPC.
+	CRMServiceUpdateMessageTemplateProcedure = "/crm.v1.CRMService/UpdateMessageTemplate"
+	// CRMServiceDeleteMessageTemplateProcedure is the fully-qualified name of the CRMService's
+	// DeleteMessageTemplate RPC.
+	CRMServiceDeleteMessageTemplateProcedure = "/crm.v1.CRMService/DeleteMessageTemplate"
+	// CRMServiceDescribeMessageTemplateCatalogProcedure is the fully-qualified name of the CRMService's
+	// DescribeMessageTemplateCatalog RPC.
+	CRMServiceDescribeMessageTemplateCatalogProcedure = "/crm.v1.CRMService/DescribeMessageTemplateCatalog"
 )
 
 // CRMServiceClient is a client for the crm.v1.CRMService service.
@@ -628,6 +643,24 @@ type CRMServiceClient interface {
 	// ListMessagingConsent is that history for one address on one channel,
 	// newest first — the read a compliance or support question needs.
 	ListMessagingConsent(context.Context, *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error)
+	// Message templates (task_crm.md §5). Reusable wording per channel, shared
+	// across the tenant the way tags are rather than owned per user.
+	//
+	// A body may carry {{placeholders}} from a fixed allowlist, refused at save
+	// time if unknown — a template that shipped "{{contact.phone}}" verbatim is
+	// a mistake the author hears about from the recipient, if at all. Nothing
+	// expands one on the server: the browser substitutes from the record it is
+	// already showing, for somebody already looking at it, which is why this
+	// needs none of the field-visibility model that still blocks templated
+	// workflow action text.
+	CreateMessageTemplate(context.Context, *connect.Request[v1.CreateMessageTemplateRequest]) (*connect.Response[v1.CreateMessageTemplateResponse], error)
+	ListMessageTemplates(context.Context, *connect.Request[v1.ListMessageTemplatesRequest]) (*connect.Response[v1.ListMessageTemplatesResponse], error)
+	UpdateMessageTemplate(context.Context, *connect.Request[v1.UpdateMessageTemplateRequest]) (*connect.Response[v1.UpdateMessageTemplateResponse], error)
+	DeleteMessageTemplate(context.Context, *connect.Request[v1.DeleteMessageTemplateRequest]) (*connect.Response[v1.DeleteMessageTemplateResponse], error)
+	// DescribeMessageTemplateCatalog reports the channels a template may be
+	// written for and the merge fields it may use, so the editor offers exactly
+	// what the server accepts rather than holding its own copy of the list.
+	DescribeMessageTemplateCatalog(context.Context, *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error)
 }
 
 // NewCRMServiceClient constructs a client for the crm.v1.CRMService service. By default, it uses
@@ -1337,127 +1370,162 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListMessagingConsent")),
 			connect.WithClientOptions(opts...),
 		),
+		createMessageTemplate: connect.NewClient[v1.CreateMessageTemplateRequest, v1.CreateMessageTemplateResponse](
+			httpClient,
+			baseURL+CRMServiceCreateMessageTemplateProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateMessageTemplate")),
+			connect.WithClientOptions(opts...),
+		),
+		listMessageTemplates: connect.NewClient[v1.ListMessageTemplatesRequest, v1.ListMessageTemplatesResponse](
+			httpClient,
+			baseURL+CRMServiceListMessageTemplatesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListMessageTemplates")),
+			connect.WithClientOptions(opts...),
+		),
+		updateMessageTemplate: connect.NewClient[v1.UpdateMessageTemplateRequest, v1.UpdateMessageTemplateResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateMessageTemplateProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateMessageTemplate")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteMessageTemplate: connect.NewClient[v1.DeleteMessageTemplateRequest, v1.DeleteMessageTemplateResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteMessageTemplateProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteMessageTemplate")),
+			connect.WithClientOptions(opts...),
+		),
+		describeMessageTemplateCatalog: connect.NewClient[v1.DescribeMessageTemplateCatalogRequest, v1.DescribeMessageTemplateCatalogResponse](
+			httpClient,
+			baseURL+CRMServiceDescribeMessageTemplateCatalogProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DescribeMessageTemplateCatalog")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // cRMServiceClient implements CRMServiceClient.
 type cRMServiceClient struct {
-	createAccount                 *connect.Client[v1.CreateAccountRequest, v1.CreateAccountResponse]
-	getAccount                    *connect.Client[v1.GetAccountRequest, v1.GetAccountResponse]
-	listAccounts                  *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
-	updateAccount                 *connect.Client[v1.UpdateAccountRequest, v1.UpdateAccountResponse]
-	deleteAccount                 *connect.Client[v1.DeleteAccountRequest, v1.DeleteAccountResponse]
-	createContact                 *connect.Client[v1.CreateContactRequest, v1.CreateContactResponse]
-	getContact                    *connect.Client[v1.GetContactRequest, v1.GetContactResponse]
-	listContacts                  *connect.Client[v1.ListContactsRequest, v1.ListContactsResponse]
-	updateContact                 *connect.Client[v1.UpdateContactRequest, v1.UpdateContactResponse]
-	deleteContact                 *connect.Client[v1.DeleteContactRequest, v1.DeleteContactResponse]
-	createLead                    *connect.Client[v1.CreateLeadRequest, v1.CreateLeadResponse]
-	getLead                       *connect.Client[v1.GetLeadRequest, v1.GetLeadResponse]
-	listLeads                     *connect.Client[v1.ListLeadsRequest, v1.ListLeadsResponse]
-	updateLead                    *connect.Client[v1.UpdateLeadRequest, v1.UpdateLeadResponse]
-	deleteLead                    *connect.Client[v1.DeleteLeadRequest, v1.DeleteLeadResponse]
-	convertLead                   *connect.Client[v1.ConvertLeadRequest, v1.ConvertLeadResponse]
-	createOpportunity             *connect.Client[v1.CreateOpportunityRequest, v1.CreateOpportunityResponse]
-	getOpportunity                *connect.Client[v1.GetOpportunityRequest, v1.GetOpportunityResponse]
-	listOpportunities             *connect.Client[v1.ListOpportunitiesRequest, v1.ListOpportunitiesResponse]
-	updateOpportunity             *connect.Client[v1.UpdateOpportunityRequest, v1.UpdateOpportunityResponse]
-	moveOpportunityToPipeline     *connect.Client[v1.MoveOpportunityToPipelineRequest, v1.MoveOpportunityToPipelineResponse]
-	deleteOpportunity             *connect.Client[v1.DeleteOpportunityRequest, v1.DeleteOpportunityResponse]
-	listOpportunityStageHistory   *connect.Client[v1.ListOpportunityStageHistoryRequest, v1.ListOpportunityStageHistoryResponse]
-	createPipeline                *connect.Client[v1.CreatePipelineRequest, v1.CreatePipelineResponse]
-	getPipeline                   *connect.Client[v1.GetPipelineRequest, v1.GetPipelineResponse]
-	listPipelines                 *connect.Client[v1.ListPipelinesRequest, v1.ListPipelinesResponse]
-	updatePipeline                *connect.Client[v1.UpdatePipelineRequest, v1.UpdatePipelineResponse]
-	createPipelineStage           *connect.Client[v1.CreatePipelineStageRequest, v1.CreatePipelineStageResponse]
-	listPipelineStages            *connect.Client[v1.ListPipelineStagesRequest, v1.ListPipelineStagesResponse]
-	updatePipelineStage           *connect.Client[v1.UpdatePipelineStageRequest, v1.UpdatePipelineStageResponse]
-	createActivity                *connect.Client[v1.CreateActivityRequest, v1.CreateActivityResponse]
-	getActivity                   *connect.Client[v1.GetActivityRequest, v1.GetActivityResponse]
-	listActivities                *connect.Client[v1.ListActivitiesRequest, v1.ListActivitiesResponse]
-	updateActivity                *connect.Client[v1.UpdateActivityRequest, v1.UpdateActivityResponse]
-	deleteActivity                *connect.Client[v1.DeleteActivityRequest, v1.DeleteActivityResponse]
-	listActivitiesForSubject      *connect.Client[v1.ListActivitiesForSubjectRequest, v1.ListActivitiesForSubjectResponse]
-	createTask                    *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
-	getTask                       *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
-	listTasks                     *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
-	updateTask                    *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
-	deleteTask                    *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
-	completeTask                  *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
-	reopenTask                    *connect.Client[v1.ReopenTaskRequest, v1.ReopenTaskResponse]
-	createNote                    *connect.Client[v1.CreateNoteRequest, v1.CreateNoteResponse]
-	getNote                       *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
-	listNotes                     *connect.Client[v1.ListNotesRequest, v1.ListNotesResponse]
-	updateNote                    *connect.Client[v1.UpdateNoteRequest, v1.UpdateNoteResponse]
-	deleteNote                    *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
-	createCustomFieldDefinition   *connect.Client[v1.CreateCustomFieldDefinitionRequest, v1.CreateCustomFieldDefinitionResponse]
-	getCustomFieldDefinition      *connect.Client[v1.GetCustomFieldDefinitionRequest, v1.GetCustomFieldDefinitionResponse]
-	listCustomFieldDefinitions    *connect.Client[v1.ListCustomFieldDefinitionsRequest, v1.ListCustomFieldDefinitionsResponse]
-	updateCustomFieldDefinition   *connect.Client[v1.UpdateCustomFieldDefinitionRequest, v1.UpdateCustomFieldDefinitionResponse]
-	archiveCustomFieldDefinition  *connect.Client[v1.ArchiveCustomFieldDefinitionRequest, v1.ArchiveCustomFieldDefinitionResponse]
-	createCustomObjectDefinition  *connect.Client[v1.CreateCustomObjectDefinitionRequest, v1.CreateCustomObjectDefinitionResponse]
-	getCustomObjectDefinition     *connect.Client[v1.GetCustomObjectDefinitionRequest, v1.GetCustomObjectDefinitionResponse]
-	listCustomObjectDefinitions   *connect.Client[v1.ListCustomObjectDefinitionsRequest, v1.ListCustomObjectDefinitionsResponse]
-	archiveCustomObjectDefinition *connect.Client[v1.ArchiveCustomObjectDefinitionRequest, v1.ArchiveCustomObjectDefinitionResponse]
-	createCustomRecord            *connect.Client[v1.CreateCustomRecordRequest, v1.CreateCustomRecordResponse]
-	getCustomRecord               *connect.Client[v1.GetCustomRecordRequest, v1.GetCustomRecordResponse]
-	listCustomRecords             *connect.Client[v1.ListCustomRecordsRequest, v1.ListCustomRecordsResponse]
-	updateCustomRecord            *connect.Client[v1.UpdateCustomRecordRequest, v1.UpdateCustomRecordResponse]
-	deleteCustomRecord            *connect.Client[v1.DeleteCustomRecordRequest, v1.DeleteCustomRecordResponse]
-	getSummary                    *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
-	searchRecords                 *connect.Client[v1.SearchRecordsRequest, v1.SearchRecordsResponse]
-	startGoogleConnection         *connect.Client[v1.StartGoogleConnectionRequest, v1.StartGoogleConnectionResponse]
-	getGoogleConnection           *connect.Client[v1.GetGoogleConnectionRequest, v1.GetGoogleConnectionResponse]
-	listGoogleConnections         *connect.Client[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse]
-	disconnectGoogleConnection    *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
-	syncGoogleMailbox             *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
-	syncGoogleCalendar            *connect.Client[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse]
-	eraseSyncedContentForContact  *connect.Client[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentResponse]
-	listSyncSuppressions          *connect.Client[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse]
-	suppressSyncAddress           *connect.Client[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse]
-	releaseSyncAddress            *connect.Client[v1.ReleaseSyncAddressRequest, v1.ReleaseSyncAddressResponse]
-	describeWorkflowCatalog       *connect.Client[v1.DescribeWorkflowCatalogRequest, v1.DescribeWorkflowCatalogResponse]
-	createWorkflowRule            *connect.Client[v1.CreateWorkflowRuleRequest, v1.CreateWorkflowRuleResponse]
-	getWorkflowRule               *connect.Client[v1.GetWorkflowRuleRequest, v1.GetWorkflowRuleResponse]
-	listWorkflowRules             *connect.Client[v1.ListWorkflowRulesRequest, v1.ListWorkflowRulesResponse]
-	updateWorkflowRule            *connect.Client[v1.UpdateWorkflowRuleRequest, v1.UpdateWorkflowRuleResponse]
-	publishWorkflowRuleVersion    *connect.Client[v1.PublishWorkflowRuleVersionRequest, v1.PublishWorkflowRuleVersionResponse]
-	listWorkflowRuleVersions      *connect.Client[v1.ListWorkflowRuleVersionsRequest, v1.ListWorkflowRuleVersionsResponse]
-	setWorkflowRuleStatus         *connect.Client[v1.SetWorkflowRuleStatusRequest, v1.SetWorkflowRuleStatusResponse]
-	listWorkflowExecutions        *connect.Client[v1.ListWorkflowExecutionsRequest, v1.ListWorkflowExecutionsResponse]
-	listNotifications             *connect.Client[v1.ListNotificationsRequest, v1.ListNotificationsResponse]
-	markNotificationRead          *connect.Client[v1.MarkNotificationReadRequest, v1.MarkNotificationReadResponse]
-	createTag                     *connect.Client[v1.CreateTagRequest, v1.CreateTagResponse]
-	listTags                      *connect.Client[v1.ListTagsRequest, v1.ListTagsResponse]
-	updateTag                     *connect.Client[v1.UpdateTagRequest, v1.UpdateTagResponse]
-	deleteTag                     *connect.Client[v1.DeleteTagRequest, v1.DeleteTagResponse]
-	assignTag                     *connect.Client[v1.AssignTagRequest, v1.AssignTagResponse]
-	removeTag                     *connect.Client[v1.RemoveTagRequest, v1.RemoveTagResponse]
-	listTagsForRecord             *connect.Client[v1.ListTagsForRecordRequest, v1.ListTagsForRecordResponse]
-	listTaggedRecords             *connect.Client[v1.ListTaggedRecordsRequest, v1.ListTaggedRecordsResponse]
-	bulkAssignTag                 *connect.Client[v1.BulkAssignTagRequest, v1.BulkAssignTagResponse]
-	bulkRemoveTag                 *connect.Client[v1.BulkRemoveTagRequest, v1.BulkRemoveTagResponse]
-	bulkCompleteTasks             *connect.Client[v1.BulkCompleteTasksRequest, v1.BulkCompleteTasksResponse]
-	bulkReopenTasks               *connect.Client[v1.BulkReopenTasksRequest, v1.BulkReopenTasksResponse]
-	bulkReassignTaskAssignee      *connect.Client[v1.BulkReassignTaskAssigneeRequest, v1.BulkReassignTaskAssigneeResponse]
-	bulkReassignAccountOwner      *connect.Client[v1.BulkReassignAccountOwnerRequest, v1.BulkReassignAccountOwnerResponse]
-	bulkReassignLeadOwner         *connect.Client[v1.BulkReassignLeadOwnerRequest, v1.BulkReassignLeadOwnerResponse]
-	createSavedView               *connect.Client[v1.CreateSavedViewRequest, v1.CreateSavedViewResponse]
-	listSavedViews                *connect.Client[v1.ListSavedViewsRequest, v1.ListSavedViewsResponse]
-	updateSavedView               *connect.Client[v1.UpdateSavedViewRequest, v1.UpdateSavedViewResponse]
-	deleteSavedView               *connect.Client[v1.DeleteSavedViewRequest, v1.DeleteSavedViewResponse]
-	mergeAccounts                 *connect.Client[v1.MergeAccountsRequest, v1.MergeAccountsResponse]
-	listAccountMerges             *connect.Client[v1.ListAccountMergesRequest, v1.ListAccountMergesResponse]
-	createImportJob               *connect.Client[v1.CreateImportJobRequest, v1.CreateImportJobResponse]
-	getImportJob                  *connect.Client[v1.GetImportJobRequest, v1.GetImportJobResponse]
-	listImportJobs                *connect.Client[v1.ListImportJobsRequest, v1.ListImportJobsResponse]
-	commitImportJob               *connect.Client[v1.CommitImportJobRequest, v1.CommitImportJobResponse]
-	exportAccounts                *connect.Client[v1.ExportAccountsRequest, v1.ExportAccountsResponse]
-	listExportJobs                *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
-	getDashboardReport            *connect.Client[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse]
-	listContactChannels           *connect.Client[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse]
-	recordMessagingConsent        *connect.Client[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse]
-	listMessagingConsent          *connect.Client[v1.ListMessagingConsentRequest, v1.ListMessagingConsentResponse]
+	createAccount                  *connect.Client[v1.CreateAccountRequest, v1.CreateAccountResponse]
+	getAccount                     *connect.Client[v1.GetAccountRequest, v1.GetAccountResponse]
+	listAccounts                   *connect.Client[v1.ListAccountsRequest, v1.ListAccountsResponse]
+	updateAccount                  *connect.Client[v1.UpdateAccountRequest, v1.UpdateAccountResponse]
+	deleteAccount                  *connect.Client[v1.DeleteAccountRequest, v1.DeleteAccountResponse]
+	createContact                  *connect.Client[v1.CreateContactRequest, v1.CreateContactResponse]
+	getContact                     *connect.Client[v1.GetContactRequest, v1.GetContactResponse]
+	listContacts                   *connect.Client[v1.ListContactsRequest, v1.ListContactsResponse]
+	updateContact                  *connect.Client[v1.UpdateContactRequest, v1.UpdateContactResponse]
+	deleteContact                  *connect.Client[v1.DeleteContactRequest, v1.DeleteContactResponse]
+	createLead                     *connect.Client[v1.CreateLeadRequest, v1.CreateLeadResponse]
+	getLead                        *connect.Client[v1.GetLeadRequest, v1.GetLeadResponse]
+	listLeads                      *connect.Client[v1.ListLeadsRequest, v1.ListLeadsResponse]
+	updateLead                     *connect.Client[v1.UpdateLeadRequest, v1.UpdateLeadResponse]
+	deleteLead                     *connect.Client[v1.DeleteLeadRequest, v1.DeleteLeadResponse]
+	convertLead                    *connect.Client[v1.ConvertLeadRequest, v1.ConvertLeadResponse]
+	createOpportunity              *connect.Client[v1.CreateOpportunityRequest, v1.CreateOpportunityResponse]
+	getOpportunity                 *connect.Client[v1.GetOpportunityRequest, v1.GetOpportunityResponse]
+	listOpportunities              *connect.Client[v1.ListOpportunitiesRequest, v1.ListOpportunitiesResponse]
+	updateOpportunity              *connect.Client[v1.UpdateOpportunityRequest, v1.UpdateOpportunityResponse]
+	moveOpportunityToPipeline      *connect.Client[v1.MoveOpportunityToPipelineRequest, v1.MoveOpportunityToPipelineResponse]
+	deleteOpportunity              *connect.Client[v1.DeleteOpportunityRequest, v1.DeleteOpportunityResponse]
+	listOpportunityStageHistory    *connect.Client[v1.ListOpportunityStageHistoryRequest, v1.ListOpportunityStageHistoryResponse]
+	createPipeline                 *connect.Client[v1.CreatePipelineRequest, v1.CreatePipelineResponse]
+	getPipeline                    *connect.Client[v1.GetPipelineRequest, v1.GetPipelineResponse]
+	listPipelines                  *connect.Client[v1.ListPipelinesRequest, v1.ListPipelinesResponse]
+	updatePipeline                 *connect.Client[v1.UpdatePipelineRequest, v1.UpdatePipelineResponse]
+	createPipelineStage            *connect.Client[v1.CreatePipelineStageRequest, v1.CreatePipelineStageResponse]
+	listPipelineStages             *connect.Client[v1.ListPipelineStagesRequest, v1.ListPipelineStagesResponse]
+	updatePipelineStage            *connect.Client[v1.UpdatePipelineStageRequest, v1.UpdatePipelineStageResponse]
+	createActivity                 *connect.Client[v1.CreateActivityRequest, v1.CreateActivityResponse]
+	getActivity                    *connect.Client[v1.GetActivityRequest, v1.GetActivityResponse]
+	listActivities                 *connect.Client[v1.ListActivitiesRequest, v1.ListActivitiesResponse]
+	updateActivity                 *connect.Client[v1.UpdateActivityRequest, v1.UpdateActivityResponse]
+	deleteActivity                 *connect.Client[v1.DeleteActivityRequest, v1.DeleteActivityResponse]
+	listActivitiesForSubject       *connect.Client[v1.ListActivitiesForSubjectRequest, v1.ListActivitiesForSubjectResponse]
+	createTask                     *connect.Client[v1.CreateTaskRequest, v1.CreateTaskResponse]
+	getTask                        *connect.Client[v1.GetTaskRequest, v1.GetTaskResponse]
+	listTasks                      *connect.Client[v1.ListTasksRequest, v1.ListTasksResponse]
+	updateTask                     *connect.Client[v1.UpdateTaskRequest, v1.UpdateTaskResponse]
+	deleteTask                     *connect.Client[v1.DeleteTaskRequest, v1.DeleteTaskResponse]
+	completeTask                   *connect.Client[v1.CompleteTaskRequest, v1.CompleteTaskResponse]
+	reopenTask                     *connect.Client[v1.ReopenTaskRequest, v1.ReopenTaskResponse]
+	createNote                     *connect.Client[v1.CreateNoteRequest, v1.CreateNoteResponse]
+	getNote                        *connect.Client[v1.GetNoteRequest, v1.GetNoteResponse]
+	listNotes                      *connect.Client[v1.ListNotesRequest, v1.ListNotesResponse]
+	updateNote                     *connect.Client[v1.UpdateNoteRequest, v1.UpdateNoteResponse]
+	deleteNote                     *connect.Client[v1.DeleteNoteRequest, v1.DeleteNoteResponse]
+	createCustomFieldDefinition    *connect.Client[v1.CreateCustomFieldDefinitionRequest, v1.CreateCustomFieldDefinitionResponse]
+	getCustomFieldDefinition       *connect.Client[v1.GetCustomFieldDefinitionRequest, v1.GetCustomFieldDefinitionResponse]
+	listCustomFieldDefinitions     *connect.Client[v1.ListCustomFieldDefinitionsRequest, v1.ListCustomFieldDefinitionsResponse]
+	updateCustomFieldDefinition    *connect.Client[v1.UpdateCustomFieldDefinitionRequest, v1.UpdateCustomFieldDefinitionResponse]
+	archiveCustomFieldDefinition   *connect.Client[v1.ArchiveCustomFieldDefinitionRequest, v1.ArchiveCustomFieldDefinitionResponse]
+	createCustomObjectDefinition   *connect.Client[v1.CreateCustomObjectDefinitionRequest, v1.CreateCustomObjectDefinitionResponse]
+	getCustomObjectDefinition      *connect.Client[v1.GetCustomObjectDefinitionRequest, v1.GetCustomObjectDefinitionResponse]
+	listCustomObjectDefinitions    *connect.Client[v1.ListCustomObjectDefinitionsRequest, v1.ListCustomObjectDefinitionsResponse]
+	archiveCustomObjectDefinition  *connect.Client[v1.ArchiveCustomObjectDefinitionRequest, v1.ArchiveCustomObjectDefinitionResponse]
+	createCustomRecord             *connect.Client[v1.CreateCustomRecordRequest, v1.CreateCustomRecordResponse]
+	getCustomRecord                *connect.Client[v1.GetCustomRecordRequest, v1.GetCustomRecordResponse]
+	listCustomRecords              *connect.Client[v1.ListCustomRecordsRequest, v1.ListCustomRecordsResponse]
+	updateCustomRecord             *connect.Client[v1.UpdateCustomRecordRequest, v1.UpdateCustomRecordResponse]
+	deleteCustomRecord             *connect.Client[v1.DeleteCustomRecordRequest, v1.DeleteCustomRecordResponse]
+	getSummary                     *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
+	searchRecords                  *connect.Client[v1.SearchRecordsRequest, v1.SearchRecordsResponse]
+	startGoogleConnection          *connect.Client[v1.StartGoogleConnectionRequest, v1.StartGoogleConnectionResponse]
+	getGoogleConnection            *connect.Client[v1.GetGoogleConnectionRequest, v1.GetGoogleConnectionResponse]
+	listGoogleConnections          *connect.Client[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse]
+	disconnectGoogleConnection     *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
+	syncGoogleMailbox              *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
+	syncGoogleCalendar             *connect.Client[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse]
+	eraseSyncedContentForContact   *connect.Client[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentResponse]
+	listSyncSuppressions           *connect.Client[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse]
+	suppressSyncAddress            *connect.Client[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse]
+	releaseSyncAddress             *connect.Client[v1.ReleaseSyncAddressRequest, v1.ReleaseSyncAddressResponse]
+	describeWorkflowCatalog        *connect.Client[v1.DescribeWorkflowCatalogRequest, v1.DescribeWorkflowCatalogResponse]
+	createWorkflowRule             *connect.Client[v1.CreateWorkflowRuleRequest, v1.CreateWorkflowRuleResponse]
+	getWorkflowRule                *connect.Client[v1.GetWorkflowRuleRequest, v1.GetWorkflowRuleResponse]
+	listWorkflowRules              *connect.Client[v1.ListWorkflowRulesRequest, v1.ListWorkflowRulesResponse]
+	updateWorkflowRule             *connect.Client[v1.UpdateWorkflowRuleRequest, v1.UpdateWorkflowRuleResponse]
+	publishWorkflowRuleVersion     *connect.Client[v1.PublishWorkflowRuleVersionRequest, v1.PublishWorkflowRuleVersionResponse]
+	listWorkflowRuleVersions       *connect.Client[v1.ListWorkflowRuleVersionsRequest, v1.ListWorkflowRuleVersionsResponse]
+	setWorkflowRuleStatus          *connect.Client[v1.SetWorkflowRuleStatusRequest, v1.SetWorkflowRuleStatusResponse]
+	listWorkflowExecutions         *connect.Client[v1.ListWorkflowExecutionsRequest, v1.ListWorkflowExecutionsResponse]
+	listNotifications              *connect.Client[v1.ListNotificationsRequest, v1.ListNotificationsResponse]
+	markNotificationRead           *connect.Client[v1.MarkNotificationReadRequest, v1.MarkNotificationReadResponse]
+	createTag                      *connect.Client[v1.CreateTagRequest, v1.CreateTagResponse]
+	listTags                       *connect.Client[v1.ListTagsRequest, v1.ListTagsResponse]
+	updateTag                      *connect.Client[v1.UpdateTagRequest, v1.UpdateTagResponse]
+	deleteTag                      *connect.Client[v1.DeleteTagRequest, v1.DeleteTagResponse]
+	assignTag                      *connect.Client[v1.AssignTagRequest, v1.AssignTagResponse]
+	removeTag                      *connect.Client[v1.RemoveTagRequest, v1.RemoveTagResponse]
+	listTagsForRecord              *connect.Client[v1.ListTagsForRecordRequest, v1.ListTagsForRecordResponse]
+	listTaggedRecords              *connect.Client[v1.ListTaggedRecordsRequest, v1.ListTaggedRecordsResponse]
+	bulkAssignTag                  *connect.Client[v1.BulkAssignTagRequest, v1.BulkAssignTagResponse]
+	bulkRemoveTag                  *connect.Client[v1.BulkRemoveTagRequest, v1.BulkRemoveTagResponse]
+	bulkCompleteTasks              *connect.Client[v1.BulkCompleteTasksRequest, v1.BulkCompleteTasksResponse]
+	bulkReopenTasks                *connect.Client[v1.BulkReopenTasksRequest, v1.BulkReopenTasksResponse]
+	bulkReassignTaskAssignee       *connect.Client[v1.BulkReassignTaskAssigneeRequest, v1.BulkReassignTaskAssigneeResponse]
+	bulkReassignAccountOwner       *connect.Client[v1.BulkReassignAccountOwnerRequest, v1.BulkReassignAccountOwnerResponse]
+	bulkReassignLeadOwner          *connect.Client[v1.BulkReassignLeadOwnerRequest, v1.BulkReassignLeadOwnerResponse]
+	createSavedView                *connect.Client[v1.CreateSavedViewRequest, v1.CreateSavedViewResponse]
+	listSavedViews                 *connect.Client[v1.ListSavedViewsRequest, v1.ListSavedViewsResponse]
+	updateSavedView                *connect.Client[v1.UpdateSavedViewRequest, v1.UpdateSavedViewResponse]
+	deleteSavedView                *connect.Client[v1.DeleteSavedViewRequest, v1.DeleteSavedViewResponse]
+	mergeAccounts                  *connect.Client[v1.MergeAccountsRequest, v1.MergeAccountsResponse]
+	listAccountMerges              *connect.Client[v1.ListAccountMergesRequest, v1.ListAccountMergesResponse]
+	createImportJob                *connect.Client[v1.CreateImportJobRequest, v1.CreateImportJobResponse]
+	getImportJob                   *connect.Client[v1.GetImportJobRequest, v1.GetImportJobResponse]
+	listImportJobs                 *connect.Client[v1.ListImportJobsRequest, v1.ListImportJobsResponse]
+	commitImportJob                *connect.Client[v1.CommitImportJobRequest, v1.CommitImportJobResponse]
+	exportAccounts                 *connect.Client[v1.ExportAccountsRequest, v1.ExportAccountsResponse]
+	listExportJobs                 *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
+	getDashboardReport             *connect.Client[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse]
+	listContactChannels            *connect.Client[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse]
+	recordMessagingConsent         *connect.Client[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse]
+	listMessagingConsent           *connect.Client[v1.ListMessagingConsentRequest, v1.ListMessagingConsentResponse]
+	createMessageTemplate          *connect.Client[v1.CreateMessageTemplateRequest, v1.CreateMessageTemplateResponse]
+	listMessageTemplates           *connect.Client[v1.ListMessageTemplatesRequest, v1.ListMessageTemplatesResponse]
+	updateMessageTemplate          *connect.Client[v1.UpdateMessageTemplateRequest, v1.UpdateMessageTemplateResponse]
+	deleteMessageTemplate          *connect.Client[v1.DeleteMessageTemplateRequest, v1.DeleteMessageTemplateResponse]
+	describeMessageTemplateCatalog *connect.Client[v1.DescribeMessageTemplateCatalogRequest, v1.DescribeMessageTemplateCatalogResponse]
 }
 
 // CreateAccount calls crm.v1.CRMService.CreateAccount.
@@ -2040,6 +2108,31 @@ func (c *cRMServiceClient) ListMessagingConsent(ctx context.Context, req *connec
 	return c.listMessagingConsent.CallUnary(ctx, req)
 }
 
+// CreateMessageTemplate calls crm.v1.CRMService.CreateMessageTemplate.
+func (c *cRMServiceClient) CreateMessageTemplate(ctx context.Context, req *connect.Request[v1.CreateMessageTemplateRequest]) (*connect.Response[v1.CreateMessageTemplateResponse], error) {
+	return c.createMessageTemplate.CallUnary(ctx, req)
+}
+
+// ListMessageTemplates calls crm.v1.CRMService.ListMessageTemplates.
+func (c *cRMServiceClient) ListMessageTemplates(ctx context.Context, req *connect.Request[v1.ListMessageTemplatesRequest]) (*connect.Response[v1.ListMessageTemplatesResponse], error) {
+	return c.listMessageTemplates.CallUnary(ctx, req)
+}
+
+// UpdateMessageTemplate calls crm.v1.CRMService.UpdateMessageTemplate.
+func (c *cRMServiceClient) UpdateMessageTemplate(ctx context.Context, req *connect.Request[v1.UpdateMessageTemplateRequest]) (*connect.Response[v1.UpdateMessageTemplateResponse], error) {
+	return c.updateMessageTemplate.CallUnary(ctx, req)
+}
+
+// DeleteMessageTemplate calls crm.v1.CRMService.DeleteMessageTemplate.
+func (c *cRMServiceClient) DeleteMessageTemplate(ctx context.Context, req *connect.Request[v1.DeleteMessageTemplateRequest]) (*connect.Response[v1.DeleteMessageTemplateResponse], error) {
+	return c.deleteMessageTemplate.CallUnary(ctx, req)
+}
+
+// DescribeMessageTemplateCatalog calls crm.v1.CRMService.DescribeMessageTemplateCatalog.
+func (c *cRMServiceClient) DescribeMessageTemplateCatalog(ctx context.Context, req *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error) {
+	return c.describeMessageTemplateCatalog.CallUnary(ctx, req)
+}
+
 // CRMServiceHandler is an implementation of the crm.v1.CRMService service.
 type CRMServiceHandler interface {
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
@@ -2317,6 +2410,24 @@ type CRMServiceHandler interface {
 	// ListMessagingConsent is that history for one address on one channel,
 	// newest first — the read a compliance or support question needs.
 	ListMessagingConsent(context.Context, *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error)
+	// Message templates (task_crm.md §5). Reusable wording per channel, shared
+	// across the tenant the way tags are rather than owned per user.
+	//
+	// A body may carry {{placeholders}} from a fixed allowlist, refused at save
+	// time if unknown — a template that shipped "{{contact.phone}}" verbatim is
+	// a mistake the author hears about from the recipient, if at all. Nothing
+	// expands one on the server: the browser substitutes from the record it is
+	// already showing, for somebody already looking at it, which is why this
+	// needs none of the field-visibility model that still blocks templated
+	// workflow action text.
+	CreateMessageTemplate(context.Context, *connect.Request[v1.CreateMessageTemplateRequest]) (*connect.Response[v1.CreateMessageTemplateResponse], error)
+	ListMessageTemplates(context.Context, *connect.Request[v1.ListMessageTemplatesRequest]) (*connect.Response[v1.ListMessageTemplatesResponse], error)
+	UpdateMessageTemplate(context.Context, *connect.Request[v1.UpdateMessageTemplateRequest]) (*connect.Response[v1.UpdateMessageTemplateResponse], error)
+	DeleteMessageTemplate(context.Context, *connect.Request[v1.DeleteMessageTemplateRequest]) (*connect.Response[v1.DeleteMessageTemplateResponse], error)
+	// DescribeMessageTemplateCatalog reports the channels a template may be
+	// written for and the merge fields it may use, so the editor offers exactly
+	// what the server accepts rather than holding its own copy of the list.
+	DescribeMessageTemplateCatalog(context.Context, *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error)
 }
 
 // NewCRMServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -3022,6 +3133,36 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListMessagingConsent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateMessageTemplateHandler := connect.NewUnaryHandler(
+		CRMServiceCreateMessageTemplateProcedure,
+		svc.CreateMessageTemplate,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateMessageTemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListMessageTemplatesHandler := connect.NewUnaryHandler(
+		CRMServiceListMessageTemplatesProcedure,
+		svc.ListMessageTemplates,
+		connect.WithSchema(cRMServiceMethods.ByName("ListMessageTemplates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateMessageTemplateHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateMessageTemplateProcedure,
+		svc.UpdateMessageTemplate,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateMessageTemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteMessageTemplateHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteMessageTemplateProcedure,
+		svc.DeleteMessageTemplate,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteMessageTemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDescribeMessageTemplateCatalogHandler := connect.NewUnaryHandler(
+		CRMServiceDescribeMessageTemplateCatalogProcedure,
+		svc.DescribeMessageTemplateCatalog,
+		connect.WithSchema(cRMServiceMethods.ByName("DescribeMessageTemplateCatalog")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/crm.v1.CRMService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case CRMServiceCreateAccountProcedure:
@@ -3256,6 +3397,16 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceRecordMessagingConsentHandler.ServeHTTP(w, r)
 		case CRMServiceListMessagingConsentProcedure:
 			cRMServiceListMessagingConsentHandler.ServeHTTP(w, r)
+		case CRMServiceCreateMessageTemplateProcedure:
+			cRMServiceCreateMessageTemplateHandler.ServeHTTP(w, r)
+		case CRMServiceListMessageTemplatesProcedure:
+			cRMServiceListMessageTemplatesHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateMessageTemplateProcedure:
+			cRMServiceUpdateMessageTemplateHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteMessageTemplateProcedure:
+			cRMServiceDeleteMessageTemplateHandler.ServeHTTP(w, r)
+		case CRMServiceDescribeMessageTemplateCatalogProcedure:
+			cRMServiceDescribeMessageTemplateCatalogHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -3727,4 +3878,24 @@ func (UnimplementedCRMServiceHandler) RecordMessagingConsent(context.Context, *c
 
 func (UnimplementedCRMServiceHandler) ListMessagingConsent(context.Context, *connect.Request[v1.ListMessagingConsentRequest]) (*connect.Response[v1.ListMessagingConsentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListMessagingConsent is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateMessageTemplate(context.Context, *connect.Request[v1.CreateMessageTemplateRequest]) (*connect.Response[v1.CreateMessageTemplateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateMessageTemplate is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListMessageTemplates(context.Context, *connect.Request[v1.ListMessageTemplatesRequest]) (*connect.Response[v1.ListMessageTemplatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListMessageTemplates is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateMessageTemplate(context.Context, *connect.Request[v1.UpdateMessageTemplateRequest]) (*connect.Response[v1.UpdateMessageTemplateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateMessageTemplate is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteMessageTemplate(context.Context, *connect.Request[v1.DeleteMessageTemplateRequest]) (*connect.Response[v1.DeleteMessageTemplateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteMessageTemplate is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DescribeMessageTemplateCatalog(context.Context, *connect.Request[v1.DescribeMessageTemplateCatalogRequest]) (*connect.Response[v1.DescribeMessageTemplateCatalogResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DescribeMessageTemplateCatalog is not implemented"))
 }

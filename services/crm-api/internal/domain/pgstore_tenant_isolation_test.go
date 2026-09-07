@@ -326,6 +326,19 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] record messaging consent: %v", label, err)
 	}
 
+	// One template, so message_templates is asserted to filter rather than
+	// only to have a policy. Wording an organization sends its customers is
+	// its own — and a competitor's opener is exactly the kind of thing a
+	// leak here would hand over.
+	if _, err := s.CreateMessageTemplate(ctx, f.scope, &MessageTemplate{
+		Name:        label + " confidential opener",
+		ChannelKind: ChannelWhatsApp,
+		Body:        "Hi {{contact.first_name}}, " + label + " has an offer for you.",
+		CreatedBy:   "owner-" + label,
+	}); err != nil {
+		t.Fatalf("[%s] seed message template: %v", label, err)
+	}
+
 	// One round-robin assignment, so the cursor and the ledger both hold a
 	// row. Without them the catalog-driven test below skips both tables, and
 	// the ledger names which colleague was handed which lead — a tenant's own

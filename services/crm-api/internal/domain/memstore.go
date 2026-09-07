@@ -210,6 +210,7 @@ type MemStore struct {
 	customObject     *memTable[*CustomObjectDefinition]
 	customRecord     *memTable[*CustomRecord]
 	consent          *memTable[*MessagingConsent]
+	messageTemplate  *memTable[*MessageTemplate]
 
 	// assignment holds the round-robin cursors and the per-execution record
 	// of what each one decided — not memTables, see
@@ -261,6 +262,7 @@ func NewMemStore() *MemStore {
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
 		consent:          newMemTable(cloneMessagingConsent),
+		messageTemplate:  newMemTable(cloneMessageTemplate),
 		assignment:       newAssignmentTables(),
 		google:           newGoogleTables(),
 		gmail:            newGmailTables(),

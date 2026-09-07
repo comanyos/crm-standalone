@@ -237,6 +237,22 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListContactChannels":    "crm:consent:read",
 	"/crm.v1.CRMService/ListMessagingConsent":   "crm:consent:read",
 	"/crm.v1.CRMService/RecordMessagingConsent": "crm:consent:write",
+
+	// Message templates (task_crm.md §5). Its own pair, matching the one
+	// read/write per entity convention. Authoring is member-level rather than
+	// manager-level for the same reason tag authoring is: wording a rep uses
+	// on their own calls is daily work, not process configuration.
+	//
+	// DescribeMessageTemplateCatalog takes the read scope rather than being
+	// unscoped, even though it returns two static allowlists: a caller who
+	// cannot see the templates has no use for the vocabulary they are written
+	// in, and "it only returns a static list" is how a scope check gets waved
+	// through on the next endpoint that is not static.
+	"/crm.v1.CRMService/CreateMessageTemplate":          "crm:template:write",
+	"/crm.v1.CRMService/ListMessageTemplates":           "crm:template:read",
+	"/crm.v1.CRMService/UpdateMessageTemplate":          "crm:template:write",
+	"/crm.v1.CRMService/DeleteMessageTemplate":          "crm:template:write",
+	"/crm.v1.CRMService/DescribeMessageTemplateCatalog": "crm:template:read",
 }
 
 // unscopedProcedures is the allowlist, and each value is the argument for

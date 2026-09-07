@@ -133,7 +133,13 @@ export default function ContactDetailPage() {
           />
         </dl>
       </section>
-      <ContactChannelsPanel contactId={id} firstName={contact.firstName} />
+      <ContactChannelsPanel
+        contactId={id}
+        firstName={contact.firstName}
+        lastName={contact.lastName}
+        email={contact.email}
+        accountName={accountQuery.data?.account?.name ?? ""}
+      />
       <TagsPanel objectType="contact" objectId={id} />
       <TasksPanel subjectType="contact" subjectId={id} />
       <NotesPanel subjectType="contact" subjectId={id} />

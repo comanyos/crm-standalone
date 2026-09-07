@@ -296,6 +296,12 @@ func TestMissingScopeIsDeniedForEveryWriteProcedure(t *testing.T) {
 			_, err := client.CreateSavedView(ctx, withToken(&crmv1.CreateSavedViewRequest{ObjectType: "account", Name: "x"}, tok))
 			return err
 		},
+		"crm:template:write": func(tok string) error {
+			_, err := client.CreateMessageTemplate(ctx, withToken(&crmv1.CreateMessageTemplateRequest{
+				Name: "x", ChannelKind: "whatsapp", Body: "hi",
+			}, tok))
+			return err
+		},
 		"crm:consent:write": func(tok string) error {
 			// Granting rather than withdrawing, because granting is the
 			// direction that adds authority: a principal who could assert

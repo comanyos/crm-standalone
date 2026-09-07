@@ -9,6 +9,7 @@ const { crm, auth } = vi.hoisted(() => ({
     listContactChannels: vi.fn(),
     recordMessagingConsent: vi.fn(),
     createActivity: vi.fn(),
+    listMessageTemplates: vi.fn(),
   },
   auth: {
     hasScope: vi.fn(),
@@ -23,7 +24,20 @@ const { crm, auth } = vi.hoisted(() => ({
 vi.mock("../lib/useCrmClients", () => ({ useCrmClients: () => ({ crm, module: {} }) }));
 vi.mock("../auth/AuthProvider", () => ({ useAuth: () => auth }));
 
-const routes = [{ path: "/", element: <ContactChannelsPanel contactId="c-1" firstName="Bob" /> }];
+const routes = [
+  {
+    path: "/",
+    element: (
+      <ContactChannelsPanel
+        contactId="c-1"
+        firstName="Bob"
+        lastName="Buyer"
+        email="bob@example.com"
+        accountName="Acme Holdings"
+      />
+    ),
+  },
+];
 
 /** The shape ListContactChannels returns: an answer, not ingredients. */
 function channel(over: Partial<Record<string, unknown>> = {}) {
@@ -52,6 +66,7 @@ beforeEach(() => {
   });
   crm.recordMessagingConsent.mockResolvedValue({ consent: { id: "cons-1", state: "withdrawn" } });
   crm.createActivity.mockResolvedValue({ activity: { id: "act-1" } });
+  crm.listMessageTemplates.mockResolvedValue({ templates: [] });
 });
 
 describe("ContactChannelsPanel", () => {
@@ -178,6 +193,43 @@ describe("ContactChannelsPanel", () => {
     expect(
       await screen.findByText("No email address or phone number on this contact yet."),
     ).toBeInTheDocument();
+  });
+
+  it("fills a chosen template in from the record on screen", async () => {
+    crm.listMessageTemplates.mockResolvedValue({
+      templates: [
+        {
+          id: "tpl-1",
+          name: "Intro",
+          channelKind: "whatsapp",
+          subject: "",
+          body: "Hi {{contact.first_name}}, about {{account.name}}.",
+        },
+      ],
+    });
+    renderRoutes(routes);
+    await screen.findByRole("link", { name: /WhatsApp/ });
+
+    fireEvent.change(await screen.findByLabelText("Start from a template"), {
+      target: { value: "tpl-1" },
+    });
+
+    // Substituted here, in the browser, from what this page is already
+    // showing — the server never expands a placeholder. See
+    // lib/messageTemplates.ts.
+    expect((screen.getByLabelText("Message") as HTMLTextAreaElement).value).toBe(
+      "Hi Bob, about Acme Holdings.",
+    );
+
+    const whatsapp = screen.getByRole("link", { name: /WhatsApp/ }) as HTMLAnchorElement;
+    expect(decodeURIComponent(whatsapp.href.split("?text=")[1])).toBe("Hi Bob, about Acme Holdings.");
+  });
+
+  it("offers no template picker when the tenant has none", async () => {
+    renderRoutes(routes);
+    await screen.findByRole("link", { name: /WhatsApp/ });
+    // An empty picker is a control that does nothing, which reads as broken.
+    expect(screen.queryByLabelText("Start from a template")).toBeNull();
   });
 
   it("has no accessibility violations", async () => {

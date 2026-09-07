@@ -373,6 +373,18 @@ type Store interface {
 	// first — the read a manager checking fairness makes.
 	ListOwnerAssignments(ctx context.Context, scope Scope, ruleVersionID string, limit int) ([]*OwnerAssignment, error)
 
+	// Message templates (migrations/0030_message_templates.sql,
+	// message_template.go). Tenant-shared, not per-owner: a template is
+	// wording the organization uses with its customers, closer to a tag than
+	// to a saved view. Merge placeholders are validated against an allowlist
+	// at save time and expanded in the browser, never here — see the file's
+	// doc comment for why that is what lets v1 have merge fields at all.
+	CreateMessageTemplate(ctx context.Context, scope Scope, v *MessageTemplate) (*MessageTemplate, error)
+	GetMessageTemplate(ctx context.Context, scope Scope, id string) (*MessageTemplate, error)
+	ListMessageTemplates(ctx context.Context, scope Scope, channelKind string) ([]*MessageTemplate, error)
+	UpdateMessageTemplate(ctx context.Context, scope Scope, v *MessageTemplate) (*MessageTemplate, error)
+	DeleteMessageTemplate(ctx context.Context, scope Scope, id string) error
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the

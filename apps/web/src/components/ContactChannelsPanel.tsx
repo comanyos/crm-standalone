@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
+import { Select } from "./ui/Select";
 import { renderQueryError, mutationErrorMessage } from "../lib/connectErrors";
 import { useCrmClients } from "../lib/useCrmClients";
 import { useAuth } from "../auth/AuthProvider";
@@ -16,6 +17,7 @@ import {
   OUTREACH_ACTIVITY_KIND,
   type ChannelKind,
 } from "../lib/messagingLinks";
+import { mergeValuesForContact, renderTemplate } from "../lib/messageTemplates";
 
 /** Reach out to a contact on the channel they prefer, in one tap
  * (task_crm.md §3).
@@ -31,7 +33,19 @@ import {
  * own WhatsApp, SMS composer, dialer or mail client with the text pre-filled;
  * the user presses send. The timeline entry says "opened" for that reason.
  */
-export function ContactChannelsPanel({ contactId, firstName }: { contactId: string; firstName: string }) {
+export function ContactChannelsPanel({
+  contactId,
+  firstName,
+  lastName = "",
+  email = "",
+  accountName = "",
+}: {
+  contactId: string;
+  firstName: string;
+  lastName?: string;
+  email?: string;
+  accountName?: string;
+}) {
   const { crm } = useCrmClients();
   const { hasScope, session } = useAuth();
   const toast = useToast();
@@ -41,6 +55,7 @@ export function ContactChannelsPanel({ contactId, firstName }: { contactId: stri
   const canRead = hasScope("crm:consent:read");
   const canRecordConsent = hasScope("crm:consent:write");
   const canLog = hasScope("crm:activity:write");
+  const canUseTemplates = hasScope("crm:template:read");
 
   const channelsKey = ["crm.listContactChannels", contactId] as const;
   const channelsQuery = useQuery({
@@ -48,6 +63,29 @@ export function ContactChannelsPanel({ contactId, firstName }: { contactId: stri
     queryFn: () => crm.listContactChannels({ contactId }),
     enabled: canRead && !!contactId,
   });
+
+  const templatesQuery = useQuery({
+    queryKey: ["crm.listMessageTemplates"],
+    queryFn: () => crm.listMessageTemplates({}),
+    enabled: canUseTemplates,
+  });
+
+  /** Applies a template to the message box.
+   *
+   * The substitution happens here, from the record already on this page, so
+   * nothing on the server ever expands a placeholder — see
+   * lib/messageTemplates.ts for why that is what makes merge fields possible
+   * at all in this version. */
+  const applyTemplate = (templateId: string) => {
+    const template = templatesQuery.data?.templates.find((t) => t.id === templateId);
+    if (!template) return;
+    setMessage(
+      renderTemplate(
+        template.body,
+        mergeValuesForContact({ firstName, lastName, email }, accountName, session?.claims.email ?? ""),
+      ),
+    );
+  };
 
   const logOutreach = useMutation({
     mutationFn: (vars: { kind: ChannelKind; address: string }) =>
@@ -135,6 +173,23 @@ export function ContactChannelsPanel({ contactId, firstName }: { contactId: stri
       <h2 id="channels-heading" className="mb-2 text-sm font-semibold text-slate-900">
         Reach out
       </h2>
+
+      {canUseTemplates && (templatesQuery.data?.templates.length ?? 0) > 0 && (
+        <div className="mb-3">
+          <Select
+            label="Start from a template"
+            value=""
+            onChange={(event) => applyTemplate(event.target.value)}
+            options={[
+              { value: "", label: "Write it myself" },
+              ...(templatesQuery.data?.templates ?? []).map((template) => ({
+                value: template.id,
+                label: `${CHANNEL_LABELS[template.channelKind as ChannelKind] ?? template.channelKind} — ${template.name}`,
+              })),
+            ]}
+          />
+        </div>
+      )}
 
       <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
         Message
