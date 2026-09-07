@@ -61,7 +61,31 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
+      // The mobile layout spec asserts the opposite of what is correct here —
+      // at desktop width the navigation is a permanent column, not a hidden
+      // drawer — so it has to be excluded rather than left to match by
+      // default. A project with no testMatch matches every spec.
+      testIgnore: /mobile\..*\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], storageState: AUTH_STATE_PATH },
+      dependencies: ["setup"],
+    },
+    {
+      // The responsive work — the off-canvas drawer, the stacking detail
+      // lists and form pairs, the horizontally scrolling tables — has never
+      // been rendered at a phone width by anything. jsdom has no layout, so
+      // the component and axe-core suites cannot see it, which leaves review
+      // as the only guard. This project is the one place a layout regression
+      // can actually fail.
+      //
+      // Only mobile.*.spec.ts runs here, and the desktop project ignores
+      // exactly that pattern — the two halves are stated on both sides so a
+      // new spec cannot end up in neither, or in both at incompatible
+      // widths. Re-running the whole suite at a second viewport would double
+      // the slowest tier for almost no signal, since most of what it covers
+      // is behaviour rather than layout.
+      name: "mobile-chromium",
+      testMatch: /mobile\..*\.spec\.ts/,
+      use: { ...devices["Pixel 7"], storageState: AUTH_STATE_PATH },
       dependencies: ["setup"],
     },
   ],

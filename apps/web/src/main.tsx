@@ -9,9 +9,16 @@ import { ToastProvider } from "./components/ui/Toast";
 import { AppEnvProvider } from "./lib/AppEnvContext";
 import { buildOidcConfig } from "./lib/auth-config";
 import { loadEnv, EnvValidationError } from "./env";
+import { registerServiceWorker } from "./lib/registerServiceWorker";
 
 const rootEl = document.getElementById("root")!;
 const root = createRoot(rootEl);
+
+// Before the render, and outside the try: an app that fails to start for a
+// configuration reason should still install its shell, so the next visit
+// opens fast enough to show the error. It is also before the auth redirect
+// an unauthenticated first visit triggers — see registerServiceWorker.
+registerServiceWorker();
 
 try {
   const env = loadEnv();
