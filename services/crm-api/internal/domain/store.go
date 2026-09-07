@@ -343,6 +343,21 @@ type Store interface {
 	UpdateSavedView(ctx context.Context, scope Scope, ownerID string, v *SavedView) (*SavedView, error)
 	DeleteSavedView(ctx context.Context, scope Scope, ownerID, id string) error
 
+	// The messaging consent ledger (migrations/0028_messaging_consent.sql,
+	// messaging.go). Append-only by construction: there is deliberately no
+	// UpdateConsent and no DeleteConsent here, because withdrawing is a new
+	// row saying so. That is what lets the ledger answer "when did they opt
+	// out, and on what evidence" rather than only "are they opted out".
+	//
+	// Addresses are normalised by the store, not by the caller, so a row
+	// cannot be written under a spelling CurrentConsent would never find.
+	RecordConsent(ctx context.Context, scope Scope, v *MessagingConsent) (*MessagingConsent, error)
+	// CurrentConsent returns the newest decision for one address on one
+	// channel, or ErrNotFound when nobody has decided anything. MayMessage
+	// reads that as "unknown" rather than as a refusal.
+	CurrentConsent(ctx context.Context, scope Scope, channelKind, address string) (*MessagingConsent, error)
+	ListConsent(ctx context.Context, scope Scope, channelKind, address string) ([]*MessagingConsent, error)
+
 	CreateNotification(ctx context.Context, scope Scope, v *Notification) (*Notification, error)
 	// ListNotifications returns one principal's own notifications. There is
 	// no "list everybody's": a notification is addressed to a person, and the

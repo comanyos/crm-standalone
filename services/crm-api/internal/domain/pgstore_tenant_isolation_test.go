@@ -309,6 +309,23 @@ func seedTenant(ctx context.Context, t *testing.T, s *PgStore, label string) ten
 		t.Fatalf("[%s] record calendar event: %v", label, err)
 	}
 
+	// The messaging consent ledger. Seeded for the same reason the Google and
+	// Gmail rows above are: without a row the catalog-driven behavioural test
+	// skips the table entirely, and "the policy exists" is a weaker claim than
+	// "the policy filters". A consent row names a real person's contact
+	// address and whether they refused to be contacted — leaking one across
+	// tenants would be both a privacy breach and a way to message somebody
+	// another organization was told not to.
+	if _, err := s.RecordConsent(ctx, f.scope, &MessagingConsent{
+		ChannelKind: ChannelEmail,
+		Address:     fmt.Sprintf("%s-%d@example.com", label, stamp),
+		State:       ConsentWithdrawn,
+		Source:      ConsentSourceManual,
+		RecordedBy:  "owner-" + label,
+	}); err != nil {
+		t.Fatalf("[%s] record messaging consent: %v", label, err)
+	}
+
 	return f
 }
 

@@ -209,6 +209,7 @@ type MemStore struct {
 	exportJob        *memTable[*ExportJob]
 	customObject     *memTable[*CustomObjectDefinition]
 	customRecord     *memTable[*CustomRecord]
+	consent          *memTable[*MessagingConsent]
 
 	// google holds the integration's two records. They are not memTables:
 	// see memstore_google.go for why.
@@ -254,6 +255,7 @@ func NewMemStore() *MemStore {
 		exportJob:        newMemTable(cloneExportJob),
 		customObject:     newMemTable(cloneCustomObjectDefinition),
 		customRecord:     newMemTable(cloneCustomRecord),
+		consent:          newMemTable(cloneMessagingConsent),
 		google:           newGoogleTables(),
 		gmail:            newGmailTables(),
 		calendar:         newCalendarTables(),
