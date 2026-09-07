@@ -111,7 +111,7 @@ below.
 | 7 | Bulk / campaign sending | **Defer.** Highest legal risk, lowest fit for a B2B CRM. | Not started — D3, legal review |
 | 8 | Automatic lead distribution (round-robin / rules) | **Build.** Small, self-contained, no external dependency. | **Done** |
 | 9 | Trackable file sharing (PDF open tracking) | **Defer.** | Not started — D5 |
-| 10 | Mobile speed-to-lead (PWA, push, tap-to-act) | **Build §10.1–10.3.** Native app: **do not build.** | Not started |
+| 10 | Mobile speed-to-lead (PWA, push, tap-to-act) | **Build §10.1–10.3.** Native app: **do not build.** | **10.1 and 10.3 done**; 10.2 (push) needs a provider decision |
 | 11 | Meta Conversions API / ad conversion feedback | **Defer.** | Not started — §1 first |
 
 ## What has been delivered
@@ -193,18 +193,42 @@ crash-looped on boot because the new key was added to the group that checks
 Google's all-or-nothing configuration, and the delivery log recorded "created"
 without recording which lead it created.
 
+**§10.1 and §10.3 — installable, and tested at a phone width.** A manifest,
+icons, and a service worker that caches the app shell and no data — offline
+mutation of a CRM with optimistic concurrency is a distributed-systems project
+and a cached record is a tenant's data outliving its session. Plus a
+`mobile-chromium` Playwright project making the four assertions only a real
+browser can: the drawer, no sideways scroll, main's actual width, and tap
+target size.
+
+Registering in a browser found a design flaw first: the usual `window.load`
+recipe races the identity-provider redirect that every unauthenticated first
+visit triggers, so the first visit would install nothing. It registers
+immediately now.
+
+**§10.2 — push — is not done** and is the remaining piece of the mobile story.
+It needs a provider decision (Web Push/VAPID is the no-vendor option) and key
+ownership, which is D4 territory. It reuses the existing notification entity
+and the `notify` workflow action; push is a delivery channel for a
+notification the product already creates, not a new system.
+
 ### What that leaves
 
-The remaining unblocked work is §10.1–10.3 (installability, push,
-mobile-viewport tests) and §6 (messaging automation, which additionally wants
-D6). Everything else is behind a decision listed below.
+**Nothing unblocked is left.** Every remaining section waits on a decision
+listed below: §6 on D6 (quiet hours), §4 on D2/D3/D4, §7 on legal review,
+§9 on D5, §10.2 on a push-provider choice, §11 on D3. §10.4 — a native mobile
+app — is marked do-not-build and should stay that way.
 
-Two things are worth carrying forward rather than leaving in commit messages.
+Three verification gaps are worth carrying forward rather than leaving in
+commit messages.
 **§3 is not finished** until somebody sends a real message from a real phone:
 deep-link behaviour differs by operating system and the `sms:` body spelling
 is empirical, not specified. And **no browser test has ever rendered this app
-at a phone width** — the responsive work is real but is currently protected by
-review and jsdom, which has no layout.
+at a phone width** by anything that has actually run: the `mobile-chromium`
+project exists and is correctly scoped, but running it needs a bootstrapped
+organization to sign in with. And **service worker registration is unverified**
+— the in-app browser's sandbox refuses to register one at all, so it needs a
+check in an ordinary browser before installability can be claimed.
 
 ---
 

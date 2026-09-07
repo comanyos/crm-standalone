@@ -490,7 +490,7 @@ Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
 retryable.
 
-## M7 — Privyr parity: speed-to-lead (55%)
+## M7 — Privyr parity: speed-to-lead (65%)
 
 Dependencies: none for the delivered items; the rest are listed with the
 product-owner decision each waits on in `task_crm.md`.
@@ -567,9 +567,20 @@ this milestone — covers only the genuine zeroes.
   — the new configuration key tripped Google's all-or-nothing check and
   crash-looped the service, and the delivery log recorded "created" without
   recording what it created.
-- [ ] Mobile speed-to-lead: installability, push on a new lead, and a
-  mobile-viewport browser test (`task_crm.md` §10.1–10.3). A native app is
-  explicitly **not** planned — see §10.4 for why.
+- [~] Mobile speed-to-lead (`task_crm.md` §10.1–10.3). The app is installable
+  — manifest, icons, and a service worker that caches the app shell and
+  deliberately no data — and there is now a `mobile-chromium` Playwright
+  project asserting the four things only a real browser knows: the drawer, no
+  sideways scroll, main's actual width, and tap target size.
+
+  Two verification gaps remain, both environmental rather than open work: the
+  in-app browser's sandbox refuses to register a service worker at all, so
+  installability needs a check in an ordinary browser; and the Playwright
+  project has not been run here, because the suite signs in first and this
+  machine has no bootstrapped organization.
+
+  **Push on a new lead (§10.2) is not done** — it needs a provider choice and
+  key ownership. A native app is explicitly **not** planned; see §10.4.
 - [ ] Messaging actions in the workflow engine (§6), provider-sent messaging
   (§4), bulk campaigns (§7), trackable files (§9) and ad-conversion feedback
   (§11) each wait on a named decision listed in `task_crm.md`.
