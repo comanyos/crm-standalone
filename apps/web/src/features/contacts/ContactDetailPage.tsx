@@ -14,6 +14,7 @@ import { ActivityTimeline } from "../../components/ActivityTimeline";
 import { TasksPanel } from "../../components/TasksPanel";
 import { NotesPanel } from "../../components/NotesPanel";
 import { TagsPanel } from "../../components/TagsPanel";
+import { ContactChannelsPanel } from "../../components/ContactChannelsPanel";
 import type { ReactNode } from "react";
 
 export default function ContactDetailPage() {
@@ -132,6 +133,7 @@ export default function ContactDetailPage() {
           />
         </dl>
       </section>
+      <ContactChannelsPanel contactId={id} firstName={contact.firstName} />
       <TagsPanel objectType="contact" objectId={id} />
       <TasksPanel subjectType="contact" subjectId={id} />
       <NotesPanel subjectType="contact" subjectId={id} />
