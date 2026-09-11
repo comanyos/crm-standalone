@@ -371,6 +371,7 @@ func workflowVersionToProto(v *domain.WorkflowRuleVersion) *crmv1.WorkflowRuleVe
 	for _, action := range v.Actions {
 		actions = append(actions, &crmv1.WorkflowAction{
 			Type: action.Type, Title: action.Title, Body: action.Body,
+			DelayMinutes: boundedInt32(action.DelayMinutes),
 			Assignee: action.Assignee, AssigneeId: action.AssigneeID,
 			Priority: action.Priority, DueInDays: boundedInt32(action.DueInDays),
 			ActivityKind: action.ActivityKind, RotationMembers: action.RotationMembers,
@@ -400,6 +401,7 @@ func workflowActionsFromProto(in []*crmv1.WorkflowAction) []domain.WorkflowActio
 	for _, action := range in {
 		out = append(out, domain.WorkflowAction{
 			Type: action.GetType(), Title: action.GetTitle(), Body: action.GetBody(),
+			DelayMinutes: int(action.GetDelayMinutes()),
 			Assignee: action.GetAssignee(), AssigneeID: action.GetAssigneeId(),
 			Priority: action.GetPriority(), DueInDays: int(action.GetDueInDays()),
 			ActivityKind: action.GetActivityKind(), RotationMembers: action.GetRotationMembers(),

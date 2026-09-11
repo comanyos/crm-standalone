@@ -230,6 +230,7 @@ var crmScopes = map[string]string{
 	// tenant-wide aggregate rollups over records the caller could otherwise
 	// list one type at a time, not a new authorization surface.
 	"/crm.v1.CRMService/GetDashboardReport": "crm:summary:read",
+	"/crm.v1.CRMService/GetMyDay":           "crm:summary:read",
 
 	// Messaging channels and consent (task_crm.md §2). Its own scope pair
 	// rather than the contact's, because the authority differs in a way that

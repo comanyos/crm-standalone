@@ -16,6 +16,7 @@ import (
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/dispatch"
 	"github.com/santoshguru/crm/internal/domain"
+	"github.com/santoshguru/crm/internal/engagement"
 	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/workflow"
@@ -128,6 +129,11 @@ func execute() int {
 	// to expire, and the idempotency key on each execution is what makes
 	// resuming safe.
 	workflow.Start(dispatchCtx, store, 0, slog.Default())
+
+	// Speed-to-lead notifications and their email queue are durable database
+	// work just like workflows. Claims and leases make restarts and multiple
+	// replicas safe.
+	engagement.Start(dispatchCtx, store, authn, cfg.LeadSLA, cfg.WebAppBaseURL, 0, slog.Default())
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Addr,

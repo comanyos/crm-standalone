@@ -297,6 +297,9 @@ service CRMService {
   // for the canonical metric semantics (currency, time zone, pipeline
   // status, and forecast) this report follows.
   rpc GetDashboardReport(GetDashboardReportRequest) returns (GetDashboardReportResponse);
+  // GetMyDay returns the calling user's bounded follow-up queue: their
+  // overdue/due/upcoming tasks plus newly assigned and SLA-breached leads.
+  rpc GetMyDay(GetMyDayRequest) returns (GetMyDayResponse);
 
   // Messaging channels and consent (task_crm.md §2).
   //
@@ -1548,6 +1551,10 @@ message WorkflowAction {
   // nobody wants to publish a new one to fix a typo in an opener.
   string channel_kind = 10;
   string template_id = 11;
+  // delay_minutes waits after the previous step (or the triggering event for
+  // the first step). The backend persists the due time, so delayed sequences
+  // survive restarts and run once.
+  int32 delay_minutes = 12;
 }
 
 // WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer
@@ -2074,3 +2081,20 @@ message DashboardReport {
 
 message GetDashboardReportRequest {}
 message GetDashboardReportResponse { DashboardReport report = 1; }
+
+message MyDay {
+  repeated Task overdue_tasks = 1;
+  repeated Task due_today_tasks = 2;
+  repeated Task upcoming_tasks = 3;
+  repeated Lead new_leads = 4;
+  repeated Lead untouched_leads = 5;
+  int32 lead_sla_minutes = 6;
+  google.protobuf.Timestamp generated_at = 7;
+}
+
+message GetMyDayRequest {
+  // Minutes east of UTC (India is 330). This affects day boundaries only;
+  // all persisted timestamps remain UTC.
+  int32 utc_offset_minutes = 1;
+}
+message GetMyDayResponse { MyDay my_day = 1; }

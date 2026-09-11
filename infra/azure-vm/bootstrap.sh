@@ -5,9 +5,9 @@ umask 077
 key_vault_name=savvy-crm-kv-8bc52d
 storage_account_name=stsavvycrm8bc52d
 deployment_container=deployment
-deployment_blob=savvy-crm-beta-20260911-009.tar.gz
+deployment_blob=savvy-crm-beta-20260911-010.tar.gz
 acr_login_server=savvycrm8bc52d.azurecr.io
-image_tag=beta-20260911-009
+image_tag=beta-20260911-010
 install_dir=/opt/savvy-crm
 state_dir=/var/lib/savvy-crm
 data_device=/dev/disk/azure/scsi1/lun0
@@ -121,6 +121,13 @@ otp_pepper=$(vault_secret otp-pepper)
 smtp_password=$(vault_secret smtp-password)
 auth_google_client_id=$(vault_secret auth-google-client-id)
 auth_google_client_secret=$(vault_secret auth-google-client-secret)
+google_oauth_client_id=$(vault_secret_optional google-oauth-client-id)
+google_oauth_client_secret=$(vault_secret_optional google-oauth-client-secret)
+google_oauth_token_key=$(vault_secret_optional google-oauth-token-key)
+google_oauth_redirect_url=
+if [ -n "$google_oauth_client_id" ]; then
+  google_oauth_redirect_url=https://crmapi.savvyadvi.com/integrations/google/callback
+fi
 lead_capture_secret_key=$(vault_secret lead-capture-secret-key)
 meta_app_id=$(vault_secret_optional meta-app-id)
 meta_app_secret=$(vault_secret_optional meta-app-secret)
@@ -145,6 +152,10 @@ runtime_env=$(mktemp /tmp/savvy-crm-runtime.XXXXXX)
   printf 'SMTP_PASSWORD=%s\n' "$smtp_password"
   printf 'AUTH_GOOGLE_CLIENT_ID=%s\n' "$auth_google_client_id"
   printf 'AUTH_GOOGLE_CLIENT_SECRET=%s\n' "$auth_google_client_secret"
+  printf 'GOOGLE_OAUTH_CLIENT_ID=%s\n' "$google_oauth_client_id"
+  printf 'GOOGLE_OAUTH_CLIENT_SECRET=%s\n' "$google_oauth_client_secret"
+  printf 'GOOGLE_OAUTH_REDIRECT_URL=%s\n' "$google_oauth_redirect_url"
+  printf 'GOOGLE_OAUTH_TOKEN_KEY=%s\n' "$google_oauth_token_key"
   printf 'LEAD_CAPTURE_SECRET_KEY=%s\n' "$lead_capture_secret_key"
   printf 'META_APP_ID=%s\n' "$meta_app_id"
   printf 'META_APP_SECRET=%s\n' "$meta_app_secret"

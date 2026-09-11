@@ -95,6 +95,7 @@ beforeEach(() => {
           assigneeId: "",
           priority: "medium",
           dueInDays: 1,
+          delayMinutes: 30,
           activityKind: "",
         },
       ],
@@ -180,6 +181,21 @@ describe("AutomationPage", () => {
 
     await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
     expect(crm.publishWorkflowRuleVersion.mock.calls[0][0]).toMatchObject({ activate: true });
+  });
+
+  it("authors a durable delay before a sequence step", async () => {
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "New rule" }));
+    await screen.findByRole("dialog");
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Fast follow-up" } });
+    fireEvent.change(screen.getByLabelText("Title 1"), { target: { value: "Call them" } });
+    fireEvent.change(screen.getByLabelText("Wait before action 1 (minutes)"), {
+      target: { value: "15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save and switch on" }));
+
+    await waitFor(() => expect(crm.publishWorkflowRuleVersion).toHaveBeenCalled());
+    expect(crm.publishWorkflowRuleVersion.mock.calls[0][0].actions[0].delayMinutes).toBe(15);
   });
 
   // Round-robin lead distribution (task_crm.md §8). It is an action on an

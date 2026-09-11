@@ -1271,6 +1271,42 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Error("GetDashboardReport forecast.by_owner leaked organization A's account owner")
 		}
 	},
+	"GetMyDay": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		scopeA, _ := scopeFrom(a.ctx)
+		lead, err := s.store.GetLead(a.ctx, scopeA, a.leadID)
+		if err != nil {
+			t.Fatalf("GetMyDay seed lead: %v", err)
+		}
+		lead.OwnerID = "test-user"
+		if _, err := s.store.UpdateLead(a.ctx, scopeA, lead); err != nil {
+			t.Fatalf("GetMyDay assign lead: %v", err)
+		}
+		task, err := s.store.GetTask(a.ctx, scopeA, a.taskID)
+		if err != nil {
+			t.Fatalf("GetMyDay seed task: %v", err)
+		}
+		task.AssigneeID = "test-user"
+		task.DueAt = time.Now().UTC().Add(-time.Hour)
+		if _, err := s.store.UpdateTask(a.ctx, scopeA, task); err != nil {
+			t.Fatalf("GetMyDay assign task: %v", err)
+		}
+
+		res, err := s.GetMyDay(ctxB, connect.NewRequest(&crmv1.GetMyDayRequest{}))
+		if err != nil {
+			t.Fatalf("GetMyDay: %v", err)
+		}
+		day := res.Msg.GetMyDay()
+		for _, task := range append(append(day.GetOverdueTasks(), day.GetDueTodayTasks()...), day.GetUpcomingTasks()...) {
+			if task.GetId() == a.taskID {
+				t.Error("GetMyDay returned organization A's task")
+			}
+		}
+		for _, lead := range append(day.GetNewLeads(), day.GetUntouchedLeads()...) {
+			if lead.GetId() == a.leadID {
+				t.Error("GetMyDay returned organization A's lead")
+			}
+		}
+	},
 	// Workflow automation. Both fixtures seed an active rule, a version, an
 	// execution and a notification, so each of these runs against a tenant
 	// that really does have automation to leak.

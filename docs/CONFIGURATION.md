@@ -34,6 +34,7 @@ manager.
 | `CRM_WEB_APP_BASE_URL` | empty | Exact HTTPS application origin when integrations redirect back |
 | `CRM_METRICS_TOKEN` | empty in local development | At least 16 characters in staging/production |
 | `LEAD_CAPTURE_SECRET_KEY` | unset/off | Base64 32-byte key when inbound lead capture is enabled |
+| `LEAD_SLA` | `15m` | Untouched-new-lead threshold shared by My Day and SLA email/in-app escalation; 1 minute through 168 hours |
 
 ### Meta / Facebook / Instagram Lead Ads
 

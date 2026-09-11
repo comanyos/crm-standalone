@@ -176,6 +176,58 @@ func TestTheSameEventTwiceDoesTheWorkOnce(t *testing.T) {
 	}
 }
 
+func TestDelayedActionSurvivesUntilItsScheduledTimeAndRunsOnce(t *testing.T) {
+	ctx := context.Background()
+	scope := testScope()
+	store := domain.NewMemStore()
+	rule, err := store.CreateWorkflowRule(ctx, scope, &domain.WorkflowRule{Name: "Five minute follow-up"})
+	if err != nil {
+		t.Fatalf("create rule: %v", err)
+	}
+	version, err := store.CreateWorkflowRuleVersion(ctx, scope, &domain.WorkflowRuleVersion{
+		RuleID: rule.ID, TriggerEventType: domain.EventLeadCreated,
+		Actions: []domain.WorkflowAction{{
+			Type: domain.ActionCreateTask, Title: "Call the lead",
+			Assignee: domain.AssigneeRecordOwner, DelayMinutes: 5,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("create version: %v", err)
+	}
+	rule.Status, rule.ActiveVersionID = domain.WorkflowActive, version.ID
+	if _, err := store.UpdateWorkflowRule(ctx, scope, rule); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	createLead(t, store, "meta")
+
+	base := time.Now().UTC().Add(time.Minute)
+	engine := New(store, nil)
+	engine.now = func() time.Time { return base }
+	first, err := engine.RunTenant(ctx, scope)
+	if err != nil {
+		t.Fatalf("schedule: %v", err)
+	}
+	if first.ActionsPerformed != 0 {
+		t.Fatalf("performed %d actions before the delay", first.ActionsPerformed)
+	}
+	tasks, _, _ := store.ListTasks(ctx, scope, domain.Page{Size: 10}, domain.TaskFilter{}, domain.SortTaskDue)
+	if len(tasks) != 0 {
+		t.Fatal("the delayed task ran immediately")
+	}
+
+	engine.now = func() time.Time { return base.Add(4 * time.Minute) }
+	if early, err := engine.RunTenant(ctx, scope); err != nil || early.ActionsPerformed != 0 {
+		t.Fatalf("early pass = %+v, %v", early, err)
+	}
+	engine.now = func() time.Time { return base.Add(5 * time.Minute) }
+	if due, err := engine.RunTenant(ctx, scope); err != nil || due.ActionsPerformed != 1 {
+		t.Fatalf("due pass = %+v, %v", due, err)
+	}
+	if again, err := engine.RunTenant(ctx, scope); err != nil || again.ActionsPerformed != 0 {
+		t.Fatalf("repeat pass = %+v, %v", again, err)
+	}
+}
+
 // TestConditionsDecideWhetherARuleActs, and a rule that considered an event
 // and declined records that it did.
 func TestConditionsDecideWhetherARuleActs(t *testing.T) {

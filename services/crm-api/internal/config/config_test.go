@@ -83,6 +83,16 @@ func TestValidate_BoundsAuthenticationTTLs(t *testing.T) {
 	}
 }
 
+func TestValidate_BoundsLeadSLA(t *testing.T) {
+	for _, value := range []time.Duration{30 * time.Second, 8 * 24 * time.Hour} {
+		c := validConfig()
+		c.LeadSLA = value
+		if err := c.Validate(); err == nil {
+			t.Fatalf("out-of-bounds LEAD_SLA %s was accepted", value)
+		}
+	}
+}
+
 func TestValidate_ProdLikeEnvironmentsRequireSecureCookie(t *testing.T) {
 	for _, environment := range []Environment{EnvStaging, EnvProduction} {
 		c := validConfig()

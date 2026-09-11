@@ -2,7 +2,7 @@
 
 **Status:** Deployed beta environment (September 11, 2026)
 
-**Current immutable release:** `beta-20260911-009`
+**Current immutable release:** `beta-20260911-010`
 
 **Azure subscription:** Microsoft Azure Sponsorship
 **Resource group:** `verse`
@@ -124,6 +124,8 @@ redundant services before a larger or contractual production launch.
 
 - Enabled for beta: passwordless SMTP login, Google account login, generic
   signed lead-capture endpoint.
+- Enabled in `beta-20260911-010`: My Day, new-lead in-app/email alerts,
+  untouched-lead SLA escalation, and durable delayed workflow sequences.
 - Not enabled by this deployment: Gmail inbox sync and Google Calendar sync
   (they require their own complete provider OAuth credential/key group).
 - Deployed but not enabled until external credentials arrive:

@@ -5,11 +5,10 @@ why it is shaped this way, and what it deliberately does not do.
 
 The narrowness is the feature. A rule is one allowlisted trigger, an AND-only
 list of typed comparisons over allowlisted fields, and an ordered list of
-actions from a fixed set. There is no expression language, no arbitrary code,
-no outbound call and no time-based recurrence — each of those needs a sandbox,
-an egress policy, a secret story or a scheduler this module does not have, and
-adding one without those is how automation becomes the way a CRM gets
-breached.
+actions from a fixed set. Each action may carry a bounded delay, which turns
+that ordered action list into a restart-safe sequence. There is no expression
+language, arbitrary code, outbound webhook, or calendar recurrence; each of
+those still needs additional policy and lifecycle design.
 
 ## What runs
 
@@ -21,7 +20,8 @@ no active rules simply finds no due tenants.
 
 One pass claims the tenant's cursor, reads a bounded batch of new events,
 claims one execution per matching active rule version, and then performs
-everything due — including retries scheduled by earlier passes. The cursor is
+everything due — including delayed sequence steps and retries scheduled by
+earlier passes. The cursor is
 always released, including on failure; a tenant left leased by a failed pass
 would have no automation until the lease expired.
 
@@ -61,7 +61,14 @@ Custom fields are deliberately not comparable. They are tenant-defined and can
 be archived or retyped underneath a saved rule, which would turn it into one
 that silently stops matching; that needs a versioning story of its own.
 
-Actions are `create_task`, `add_activity` and `notify`. Assigning a task is
+Actions are `create_task`, `add_activity` and `notify`. Every action also has
+an optional `delay_minutes` value from zero through one year. The engine writes
+the next due instant to the durable execution ledger before returning; another
+poll or a restarted process continues only when that instant is due. Delays
+are relative to the preceding completed action, so an ordered rule is a manual
+follow-up sequence without requiring an in-memory timer.
+
+Assigning a task is
 not a separate action, as the original design sketch had it: `create_task`
 carries an assignee selector (`record_owner`, resolved against the record as
 it is when the action runs, or `fixed_user`), which is the same capability
@@ -107,7 +114,7 @@ Failures are bounded codes, never messages: `record_gone`, `no_assignee`,
 rule author reads, and a raw error would carry whatever the failing action was
 holding. The UI renders each code as a sentence.
 
-Retries are bounded at three attempts with an exponential backoff, and they
+Retries are bounded at three attempts per action with an exponential backoff, and they
 resume rather than repeat: `actions_completed` records how far the execution
 got, so an execution that created the task and then failed to notify does not
 create a second task. A deleted record fails terminally on the first attempt —
@@ -151,18 +158,23 @@ headers or full records.
 
 - **Approvals.** Not in v1's action list; an approval is a rule that waits,
   which needs a durable pause and a way to address the approver.
-- **Time-based triggers and recurrence.** Needs a scheduler.
-- **Outbound webhooks, email and chat.** Need an egress policy and a secret
-  story; see the integrations section below.
+- **Time-based triggers and calendar recurrence.** Delayed action sequences are
+  implemented; rules that start at a wall-clock time or recur are not.
+- **Outbound webhooks and chat.** Need an egress policy and a secret story; see
+  the integrations section below. `notify` actions create an in-app message and
+  a durable SMTP delivery with bounded retries.
 - **Templated text.** Needs a field-visibility model, since a template that
   can read the record can read fields the author cannot.
 - **Custom fields in conditions.** Needs the definition-versioning story.
-- **Multi-step chaining.** Needs the depth limit named above.
+- **Cross-rule chaining.** Needs the depth limit named above; ordered delayed
+  steps inside one rule are implemented.
 
 ## Decisions still needed before integrations
 
-Email/SMS, Slack/Teams, Google/Microsoft and outbound webhooks remain out of
-scope until a product owner supplies provider choices, OAuth/webhook secrets,
-retention/deletion policy, and production secret/KMS ownership. Provider
-credentials must be encrypted at rest, unavailable to the browser, and purged
-on disconnect.
+SMS, Slack/Teams, Microsoft and outbound webhooks remain out of scope until a
+product owner supplies provider choices, OAuth/webhook secrets,
+retention/deletion policy, and production secret/KMS ownership. Operational
+email uses the same server-side SMTP transport as passwordless login. Google
+Gmail/Calendar and Meta use independent encrypted provider credential groups;
+provider credentials remain unavailable to the browser and are purged on
+disconnect.

@@ -302,6 +302,12 @@ const (
 type WorkflowAction struct {
 	Type string `json:"type"`
 
+	// DelayMinutes waits this long after the previous action completed (or
+	// after the triggering event for the first action) before this action is
+	// eligible to run. The execution ledger persists the wake-up time, so a
+	// process restart does not lose or repeat a sequence step.
+	DelayMinutes int `json:"delay_minutes,omitempty"`
+
 	// Title is the task title or the notification title.
 	Title string `json:"title,omitempty"`
 	// Body is the task description, the activity note, or the notification
@@ -348,10 +354,14 @@ const (
 	maxWorkflowActions    = 10
 	maxWorkflowConditions = 10
 	maxWorkflowDueInDays  = 3650
+	maxWorkflowDelayMins  = 525600 // one year
 )
 
 // Validate checks one action against its type's rules.
 func (a *WorkflowAction) Validate() error {
+	if a.DelayMinutes < 0 || a.DelayMinutes > maxWorkflowDelayMins {
+		return fmt.Errorf("%w: delay_minutes must be between 0 and %d", ErrInvalid, maxWorkflowDelayMins)
+	}
 	switch a.Type {
 	case ActionCreateTask:
 		if strings.TrimSpace(a.Title) == "" {

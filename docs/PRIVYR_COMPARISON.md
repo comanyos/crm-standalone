@@ -38,13 +38,13 @@ The material gap is Privyr's acquisition-and-engagement loop:
 | Native Facebook and Instagram Lead Ads | Product code implemented; Meta app approval/credentials and live test-lead evidence remain external gates |
 | Native Google Ads, TikTok, LinkedIn and WordPress lead connectors | Not implemented; a bridge may call the generic endpoint |
 | Person-first lead with name and phone | Implemented across contract, persistence, capture, dedupe, conversion, templates and UI |
-| Instant app-push and email lead alerts | Not implemented; in-app notifications poll every 60 seconds |
+| Instant in-app and email lead alerts | Implemented with a five-second worker, durable SMTP queue/retries, and ten-second notification refresh; native push remains pending |
 | Round-robin assignment | Implemented |
 | Weighted/custom assignment and external lead forwarding | Partial/not implemented |
 | One-tap WhatsApp, SMS, call and email | Implemented for Contacts and Leads with consent gating; physical iOS/Android verification remains |
 | WhatsApp contact import and inbound conversations | Not implemented |
 | WhatsApp auto-responder, replies and delivery/read receipts | Not implemented |
-| Scheduler-backed follow-up sequences | Not implemented |
+| Scheduler-backed follow-up sequences | Implemented as ordered workflow actions with durable per-step delays and restart-safe resume |
 | Text message templates | Implemented |
 | File/page templates, branded links and view tracking | Not implemented |
 | Bulk calling, bulk messaging and campaigns | Not implemented |
@@ -53,6 +53,7 @@ The material gap is Privyr's acquisition-and-engagement loop:
 | Phonebook and lead/contact CSV import | Not implemented; Accounts CSV only |
 | Automatic lead/contact merging | Not implemented; duplicate flags and Account merge exist |
 | Mobile application | Responsive PWA shell is partial; no push or native app |
+| My Day and unattended-lead queue | Implemented for assigned new/untouched leads and overdue, due-today, and upcoming tasks |
 | Response-time, source, representative and campaign analytics | Not implemented; basic CRM reporting exists |
 | Meta Conversions API | Not implemented |
 
@@ -91,11 +92,12 @@ Repository implementation status as of 10 September 2026:
 
 ### P1 - speed-to-lead experience
 
-1. Add immediate push and email alerts plus configurable uncontacted reminders.
+1. Add native mobile/web push to the implemented in-app/email new-lead alert
+   and configurable SLA escalation path.
 2. Ship a safe default automation preset:
    `capture -> assign owner -> notify -> create task -> prepare response`.
-3. Add scheduler-backed manual follow-up sequences with delays, due/overdue
-   queues, enrollment, pause/resume and escalation.
+3. Extend the implemented scheduler-backed delayed workflow sequences with
+   explicit enrollment, pause/resume and reply-aware stop controls.
 4. Extend routing with weighted rules, source/Page/Form criteria, an unassigned
    claim pool and optional forwarding to non-CRM recipients.
 5. Complete real Google OAuth, Gmail-send and mobile/PWA smoke verification.

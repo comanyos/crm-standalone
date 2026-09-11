@@ -460,6 +460,15 @@ type Store interface {
 	ListNotifications(ctx context.Context, scope Scope, recipientID string, unreadOnly bool, limit int) ([]*Notification, error)
 	MarkNotificationRead(ctx context.Context, scope Scope, recipientID, id string) (*Notification, error)
 
+	// Speed-to-lead alerting. Cross-tenant methods expose identifiers only;
+	// claims and notification bodies always use a tenant Scope. Claims are
+	// durable and idempotent, so a restart cannot send the same alert twice.
+	DueLeadAlerts(ctx context.Context, now time.Time, sla time.Duration, limit int) ([]LeadAlertRef, error)
+	ClaimLeadAlert(ctx context.Context, scope Scope, alert LeadAlert) ([]*Notification, bool, error)
+	DueNotificationDeliveries(ctx context.Context, now time.Time, limit int) ([]NotificationDeliveryRef, error)
+	ClaimNotificationDelivery(ctx context.Context, scope Scope, notificationID string, now, leaseUntil time.Time) (*NotificationDelivery, bool, error)
+	FinishNotificationDelivery(ctx context.Context, scope Scope, notificationID string, deliveredAt, nextAttemptAt time.Time, errorCategory string) error
+
 	// Summary returns per-entity counts for the calling tenant only.
 	Summary(ctx context.Context, scope Scope) (Summary, error)
 	// SearchRecords is the bounded cross-object quick-search surface. Results

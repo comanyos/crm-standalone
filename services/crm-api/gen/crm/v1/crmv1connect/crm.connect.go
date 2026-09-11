@@ -367,6 +367,8 @@ const (
 	// CRMServiceGetDashboardReportProcedure is the fully-qualified name of the CRMService's
 	// GetDashboardReport RPC.
 	CRMServiceGetDashboardReportProcedure = "/crm.v1.CRMService/GetDashboardReport"
+	// CRMServiceGetMyDayProcedure is the fully-qualified name of the CRMService's GetMyDay RPC.
+	CRMServiceGetMyDayProcedure = "/crm.v1.CRMService/GetMyDay"
 	// CRMServiceListContactChannelsProcedure is the fully-qualified name of the CRMService's
 	// ListContactChannels RPC.
 	CRMServiceListContactChannelsProcedure = "/crm.v1.CRMService/ListContactChannels"
@@ -692,6 +694,9 @@ type CRMServiceClient interface {
 	// for the canonical metric semantics (currency, time zone, pipeline
 	// status, and forecast) this report follows.
 	GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error)
+	// GetMyDay returns the calling user's bounded follow-up queue: their
+	// overdue/due/upcoming tasks plus newly assigned and SLA-breached leads.
+	GetMyDay(context.Context, *connect.Request[v1.GetMyDayRequest]) (*connect.Response[v1.GetMyDayResponse], error)
 	// Messaging channels and consent (task_crm.md §2).
 	//
 	// ListContactChannels is the read every messaging UI makes. It returns one
@@ -1529,6 +1534,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("GetDashboardReport")),
 			connect.WithClientOptions(opts...),
 		),
+		getMyDay: connect.NewClient[v1.GetMyDayRequest, v1.GetMyDayResponse](
+			httpClient,
+			baseURL+CRMServiceGetMyDayProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetMyDay")),
+			connect.WithClientOptions(opts...),
+		),
 		listContactChannels: connect.NewClient[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse](
 			httpClient,
 			baseURL+CRMServiceListContactChannelsProcedure,
@@ -1764,6 +1775,7 @@ type cRMServiceClient struct {
 	exportAccounts                 *connect.Client[v1.ExportAccountsRequest, v1.ExportAccountsResponse]
 	listExportJobs                 *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
 	getDashboardReport             *connect.Client[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse]
+	getMyDay                       *connect.Client[v1.GetMyDayRequest, v1.GetMyDayResponse]
 	listContactChannels            *connect.Client[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse]
 	listLeadChannels               *connect.Client[v1.ListLeadChannelsRequest, v1.ListLeadChannelsResponse]
 	recordMessagingConsent         *connect.Client[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse]
@@ -2394,6 +2406,11 @@ func (c *cRMServiceClient) GetDashboardReport(ctx context.Context, req *connect.
 	return c.getDashboardReport.CallUnary(ctx, req)
 }
 
+// GetMyDay calls crm.v1.CRMService.GetMyDay.
+func (c *cRMServiceClient) GetMyDay(ctx context.Context, req *connect.Request[v1.GetMyDayRequest]) (*connect.Response[v1.GetMyDayResponse], error) {
+	return c.getMyDay.CallUnary(ctx, req)
+}
+
 // ListContactChannels calls crm.v1.CRMService.ListContactChannels.
 func (c *cRMServiceClient) ListContactChannels(ctx context.Context, req *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error) {
 	return c.listContactChannels.CallUnary(ctx, req)
@@ -2753,6 +2770,9 @@ type CRMServiceHandler interface {
 	// for the canonical metric semantics (currency, time zone, pipeline
 	// status, and forecast) this report follows.
 	GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error)
+	// GetMyDay returns the calling user's bounded follow-up queue: their
+	// overdue/due/upcoming tasks plus newly assigned and SLA-breached leads.
+	GetMyDay(context.Context, *connect.Request[v1.GetMyDayRequest]) (*connect.Response[v1.GetMyDayResponse], error)
 	// Messaging channels and consent (task_crm.md §2).
 	//
 	// ListContactChannels is the read every messaging UI makes. It returns one
@@ -3586,6 +3606,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("GetDashboardReport")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceGetMyDayHandler := connect.NewUnaryHandler(
+		CRMServiceGetMyDayProcedure,
+		svc.GetMyDay,
+		connect.WithSchema(cRMServiceMethods.ByName("GetMyDay")),
+		connect.WithHandlerOptions(opts...),
+	)
 	cRMServiceListContactChannelsHandler := connect.NewUnaryHandler(
 		CRMServiceListContactChannelsProcedure,
 		svc.ListContactChannels,
@@ -3940,6 +3966,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListExportJobsHandler.ServeHTTP(w, r)
 		case CRMServiceGetDashboardReportProcedure:
 			cRMServiceGetDashboardReportHandler.ServeHTTP(w, r)
+		case CRMServiceGetMyDayProcedure:
+			cRMServiceGetMyDayHandler.ServeHTTP(w, r)
 		case CRMServiceListContactChannelsProcedure:
 			cRMServiceListContactChannelsHandler.ServeHTTP(w, r)
 		case CRMServiceListLeadChannelsProcedure:
@@ -4471,6 +4499,10 @@ func (UnimplementedCRMServiceHandler) ListExportJobs(context.Context, *connect.R
 
 func (UnimplementedCRMServiceHandler) GetDashboardReport(context.Context, *connect.Request[v1.GetDashboardReportRequest]) (*connect.Response[v1.GetDashboardReportResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetDashboardReport is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetMyDay(context.Context, *connect.Request[v1.GetMyDayRequest]) (*connect.Response[v1.GetMyDayResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetMyDay is not implemented"))
 }
 
 func (UnimplementedCRMServiceHandler) ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error) {

@@ -21,7 +21,14 @@ type workflowTables struct {
 	// claimed mirrors the unique index: tenant -> "version|event" -> true.
 	claimed       map[string]map[string]bool
 	notifications map[string]map[string]*Notification
+	leadAlerts    map[string]map[string]*leadAlertState
+	deliveries    map[string]map[string]*NotificationDelivery
 	cursors       map[string]*WorkflowCursor
+}
+
+type leadAlertState struct {
+	initialNotifiedAt time.Time
+	slaEscalatedAt    time.Time
 }
 
 func newWorkflowTables() *workflowTables {
@@ -31,6 +38,8 @@ func newWorkflowTables() *workflowTables {
 		executions:    make(map[string]map[string]*WorkflowExecution),
 		claimed:       make(map[string]map[string]bool),
 		notifications: make(map[string]map[string]*Notification),
+		leadAlerts:    make(map[string]map[string]*leadAlertState),
+		deliveries:    make(map[string]map[string]*NotificationDelivery),
 		cursors:       make(map[string]*WorkflowCursor),
 	}
 }
@@ -554,6 +563,12 @@ func (s *MemStore) CreateNotification(
 		s.workflow.notifications[scope.TenantID] = make(map[string]*Notification)
 	}
 	s.workflow.notifications[scope.TenantID][record.ID] = cloneNotification(record)
+	if s.workflow.deliveries[scope.TenantID] == nil {
+		s.workflow.deliveries[scope.TenantID] = make(map[string]*NotificationDelivery)
+	}
+	s.workflow.deliveries[scope.TenantID][record.ID] = &NotificationDelivery{
+		Notification: cloneNotification(record), Status: NotificationDeliveryPending,
+	}
 	return cloneNotification(record), nil
 }
 

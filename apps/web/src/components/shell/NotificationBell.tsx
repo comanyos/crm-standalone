@@ -9,13 +9,13 @@ import { useCrmClients } from "../../lib/useCrmClients";
  * It polls rather than subscribes. A rule's notification is written by a
  * background pass that no browser is waiting on, so there is nothing to
  * subscribe to without a streaming channel this deployment does not have;
- * a minute's latency on "a task was created for you" is the right trade
+ * a few seconds of latency on "a task was created for you" is the right trade
  * against a connection per open tab.
  *
  * The list is the caller's own — the RPC takes no recipient — so nothing
  * here decides whose notifications to ask for. */
 
-const POLL_INTERVAL_MS = 60_000;
+const POLL_INTERVAL_MS = 10_000;
 
 const SUBJECT_PATHS: Record<string, string> = {
   account: "/accounts",

@@ -1,11 +1,11 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardPage from "./DashboardPage";
-import { renderRoutes } from "../test/harness";
+import { makeLead, makeTask, renderRoutes } from "../test/harness";
 import { expectNoA11yViolations } from "../test/a11y";
 
 const { crm } = vi.hoisted(() => ({
-  crm: { getSummary: vi.fn(), getDashboardReport: vi.fn() },
+  crm: { getSummary: vi.fn(), getDashboardReport: vi.fn(), getMyDay: vi.fn() },
 }));
 
 vi.mock("../lib/useCrmClients", () => ({ useCrmClients: () => ({ crm, module: {} }) }));
@@ -52,6 +52,17 @@ beforeEach(() => {
   vi.clearAllMocks();
   crm.getSummary.mockResolvedValue({ total: 12, counts: { account: 5, contact: 7 } });
   crm.getDashboardReport.mockResolvedValue({ report });
+  crm.getMyDay.mockResolvedValue({
+    myDay: {
+      $typeName: "crm.v1.MyDay",
+      overdueTasks: [makeTask({ id: "task-overdue", title: "Call overdue lead" })],
+      dueTodayTasks: [makeTask({ id: "task-today", title: "Send quote today" })],
+      upcomingTasks: [makeTask({ id: "task-upcoming" })],
+      newLeads: [makeLead({ id: "lead-new", firstName: "Anita", lastName: "Rao" })],
+      untouchedLeads: [makeLead({ id: "lead-sla", company: "Northstar", firstName: "", lastName: "" })],
+      leadSlaMinutes: 15,
+    },
+  });
 });
 
 describe("DashboardPage", () => {
@@ -60,10 +71,14 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("Sales")).toBeInTheDocument();
     expect(screen.getByText("Prospecting")).toBeInTheDocument();
     expect(screen.getByText("2 · $500.00")).toBeInTheDocument();
-    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    expect(screen.getAllByText("Overdue")).not.toHaveLength(0);
     expect(screen.getByText("11.1%")).toBeInTheDocument();
     expect(screen.getByText(/conversion rate/)).toBeInTheDocument();
     expect(screen.getByText("Weighted forecast")).toBeInTheDocument();
+    expect(screen.getByText("My Day")).toBeInTheDocument();
+    expect(screen.getByText("Call overdue lead")).toBeInTheDocument();
+    expect(screen.getByText("Anita Rao")).toBeInTheDocument();
+    expect(screen.getByText("SLA attention")).toBeInTheDocument();
   });
 
   it("shows an empty state when the tenant has no pipelines", async () => {

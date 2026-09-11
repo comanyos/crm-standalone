@@ -243,24 +243,49 @@ func (e *Engine) perform(
 		return 0, e.finish(ctx, scope, execution, domain.ExecutionFailed, ReasonRuleGone, 0)
 	}
 
-	execution.Attempts++
-	execution.Status = domain.ExecutionRunning
-	if execution.StartedAt.IsZero() {
-		execution.StartedAt = e.now()
-	}
-	if _, err := e.store.UpdateWorkflowExecution(ctx, scope, execution); err != nil {
-		return 0, err
-	}
-
 	performed := 0
 	for index := execution.ActionsCompleted; index < len(version.Actions); index++ {
-		reason, err := e.act(ctx, scope, version, version.Actions[index], execution)
+		action := version.Actions[index]
+		now := e.now()
+
+		// A zero NextAttemptAt means this step has not had its sequence delay
+		// scheduled yet. A non-zero value is either the durable wake-up written
+		// here or a retry written by retryOrFail. DueWorkflowExecutions only
+		// returns it once that instant arrives, so clearing it immediately before
+		// the attempt makes the distinction unambiguous and restart-safe.
+		if action.DelayMinutes > 0 && execution.NextAttemptAt.IsZero() {
+			execution.Status = domain.ExecutionPending
+			execution.NextAttemptAt = now.Add(time.Duration(action.DelayMinutes) * time.Minute)
+			if _, err := e.store.UpdateWorkflowExecution(ctx, scope, execution); err != nil {
+				return performed, err
+			}
+			return performed, nil
+		}
+		if !execution.NextAttemptAt.IsZero() && now.Before(execution.NextAttemptAt) {
+			return performed, nil
+		}
+
+		execution.NextAttemptAt = time.Time{}
+		execution.Attempts++
+		execution.Status = domain.ExecutionRunning
+		if execution.StartedAt.IsZero() {
+			execution.StartedAt = now
+		}
+		if _, err := e.store.UpdateWorkflowExecution(ctx, scope, execution); err != nil {
+			return performed, err
+		}
+
+		reason, err := e.act(ctx, scope, version, action, execution)
 		if err != nil {
 			e.log.Warn("a workflow action failed", "reason", reason)
 			return performed, e.retryOrFail(ctx, scope, execution, reason)
 		}
 		performed++
 		execution.ActionsCompleted = index + 1
+		// Retry attempts belong to one step. A later delayed step gets its own
+		// budget instead of inheriting attempts from work that already succeeded.
+		execution.Attempts = 0
+		execution.NextAttemptAt = time.Time{}
 		// Persisted per action, so a crash between two actions still resumes
 		// at the right one rather than repeating the first.
 		if _, err := e.store.UpdateWorkflowExecution(ctx, scope, execution); err != nil {

@@ -107,9 +107,9 @@ The public website may describe these as the intended Savvy CRM product. It shou
 |---|---|---|---|
 | P0 external acceptance | Meta connector code is complete; app credentials/review and live provider evidence are not | Production traffic could still fail at provider authorization or asset access | Approve the Meta app, connect controlled Business/Page/Form assets, pass Facebook and Instagram test leads, and retain evidence |
 | P0 external acceptance | Lead-level WhatsApp handoff is implemented and browser-tested; no physical-device record exists | URI handling can differ between iOS, Android, WhatsApp and WhatsApp Business | Run the documented captured-lead handoff on one supported iPhone and Android device |
-| P1 | No instant push/email delivery or escalation | Owners may discover new leads too late | Transactional notification delivery, device registration, untouched-lead SLA escalation |
+| P1 | In-app/email alerts and untouched-lead SLA escalation are implemented; native device push is not | Owners receive durable email and fast in-app notice, but a closed browser has no push notification | Add device registration and FCM/APNs delivery on the existing notification ledger |
 | P1 | No ready speed-to-lead preset | Existing workflow pieces require manual expert setup | Safe preset: assign → notify → task → personalised draft |
-| P1 | No scheduler-backed reminders/sequences | Due dates exist but follow-up cadence does not execute | Timezone-aware scheduler, recurrence/escalation, reply-aware sequences |
+| P1 | Ordered workflow steps now support durable delays; explicit enrollment, recurrence and reply-aware stopping are not built | Basic follow-up cadence executes, but advanced sequence lifecycle controls remain | Add enrollment/pause/resume, recurrence and reply-aware stop conditions |
 | P1 | Provider verification is mostly stubbed | Gmail/Calendar and mobile handoffs lack production evidence | Real-account and real-device acceptance matrix |
 | P2 | No WhatsApp Business inbox | No inbound matching, templates, receipts, replies, or 24-hour policy | Cloud API/BSP connection, durable conversation model, compliance controls |
 | P2 | Limited duplicate/import/merge workflow | Acquisition scale reduces data quality | Person-level duplicate rules, review queue, merge history, robust imports |

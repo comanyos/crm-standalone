@@ -119,6 +119,7 @@ const blankAction = (): WorkflowAction =>
   ({
     $typeName: "crm.v1.WorkflowAction",
     type: "create_task",
+    delayMinutes: 0,
     title: "",
     body: "",
     assignee: "record_owner",
@@ -498,6 +499,15 @@ export default function AutomationPage() {
                   key={index}
                   className="space-y-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0"
                 >
+                  <Input
+                    label={`Wait before action ${index + 1} (minutes)`}
+                    type="number"
+                    min={0}
+                    max={525600}
+                    value={action.delayMinutes}
+                    hint={index === 0 ? "From the triggering event" : "After the previous action"}
+                    onChange={(event) => patchAction(index, { delayMinutes: Number(event.target.value) })}
+                  />
                   <Select
                     label={`Action ${index + 1}`}
                     value={action.type}

@@ -500,14 +500,19 @@ webhook security decisions from the product owner.
   and neither RPC takes a recipient. The web app has an Automation screen
   whose every choice comes from `DescribeWorkflowCatalog`, so an editor cannot
   compose a rule the server would refuse, plus a polling notification bell.
+  Ordered actions now accept a bounded `delay_minutes`; the execution ledger
+  stores the next due instant, survives restarts, and resumes at the correct
+  action. Every in-app notification is also placed on a durable SMTP queue
+  with a lease, bounded retries, and capped exponential backoff.
 
   **Not done.** Approvals (a rule that waits needs a durable pause and a way
-  to address the approver), time-based triggers and recurrence (need a
-  scheduler), outbound webhooks with signing and retries (need an egress
+  to address the approver), wall-clock triggers and recurrence, outbound
+  webhooks with signing and retries (need an egress
   policy and a secret story), templated action text (needs a field-visibility
   model), custom fields in conditions (needs definition versioning), and
-  multi-step chaining (needs the causation-depth limit the loop-prevention
-  section names). See [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md).
+  cross-rule chaining (needs the causation-depth limit the loop-prevention
+  section names). Delayed multi-step sequences inside one rule are complete.
+  See [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md).
 
 Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely
@@ -608,6 +613,16 @@ this milestone — covers only the genuine zeroes.
   offline boundary, test and release plan is documented in
   `docs/FLUTTER_MOBILE_ARCHITECTURE.md`. This supersedes the earlier PWA-only
   recommendation in §10.4.
+- [x] **My Day, instant lead alerts and SLA escalation**
+  (`migrations/0040_speed_to_lead.sql`). The signed-in rep gets one bounded
+  daily queue for overdue, due-today and upcoming tasks plus assigned new and
+  untouched leads. A five-second worker creates an owner notification for a
+  new assigned Lead, falls back to workspace supervisors for an unassigned
+  Lead, and escalates a still-new/no-activity Lead to its owner and supervisors
+  after `LEAD_SLA`. Claims and notifications are transactional and idempotent;
+  email uses the durable notification-delivery queue above. Existing rows are
+  backfilled as already alerted so deploying the migration sends no historical
+  mail burst, while My Day still exposes old untouched work.
 - [x] **Automations draft messages** (`task_crm.md` §6,
   `migrations/0032_outbound_messages.sql`). A `draft_message` workflow action
   that checks consent, renders a template and leaves a personalised message in

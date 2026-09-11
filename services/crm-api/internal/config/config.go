@@ -158,6 +158,11 @@ type Config struct {
 	// When set, each sync pass erases its own mailbox's synced content older
 	// than the window, using the same redacting erasure a request does.
 	SyncRetentionDays int
+
+	// LeadSLA is the maximum age of a still-new, untouched lead before the
+	// speed-to-lead runner raises an escalation. It is also returned by My Day
+	// so the UI explains the same policy the scheduler enforces.
+	LeadSLA time.Duration
 }
 
 // Load reads configuration from environment with sensible defaults.
@@ -209,6 +214,7 @@ func Load() Config {
 		WebAppBaseURL:           strings.TrimRight(env("CRM_WEB_APP_BASE_URL", ""), "/"),
 		PublicBaseURL:           strings.TrimRight(env("CRM_PUBLIC_BASE_URL", ""), "/"),
 		SyncRetentionDays:       envInt("SYNC_RETENTION_DAYS", 0),
+		LeadSLA:                 envDuration("LEAD_SLA", 15*time.Minute),
 	}
 }
 
@@ -238,6 +244,12 @@ func (c Config) Validate() error {
 	}
 	if c.SyncRetentionDays < 0 {
 		return fmt.Errorf("config: SYNC_RETENTION_DAYS must not be negative, got %d", c.SyncRetentionDays)
+	}
+	if c.LeadSLA < 0 || c.LeadSLA > 7*24*time.Hour {
+		return fmt.Errorf("config: LEAD_SLA must be zero/default or between 1m and 168h")
+	}
+	if c.LeadSLA > 0 && c.LeadSLA < time.Minute {
+		return fmt.Errorf("config: LEAD_SLA must be zero/default or between 1m and 168h")
 	}
 	if c.AuthOTPTTL < 0 || c.AuthOTPTTL > 30*time.Minute {
 		return fmt.Errorf("config: AUTH_OTP_TTL must be zero/default or between 1m and 30m")
