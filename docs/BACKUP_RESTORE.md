@@ -1,19 +1,16 @@
 # Backup, restore, and upgrade runbook
 
 This runbook provides encrypted logical backups and isolated local restore
-verification for the standalone CRM's two PostgreSQL databases. It is not a
+verification for the standalone CRM PostgreSQL database. It is not a
 production backup service: managed encrypted backups, point-in-time recovery,
 cross-region replication, retention enforcement, and a production restore
 drill require a selected platform and accountable operators.
 
 ## Backup scope and prerequisites
 
-Back up both databases as one consistency window:
-
-- `authincore`: identities, sessions, OAuth/OIDC state, RBAC, and AuthinCore
-  configuration.
-- `crm`: tenant CRM records, pipelines, tasks/notes, and the transactional
-  outbox.
+Back up the `crm` database. It contains identities, organizations,
+memberships, sessions, onboarding profiles, tenant CRM records, pipelines,
+tasks/notes, integrations, and the transactional outbox.
 
 The backup tool requires [age](https://age-encryption.org/) and an operator
 owned recipient public key. It refuses to write a plaintext dump. Backups
@@ -39,8 +36,7 @@ isolated Compose environment or disposable test database, stop application
 writers, and use a separately stored age identity file:
 
 ```sh
-RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASES \
-RESTORE_AUTH_ARCHIVE=/secure/path/authincore-YYYYMMDDTHHMMSSZ.sql.gz.age \
+RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASE \
 RESTORE_CRM_ARCHIVE=/secure/path/crm-YYYYMMDDTHHMMSSZ.sql.gz.age \
 BACKUP_AGE_IDENTITY_FILE=/secure/path/age-identity.txt \
 ./scripts/restore-compose.sh
@@ -50,8 +46,8 @@ The restore script works in two phases. It first decrypts every archive to a
 private staging directory and checks that each one decompresses and carries a
 plain-format `pg_dump` header, and that the roles the dump's `GRANT`
 statements reference (`crm_app`, `crm_drain`) exist in the target cluster.
-Only then does it drop and recreate the `public` schema in **both** target
-databases and restore. Nothing is destroyed until every input is known good,
+Only then does it drop and recreate the CRM database's `public` schema and
+restore it. Nothing is destroyed until every input is known good,
 so a wrong `BACKUP_AGE_IDENTITY_FILE` or a truncated archive fails with the
 databases untouched. It also has an exact confirmation string to prevent a
 pasted command from silently erasing the local stack.
@@ -73,11 +69,11 @@ and it runs in CI. Use it after any change to either script.
 After restore:
 
 1. Run the migration runners; migrations are forward-only and append-only.
-2. Start AuthinCore and CRM with the same (or an intentionally compatible)
-   signing-key ring. A database backup does not replace signing-key recovery.
-3. Check `/healthz` and `/readyz` for both services, sign in with a known test
-   account, refresh a token, validate CRM API access, and verify tenant
-   isolation/outbox behavior with the focused tests.
+2. Start the CRM API with the same session/OTP secrets or deliberately revoke
+   all restored sessions. A database backup does not replace secret recovery.
+3. Check `/healthz` and `/readyz`, sign in with a known test account, validate
+   CRM API access, and verify tenant isolation/outbox behavior with the
+   focused tests.
 4. Record achieved recovery time and data timestamp. Do not claim RPO/RTO
    compliance until an owner has measured a production-like drill.
 
@@ -88,7 +84,7 @@ Migrations must follow expand/contract:
 1. **Expand:** add nullable columns, new tables/indexes, or dual-write code in
    a backward-compatible release. Never modify a shipped migration.
 2. **Migrate:** run tracked forward migrations before moving application
-   traffic. Verify `auth-migrate` and `crm-migrate` completion plus readiness.
+   traffic. Verify `crm-migrate` completion plus readiness.
 3. **Contract:** remove obsolete reads/writes only in a later release after
    every running version is compatible and data backfill is verified.
 

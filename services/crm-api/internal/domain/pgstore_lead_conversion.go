@@ -61,12 +61,12 @@ func (s *PgStore) ConvertLead(ctx context.Context, scope Scope, in ConvertLeadIn
 		return nil, err
 	}
 
-	email, err := requireLeadContactEmail(lead.ContactEmail)
+	email, phone, err := requireLeadContactIdentity(lead)
 	if err != nil {
 		return nil, err
 	}
 
-	contact, account, err := s.txResolveConversionContactAndAccount(ctx, tx, scope, lead, email)
+	contact, account, err := s.txResolveConversionContactAndAccount(ctx, tx, scope, lead, email, phone)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +107,21 @@ func (s *PgStore) ConvertLead(ctx context.Context, scope Scope, in ConvertLeadIn
 // txResolveConversionContactAndAccount mirrors MemStore's
 // resolveConversionContactAndAccount exactly, against the open tx.
 func (s *PgStore) txResolveConversionContactAndAccount(
-	ctx context.Context, tx pgx.Tx, scope Scope, lead *Lead, email string,
+	ctx context.Context, tx pgx.Tx, scope Scope, lead *Lead, email, phone string,
 ) (*Contact, *Account, error) {
-	existing, err := s.txFindContactByEmail(ctx, tx, scope, email)
-	if err != nil && !errors.Is(err, ErrNotFound) {
-		return nil, nil, err
+	var existing *Contact
+	var err error
+	if email != "" {
+		existing, err = s.txFindContactByEmail(ctx, tx, scope, email)
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, nil, err
+		}
+	}
+	if existing == nil && phone != "" {
+		existing, err = s.txFindContactByPhone(ctx, tx, scope, phone)
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, nil, err
+		}
 	}
 	if existing != nil {
 		account, aerr := s.txGetAccount(ctx, tx, scope, existing.AccountID)
@@ -121,7 +131,7 @@ func (s *PgStore) txResolveConversionContactAndAccount(
 		if !errors.Is(aerr, ErrNotFound) {
 			return nil, nil, aerr
 		}
-		account, err = s.txResolveOrCreateAccount(ctx, tx, scope, lead.Company, emailDomain(email))
+		account, err = s.txResolveOrCreateAccount(ctx, tx, scope, lead.Company, emailDomain(email), leadDisplayName(lead))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -134,11 +144,11 @@ func (s *PgStore) txResolveConversionContactAndAccount(
 		return existing, account, nil
 	}
 
-	account, err := s.txResolveOrCreateAccount(ctx, tx, scope, lead.Company, emailDomain(email))
+	account, err := s.txResolveOrCreateAccount(ctx, tx, scope, lead.Company, emailDomain(email), leadDisplayName(lead))
 	if err != nil {
 		return nil, nil, err
 	}
-	contact, err := s.txCreateContact(ctx, tx, scope, email, account.ID)
+	contact, err := s.txCreateContact(ctx, tx, scope, lead, email, phone, account.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create conversion contact: %w", err)
 	}
@@ -147,7 +157,7 @@ func (s *PgStore) txResolveConversionContactAndAccount(
 
 // txResolveOrCreateAccount mirrors MemStore's resolveOrCreateConversionAccount.
 func (s *PgStore) txResolveOrCreateAccount(
-	ctx context.Context, tx pgx.Tx, scope Scope, company, domain string,
+	ctx context.Context, tx pgx.Tx, scope Scope, company, domain, fallback string,
 ) (*Account, error) {
 	if domain != "" {
 		acct, err := s.txFindAccountByDomain(ctx, tx, scope, domain)
@@ -158,7 +168,7 @@ func (s *PgStore) txResolveOrCreateAccount(
 			return nil, err
 		}
 	}
-	acct, err := s.txCreateAccount(ctx, tx, scope, newConversionAccount(company, domain))
+	acct, err := s.txCreateAccount(ctx, tx, scope, newConversionAccount(company, domain, fallback))
 	if err != nil {
 		return nil, fmt.Errorf("create conversion account: %w", err)
 	}
@@ -181,6 +191,21 @@ func (s *PgStore) txFindContactByEmail(ctx context.Context, tx pgx.Tx, scope Sco
 	return v, nil
 }
 
+func (s *PgStore) txFindContactByPhone(ctx context.Context, tx pgx.Tx, scope Scope, phone string) (*Contact, error) {
+	v := &Contact{}
+	err := scanContact(tx.QueryRow(ctx,
+		`SELECT `+contactColumns+` FROM contacts
+		 WHERE tenant_id = $1 AND regexp_replace(phone, '[^0-9+]', '', 'g') = $2
+		 ORDER BY id LIMIT 1`, scope.TenantID, phone), v)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find contact by phone: %w", err)
+	}
+	return v, nil
+}
+
 // txCreateContact mirrors MemStore's conversion-time contact creation: it
 // skips role and duplicate_of_contact_id on purpose. role has no
 // conversion-time source (the same asymmetry txCreateAccount already has
@@ -188,8 +213,13 @@ func (s *PgStore) txFindContactByEmail(ctx context.Context, tx pgx.Tx, scope Sco
 // guaranteed empty here — this path only runs when
 // txResolveConversionContactAndAccount's own email lookup already came back
 // ErrNotFound, so no other Contact can share this email to flag against.
-func (s *PgStore) txCreateContact(ctx context.Context, tx pgx.Tx, scope Scope, email, accountID string) (*Contact, error) {
-	v := &Contact{Email: email, AccountID: accountID}
+func (s *PgStore) txCreateContact(
+	ctx context.Context, tx pgx.Tx, scope Scope, lead *Lead, email, phone, accountID string,
+) (*Contact, error) {
+	v := &Contact{
+		Email: email, Phone: phone, AccountID: accountID,
+		FirstName: lead.FirstName, LastName: lead.LastName,
+	}
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
@@ -207,8 +237,9 @@ func (s *PgStore) txCreateContact(ctx context.Context, tx pgx.Tx, scope Scope, e
 	v.CreatedAt, v.UpdatedAt = now, now
 	_, err = tx.Exec(ctx,
 		`INSERT INTO contacts (tenant_id, id, email, account_id, first_name, last_name, phone, title, role, duplicate_of_contact_id, created_at, updated_at, custom_fields)
-		 VALUES ($1, $2, $3, $4, '', '', '', '', '', '', $5, $6, $7)`,
-		scope.TenantID, v.ID, v.Email, v.AccountID, v.CreatedAt, v.UpdatedAt, document)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, '', '', '', $8, $9, $10)`,
+		scope.TenantID, v.ID, v.Email, v.AccountID, v.FirstName, v.LastName, v.Phone,
+		v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("insert contact: %w", err)
 	}

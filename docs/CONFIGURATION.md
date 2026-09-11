@@ -1,235 +1,205 @@
 # Environments and configuration
 
-This is the Phase 0.2 configuration matrix for `services/crm-api` and
-`services/authincore`. It defines the four deployment environments this
-repository recognizes, the environment variables each service reads, and
-where startup validation refuses to boot with an unsafe configuration.
+Savvy CRM has one Go application service, one PostgreSQL database, optional
+NATS transport, and a static browser application. Native authentication runs
+inside `services/crm-api`.
 
 ## Environments
 
-Both services read `APP_ENV` and default to `development` when it is unset.
-There is no fifth value and no silent fallback for a typo — an unrecognized
-`APP_ENV` fails startup immediately (see below) rather than quietly running
-with development defaults.
+`APP_ENV` accepts `development`, `test`, `staging`, or `production`.
 
-| `APP_ENV` | Purpose | Production-safety checks enforced? |
+- Development permits loopback HTTP, the documented local database passwords,
+  and the optional deterministic test OTP.
+- Test has the same local allowances and is intended only for isolated,
+  disposable infrastructure.
+- Staging and production enforce HTTPS origins, Secure cookies, durable
+  Postgres, strong secrets, complete provider configuration, and reject
+  `AUTH_DEV_OTP`.
+
+Configuration is read from environment variables. The root `.env` is a local,
+gitignored convenience; deployed secrets belong in the platform's secret
+manager.
+
+## CRM API
+
+| Variable | Local default | Production rule |
 | --- | --- | --- |
-| `development` | Local `make up` / `docker compose`. Matches every default in `.env.example` and `compose.yaml`. | No |
-| `test` | Automated unit/integration test runs (`go test`, CI). Uses the disposable `--profile test` databases, never the development ones. | No |
-| `staging` | A pre-production environment that should be exercised the same as production. | **Yes** — identical rules to `production` |
-| `production` | The real deployment. | **Yes** |
+| `CRM_ADDR` | `:9431` | Internal listen address |
+| `DATABASE_URL` | none outside Compose | Required, TLS enabled, strong password |
+| `OUTBOX_DRAIN_DATABASE_URL` | none outside Compose | Required when the RLS-protected application pool cannot drain across tenants |
+| `NATS_URL` | empty outside Compose | Optional transport |
+| `CORS_ALLOWED_ORIGINS` | authenticated web-app origin in Compose | Exact comma-separated HTTPS app origins; grants the full CRM API surface |
+| `AUTH_CORS_ALLOWED_ORIGINS` | local marketing preview origins in Compose | Exact comma-separated HTTPS marketing origins; grants only the public auth/onboarding allowlist |
+| `CRM_PUBLIC_BASE_URL` | `http://localhost:19431` | Public HTTPS API origin |
+| `CRM_WEB_APP_BASE_URL` | empty | Exact HTTPS application origin when integrations redirect back |
+| `CRM_METRICS_TOKEN` | empty in local development | At least 16 characters in staging/production |
+| `LEAD_CAPTURE_SECRET_KEY` | unset/off | Base64 32-byte key when inbound lead capture is enabled |
 
-`staging` and `production` are deliberately held to the same bar: staging
-exists to catch what production would reject, so a config that passes
-staging but fails production defeats the point of having a staging
-environment.
+### Meta / Facebook / Instagram Lead Ads
 
-## Startup validation
+The native connector is disabled only when this entire group is empty. Setting
+part of the group fails startup so the UI cannot advertise a connection that
+will lose its callback, webhook verification, or encrypted credentials.
 
-`services/crm-api/internal/config` (`Config.Validate`) and
-`services/authincore/internal/config` (`ValidateProductionSafety`) run at
-process startup, before any database connection is opened. In `staging`/
-`production` both refuse to start if:
+| Variable | Rule |
+| --- | --- |
+| `META_APP_ID` | Savvy-owned Meta app ID |
+| `META_APP_SECRET` | Server-side secret; never expose in Vite or a browser |
+| `META_OAUTH_REDIRECT_URL` | Exact callback; production: `https://crmapi.savvyadvi.com/integrations/meta/callback` |
+| `META_WEBHOOK_VERIFY_TOKEN` | Independent random value, at least 16 characters |
+| `META_TOKEN_KEY` | Base64-encoded 32-byte key used to seal user and Page access tokens |
+| `META_GRAPH_VERSION` | Explicitly pinned provider version; currently `v25.0` |
 
-- A required URL (`AUTH_ISSUER`, `AUTH_JWKS_URL` for crm-api; `ISSUER` for
-  AuthinCore) is missing or not `https://`.
-- `DATABASE_URL` (and, for crm-api, `OUTBOX_DRAIN_DATABASE_URL`) is missing,
-  uses `sslmode=disable`, or its embedded password matches a known
-  development default (`crm_admin_dev`, `crm_app`, `crm_drain`,
-  `authincore_dev`, `postgres`, `password`, `changeme`, …) or is otherwise
-  under 12 characters.
-- crm-api's `DATABASE_URL` is empty (the in-memory store — a development-only
-  fallback that loses all data on restart and cannot be used in production).
-- AuthinCore has no persistent JWT signing key configured
-  (`RSA_PRIVATE_KEY_PEM`, `RSA_PRIVATE_KEY_FILE`, or `RSA_PRIVATE_KEYS_JSON`)
-  — an ephemeral key breaks every token on restart and across replicas.
-- AuthinCore's `CORS_ALLOWED_ORIGINS` contains a non-`https://` origin.
+The Page webhook callback is
+`https://crmapi.savvyadvi.com/integrations/meta/webhook`. Savvy CRM verifies the
+subscription challenge and every `X-Hub-Signature-256`, retrieves the full lead
+server-side, and never returns an access token through the CRM API. The OAuth
+grant requests Page discovery, Business discovery, webhook subscription, lead
+retrieval, and read-only ad attribution permissions. Complete app review and a
+test-lead run before enabling paid traffic.
 
-`development` and `test` skip all of the above — they are expected to run
-with the checked-in local defaults.
+## Native authentication
 
-## Required environment variables by service
-
-### `services/crm-api`
-
-| Variable | Development default | Required in staging/production |
+| Variable | Default | Rule |
 | --- | --- | --- |
-| `APP_ENV` | `development` | — |
-| `CRM_ADDR` | `:9431` | — |
-| `MODE` | `plug` | — |
-| `CRM_EDITION` | `OSS` | — |
-| `AUTH_ISSUER` | *(empty — auth disabled)* | Yes, `https://` |
-| `AUTH_AUDIENCE` | *(empty)* | Yes |
-| `AUTH_JWKS_URL` | *(empty)* | Yes, `https://` |
-| `DATABASE_URL` | *(empty — in-memory store)* | Yes, no `sslmode=disable`, strong password |
-| `OUTBOX_DRAIN_DATABASE_URL` | *(empty — shares the app pool)* | Yes, alongside `DATABASE_URL` |
-| `CRM_METRICS_TOKEN` | *(empty — local/internal scrape only)* | Yes, at least 16 characters; use `Authorization: Bearer …` for `/metrics` |
-| `NATS_URL` | *(empty — events logged locally)* | Recommended |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` (compose default; comma-separated) | Every entry must be `https://` |
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | *(unset — Google integration disabled)* | Required together when Google integration is enabled |
-| `GOOGLE_OAUTH_REDIRECT_URL` | *(unset)* | Required with Google integration; `https://` |
-| `GOOGLE_OAUTH_TOKEN_KEY` | *(unset)* | Required with Google integration; base64-encoded 32-byte encryption key |
-| `LEAD_CAPTURE_SECRET_KEY` | *(unset)* | Enables inbound lead capture; base64-encoded 32-byte key sealing each endpoint's HMAC signing secret. Unset means the feature is off and the route is not registered — there is deliberately no unsigned mode. Its own key rather than `GOOGLE_OAUTH_TOKEN_KEY` so lead capture does not require a configured Google client, and so rotating either does not force re-encrypting both. See [LEAD_CAPTURE.md](LEAD_CAPTURE.md). |
-| `CRM_PUBLIC_BASE_URL` | *(unset)* | This API's own public origin, used only to assemble the lead-capture delivery URL an administrator hands to a third party. Configured rather than read from a `Host` header, because that value ends up pasted into somebody's integration settings. Unset shows the path alone. |
-| `CRM_WEB_APP_BASE_URL` | *(unset — the OAuth callback renders its own result page)* | `https://` when set; the origin the Google callback returns the browser to |
-| `SYNC_RETENTION_DAYS` | `0` (keep synced email and meetings indefinitely) | Set deliberately; see `docs/GOOGLE_INTEGRATION.md` |
+| `OTP_PEPPER` | development-only Compose value | Independent secret of at least 32 bytes; production rejects the development value |
+| `AUTH_OTP_TTL` | `10m` | Short challenge lifetime |
+| `AUTH_SESSION_TTL` | `720h` | Server-side session lifetime |
+| `AUTH_COOKIE_NAME` | `savvy_session` | Use a deployment-specific name only when multiple environments share a host |
+| `AUTH_COOKIE_SECURE` | `false` locally | Must be `true` in staging/production |
+| `AUTH_LOGIN_SUCCESS_URL` | local web origin in Compose | Exact allowed HTTPS application destination |
+| `AUTH_JOIN_RESULT_URL` | local marketing signup URL in Compose | Fixed HTTPS marketing destination for Google organization-join results |
+| `AUTH_DEV_OTP` | unset | Exactly six digits; accepted only with `APP_ENV=test` |
+| `AUTH_BOOTSTRAP_ORG_NAME` | unset | Pair with bootstrap email for the initial workspace |
+| `AUTH_BOOTSTRAP_EMAIL` | unset | Normalized Super Admin identity; production Savvy value is `support@savvyadvi.com` |
+| `AUTH_BOOTSTRAP_ORG_ID` | generated | Optional stable UUID for an imported tenant |
 
-### `services/authincore`
+The browser gets an HttpOnly, SameSite session cookie. JavaScript does not
+receive or persist the session token. A future native client may present the
+same opaque token as a Bearer value from OS secure storage.
 
-| Variable | Development default | Required in staging/production |
-| --- | --- | --- |
-| `APP_ENV` | `development` | — |
-| `DATABASE_URL` | dev Postgres DSN | Yes, no `sslmode=disable`, strong password |
-| `REDIS_ADDR` | `localhost:6379` | Yes |
-| `ISSUER` | `http://localhost:18080` | Yes, `https://` |
-| `RSA_PRIVATE_KEY_FILE` / `RSA_PRIVATE_KEY_PEM` / `RSA_PRIVATE_KEYS_JSON` | generated by `make dev-key` | Yes (one of the three) |
-| `JWT_KEY_ID` | `k1` | Recommended (identifies the active key for rotation) |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` (compose default; comma-separated) | Every entry must be `https://` |
-| `ADMIN_TOKEN` | *(empty — no scrape credential)* | Yes, at least 16 characters; `/metrics` requires it or a session holding `metrics:read` |
-| `DEV_MODE` | `true` (compose only) | **No — must be unset.** Raises the login/registration rate limits to 100/min (see below) |
-| `TRUSTED_PROXY_CIDRS` | unset | Yes, if a proxy or load balancer terminates connections (see below) |
-| `SMTP_*` | unset (courier disabled) | Required once email flows are enabled |
+The Super Admin manages registered users, organization status, access, and the
+`free`, `pro`, or `enterprise` plan through `/admin`. It is platform-only: it
+has no CRM data scopes, and the app redirects it away from tenant screens. A
+workspace `crm_admin` can manage only its own organization and users. This plan
+value is authoritative account metadata; payment collection and
+feature-entitlement enforcement are separate commercial controls and are not
+implied by changing the value. The Savvy support identity has additional
+database-trigger protection described in [BOOTSTRAP.md](BOOTSTRAP.md).
 
-Both services' `CORS_ALLOWED_ORIGINS` are driven by the same `CRM_WEB_ORIGIN`
-compose variable (default `http://localhost:3000`) — override it, and
-`apps/web`'s dev server port and `CRM_WEB_REDIRECT_URI` (see root
-`README.md`), together if the web app needs a different local port.
+### Passwordless email delivery
 
-The Google integration adds two more variables that must agree with settings
-made outside this repository. `GOOGLE_OAUTH_REDIRECT_URL` must match the OAuth
-client's registered redirect URI *and* the route crm-api serves
-(`/integrations/google/callback`) exactly — Google compares the whole string,
-including scheme, host and port. `CRM_WEB_APP_BASE_URL` is where the callback
-sends the browser afterwards; leaving it unset is safe (the callback renders a
-self-contained result page) but means users finish the flow outside the app.
-See `docs/GOOGLE_INTEGRATION.md`.
+| Variable | Typical Google Workspace local value |
+| --- | --- |
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `465` |
+| `SMTP_USERNAME` | verified mailbox |
+| `SMTP_PASSWORD` | dedicated provider/app credential |
+| `SMTP_FROM` | `Savvy CRM <support@savvyadvi.com>` |
+| `SMTP_TLS` | `true` for implicit TLS on 465 |
+| `SMTP_REQUIRE_STARTTLS` | `false` on 465; `true` with port 587 |
 
-### `apps/web`
+A partial SMTP configuration is an error where real OTP delivery is required.
+Never substitute a contact-form forwarding service for transactional email.
+See [EMAIL_DELIVERY_SETUP.md](EMAIL_DELIVERY_SETUP.md).
 
-| Variable | Development default | Required in production |
-| --- | --- | --- |
-| `VITE_AUTH_ISSUER_URL` | `http://localhost:18080` | Yes, `https://` |
-| `VITE_AUTH_ORG_ID` | *(none — from `make bootstrap`'s output)* | Yes, always (no safe default) |
-| `VITE_AUTH_CLIENT_ID` | `crm-web` | — |
-| `VITE_CRM_API_URL` | `http://localhost:19431` | Yes, `https://` |
+### Google account sign-in
 
-Validated at startup by `apps/web/src/env.ts` (`zod`) — a missing/invalid
-value renders a "Configuration error" screen instead of a confusing failure
-deep inside the auth flow, and `VITE_AUTH_ISSUER_URL`/`VITE_CRM_API_URL` must
-be `https://` specifically in a production build (`import.meta.env.PROD`).
-There is no `VITE_AUTH_REDIRECT_URI` — it's computed at runtime as
-`${window.location.origin}/auth/callback`, which must match a redirect URI
-registered on the `crm-web` OIDC client (see `CRM_WEB_REDIRECT_URI` in the
-root `README.md`).
+These variables configure identity-only sign-in:
 
-## Authentication rate limits
+- `AUTH_GOOGLE_CLIENT_ID`
+- `AUTH_GOOGLE_CLIENT_SECRET`
+- `AUTH_GOOGLE_REDIRECT_URL` (local:
+  `http://localhost:19431/auth/google/callback`)
 
-AuthinCore rate-limits its unauthenticated credential endpoints as
-brute-force protection. The limits are compiled in, not configurable per
-environment — the only switch is `DEV_MODE`.
+All are required together. This must be a different OAuth client from the CRM
+Gmail/Calendar connection. Sign-in requests `openid email profile`; it never
+requests mailbox or calendar scopes.
 
-| Endpoint | Default limit | With `DEV_MODE=true` |
-| --- | --- | --- |
-| `POST /self-service/login` | 5 / minute | 100 / minute |
-| `POST /self-service/registration` | 3 / minute | 100 / minute |
-| `POST /self-service/recovery` | 3 / minute | 3 / minute |
-| `POST /api/v1/service-accounts/token` | 10 / minute | 10 / minute |
+## Google CRM integration
 
-`compose.yaml` sets `DEV_MODE: "true"` so local development and browser
-tests are not throttled by the production-grade limits. It must never be set
-outside development: it exists only to raise these limits.
+The following independent settings enable a user to connect Gmail and Google
+Calendar from inside an authenticated CRM session:
 
-**The bucket is per client IP, not per user.** Redis holds one counter per
-`(action, org, IP)` at `rl:<action>:<org>:<ip>` — the org is `default` unless
-the caller sends `X-Org-ID`, which the hosted login UI does not. Every client
-behind one address therefore shares one budget, and signing in as a different
-identity does not get a fresh one. This is deliberate: the attack being
-limited is one host guessing many passwords, which per-identity counting
-would not see. Per-identity lockout is a separate mechanism
-(`internal/account/lockout`: 10 failures, 15-minute lock).
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+- `GOOGLE_OAUTH_REDIRECT_URL`
+- `GOOGLE_OAUTH_TOKEN_KEY`
 
-Behind a proxy or load balancer, every request arrives from the proxy's
-address and the whole deployment shares a single bucket. Set
-`TRUSTED_PROXY_CIDRS` to the proxy's CIDRs so `X-Forwarded-For` is honoured;
-it is ignored from untrusted peers, since anyone who could forge it could
-otherwise mint an unlimited number of buckets.
+The token key is base64-encoded 32 random bytes used to seal stored provider
+credentials. Partial configuration fails startup. See
+[GOOGLE_INTEGRATION.md](GOOGLE_INTEGRATION.md).
 
-These endpoints **fail closed**: if Redis is unreachable the request is
-rejected with `503 rate_limiter_unavailable` rather than allowed through
-unlimited.
+## Browser application
 
-The window is a **fixed** one: it starts at the first request in the window
-and ends a minute later, whether or not requests keep arriving, so the
-`Retry-After` a throttled caller is given is one it can actually act on. A
-window that each request pushed further out would make the limit a
-cumulative cap that only lifts after a full minute of total silence — which
-is what a parallel test suite hammering one endpoint from one IP produces,
-and why such a suite would start failing part-way through a run while the
-same tests run serially pass.
+The public build-time settings are:
 
-### What being rate-limited looks like
+| Variable | Default |
+| --- | --- |
+| `VITE_CRM_API_URL` | `http://localhost:19431` |
+| `VITE_CRM_AUTH_PORTAL_URL` | `http://localhost:4173/?auth=login#top` |
 
-`POST /self-service/login` answers `429` with `Retry-After`, and the hosted
-login UI renders the error and stays on the page. The browser is left at
-`/login?return_to=%2Foauth2%2Fauthorize%3F...` — the same URL an
-unauthenticated `/oauth2/authorize` redirects to, so a throttled login is
-easy to mistake for a session or redirect bug. AuthinCore's request log
-(below) distinguishes them: a throttled login shows `POST
-/self-service/login` → `429`, whereas a rejected session shows `GET
-/oauth2/authorize` → `302` to `/login` with a `session_cookie` field
-present.
+Both must be absolute HTTPS URLs in a production build (loopback HTTP is
+allowed locally). The app loads `GET /auth/session` and sends
+`credentials: include` on protected CRM requests. When no session exists, it
+opens the marketing site's combined Login / Sign-up dialog and supplies only a
+validated relative `returnTo` path. The marketing dialog performs email-code
+or Google authentication directly with the API.
 
-### Running browser suites in parallel
+Production values are `https://crmapi.savvyadvi.com` and
+`https://crm.savvyadvi.com/?auth=login#top`. Successful auth returns to
+`https://crmapp.savvyadvi.com`; no browser Bearer token is placed in that URL.
 
-`apps/web`'s Playwright suite drives real password logins from one host, so
-all its workers share one bucket. Two things keep it under the limit, and
-both matter:
+## Rate limiting and challenge behavior
 
-- `tests-e2e/auth.setup.ts` signs in once per run and every other spec
-  reuses that session, so a run performs a handful of password logins rather
-  than one per test. Each spec still completes a full OIDC authorize
-  round-trip; `/oauth2/authorize` is not rate-limited.
-- `DEV_MODE=true` on the compose stack raises the login limit to 100/min.
+Email request responses are intentionally generic for login so registered
+addresses cannot be enumerated. Issuance is limited to 5 requests per email
+address per 15 minutes and a shared durable ceiling of 300 email-plus-Google
+starts per 15 minutes. Challenges also have short expiry, bounded verification
+attempts, and atomic single use; a resend retires the previous challenge for
+the same email and flow. Provider or SMTP failure must not produce a
+successful "sent" response.
 
-Giving each worker its own identity would *not* help — the counter is keyed
-on IP, not identity.
+Production should add an edge rate limit keyed by trusted client IP and route,
+while keeping the database-backed per-email limits as the authoritative
+cross-instance boundary. Do not trust an arbitrary `X-Forwarded-For` header
+unless it comes from the configured load balancer/proxy.
 
-## Request logging and metrics
+## Disposable integration database
 
-Both services use safe JSON request logs and correlation IDs. They log only
-method, registered route/RPC procedure, status, duration, and request ID; they
-do not log query values, redirect locations, headers, cookies, bodies,
-tenant/user identifiers, or PII. See `docs/OBSERVABILITY.md` for the endpoint
-contract, exact metrics, redaction policy, and local verification commands.
+`crm-postgres-test` is behind Compose's `test` profile, uses tmpfs, and
+listens on port 15533. Start it with `make test-db-up`; stop it with
+`make test-db-down`. Tests use `TEST_DATABASE_URL` and can set
+`REQUIRE_LIVE_POSTGRES=1` to turn an unavailable database into failure.
 
-## Disposable integration-test databases
+## Secret ownership and rotation
 
-`compose.yaml` defines `auth-postgres-test` and `crm-postgres-test` behind the
-`test` Compose profile — separate ports (`15532`, `15533`), `tmpfs` storage
-(no named volume, so nothing survives a restart), and never started by a
-plain `make up`. Use `make test-db-up` / `make test-db-down`, or
-`docker compose --profile test up -d auth-postgres-test crm-postgres-test`
-directly. Integration tests must point at these, never at the development
-databases (`auth-postgres` / `crm-postgres`), so a test run can never read or
-leave behind real local data.
+| Secret | Rotation consequence |
+| --- | --- |
+| CRM database credentials | Update the database and deployment secret, then roll the API |
+| `OTP_PEPPER` | Invalidates outstanding short-lived OTP challenges |
+| SMTP credential | Update provider and secret store, then recreate the API task/container |
+| Google sign-in client secret | Rotate in Google and the deployment together |
+| Gmail/Calendar client secret and token key | Follow the integration re-consent/re-encryption runbook |
+| Meta app secret and token key | Rotate the app secret in Meta/Key Vault; token-key rotation requires reconnecting every tenant unless ciphertext is re-encrypted first |
+| Session tokens | Stored only as digests; revoking database rows signs sessions out |
 
-## Secret ownership, rotation, and injection
-
-| Secret | Owner (local dev) | Rotation | Injection |
-| --- | --- | --- | --- |
-| `AUTH_DB_PASSWORD`, `CRM_DB_*_PASSWORD` | Whoever runs `make up` locally; a database/infrastructure owner in staging/production | Rotate via the database provider; update the deployment's secret store, then roll the affected service | `.env` locally (gitignored); a secret manager/KMS-injected env var in staging/production — never a checked-in file |
-| AuthinCore JWT signing key (`RSA_PRIVATE_KEY_FILE`/`_PEM`/`RSA_PRIVATE_KEYS_JSON`) | Whoever runs `make dev-key` locally (file lives in the gitignored `deploy/secrets/`); a security/infrastructure owner in staging/production | Use `RSA_PRIVATE_KEYS_JSON` + `JWT_KEY_ID`/`JWT_PREVIOUS_KEY_ID` for a two-key rotation window (see `internal/token/rotating_signer.go`) — never rotate by deleting the old key outright while tokens signed with it are still unexpired | A file mount / Compose `secrets:` block locally; a secret manager/KMS-mounted file or env var in staging/production |
-| `ADMIN_TOKEN` | Whoever needs `/metrics`/admin-only access | Rotate on suspected exposure or on a routine schedule; update the deployment's secret store, then roll AuthinCore | Secret manager/KMS-injected env var — never checked in |
-| `BOOTSTRAP_ADMIN_PASSWORD` | The operator running `make bootstrap` for the first time | One-time use for the initial administrator; the admin should change it immediately through AuthinCore's own credential-change flow | Shell environment at the moment `make bootstrap` runs — never written to a file or committed |
-| SMTP, OAuth providers, webhooks, object storage | **Not yet applicable** — these integrations are blocked on product-owner decisions (Phase 8 of `task.md`). This table will be extended once a provider is chosen. | — | — |
+Never put secrets in a Vite variable, source file, image layer, log, issue,
+screenshot, or chat. Recreating a Compose service is required after changing
+its environment; `docker compose restart` alone does not reload variables.
 
 ## Acceptance verification
 
-- `APP_ENV=production` with an otherwise-development configuration fails
-  startup for both services (see `internal/config` unit tests in each
-  service — `go test ./internal/config/...`).
-- `APP_ENV` unset (development) starts exactly as it does today; `make up`
-  and `make test` are unaffected.
-- `make test-db-up` brings up disposable, empty, already-migrated databases
-  on ports distinct from the development databases; `make test-db-down`
-  leaves no data behind.
+Before promotion:
+
+1. Configuration validation succeeds and no secret appears in
+   `docker compose config` output retained by CI.
+2. Existing-user login sends and consumes a real one-time code.
+3. Unknown login email remains generic and creates no session.
+4. Verified signup creates exactly one user, organization, owner membership,
+   onboarding profile, and session.
+5. Logout removes the server session and expires the cookie.
+6. Cross-tenant and role-matrix tests pass under the restricted `crm_app`
+   database role.
+7. Google login state, callback, verified-email, and account-linking tests pass
+   when that client is enabled.

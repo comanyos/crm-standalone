@@ -9,34 +9,24 @@ Dependencies: none.
 
 - [x] Contribution guide, `.editorconfig`, Go lint policy, and CI
   (fmt/vet/lint/build/test + Compose config validation) are in place.
-  `services/crm-api` lints at 0 issues; `services/authincore` has a
-  pre-existing ~87-issue lint backlog predating this work, so its CI lint
-  step runs informationally until that backlog is triaged.
+  `services/crm-api` is the only Go service and its checks are release gates.
 - [x] Security reporting policy and supported-version policy published.
 - [x] `services/crm-api`'s module path and NATS event-subject prefix no
   longer reference CompanyOS (renamed to `github.com/santoshguru/crm` and
-  `crm.<entity>.<tenant>`). `services/authincore/third_party/
-  platform-contract` is still an unlicensed vendored CompanyOS snapshot —
-  open, larger decision (content, not just naming).
-- [x] Commercial license/tier-gating code removed from both services
-  (`internal/license/` in each, AuthinCore's `/api/v1/license` endpoints and
-  admin-ui License page, `migrations/018_license.sql`) — it materially
-  capped AuthinCore at one organization with no license active, which
-  conflicted with this project's own multi-tenant requirement. Both
-  AuthinCore build variants (`go build ./...` and `-tags enterprise`) and
-  crm-api's lint/test/build all pass afterward.
-- [ ] License provenance is **still not fully resolved** — `services/
-  crm-api/LICENSE` is the Connect project's Apache-2.0 notice rather than
-  this project's own license, AuthinCore has no `LICENSE` file for its
-  claimed MIT terms, the `platform-contract` snapshot above is unlicensed,
-  and a newly found migration seeds role/scope data for an unrelated
-  "DBCore" product — see `docs/THIRD_PARTY_NOTICES.md`.
+  `crm.<entity>.<tenant>`). The unlicensed AuthinCore/platform-contract source
+  was subsequently removed in full.
+- [x] Commercial license/tier-gating code and the separate AuthinCore service
+  were removed. Current identity is a small first-party package inside
+  `crm-api`; the historical provenance findings remain recorded in
+  `docs/THIRD_PARTY_NOTICES.md` and `docs/EXTRACTION.md`.
+- [~] The repository now carries an Apache-2.0 project license and corrected
+  copyright notice. A final automated SBOM/license scan and owner/legal
+  confirmation remain required before public distribution.
 - [x] Environment/configuration matrices (`docs/CONFIGURATION.md`) and
-  `APP_ENV`-gated production startup validation for both services — verified
-  live via `make up` (boots normally in `development`) and by
-  `internal/config` unit tests in each service (reject dev-default DB
-  passwords, non-`https` issuer/JWKS/CORS URLs, and — AuthinCore — an
-  ephemeral signing key, in staging/production). Disposable `--profile test`
+  `APP_ENV`-gated production startup validation for the CRM API — verified
+  live via `make up` and by `internal/config` tests (rejecting development DB
+  passwords, weak OTP peppers, insecure production cookies/origins, and
+  partial SMTP/Google login configuration). Disposable `--profile test`
   Postgres instances added (`make test-db-up`/`test-db-down`), verified
   healthy with migrations auto-applied and no data surviving teardown.
   Secret ownership/rotation documented for what's provisioned today;
@@ -52,7 +42,45 @@ checks; no runtime/build path refers to the original CompanyOS workspace;
 licensing is accurately represented before external distribution (not yet
 true — see open findings above).
 
-## M1 — AuthinCore bootstrap, tenant isolation, and RBAC (70%)
+## M1 — Native authentication, tenant isolation, and RBAC (in progress)
+
+Dependencies: CRM PostgreSQL and SMTP/Google credentials only when those
+external login paths are exercised.
+
+- [x] Remove the separate AuthinCore service, its second PostgreSQL database,
+  Redis dependency, hosted/admin UIs, JWT/JWKS boundary, and web OIDC client.
+- [x] Add first-party `crm-api` routes for email challenge request/verification,
+  Google start/callback, session read, and logout.
+- [x] Store OTPs, OAuth state, and opaque sessions only as digests in the CRM
+  database; enforce OTP expiry, single use, attempt limits, resend limits, and
+  revocable session expiry.
+- [~] Carry web sessions in a Secure/HttpOnly/SameSite cookie and accept the
+  same opaque value as a Bearer token. Bearer validation exists, but dedicated
+  mobile issuance/exchange is still required. No JWT or refresh token is
+  stored in the browser.
+- [x] Keep users, organizations, active memberships, four CRM role keys, and
+  onboarding metadata in the CRM database. Derive tenant and scopes from the
+  verified session/membership; never accept a client-selected tenant or role.
+- [~] Complete production-shaped abuse, account-enumeration, SMTP delivery,
+  Google login, Origin/cookie, bootstrap, cross-tenant, revocation, and mobile
+  one-time-handoff acceptance tests.
+- [ ] Add dedicated mobile completion/exchange for both email and Google;
+  current successful authentication issues only the web HttpOnly cookie.
+- [ ] Design record-level sharing only after the product owner defines who may
+  grant/view/edit individual records; the type-level scope policy remains
+  deny-by-default.
+
+Acceptance criteria: a clean stack bootstraps a first administrator without a
+default password; email OTP and Google sign-in create/recover only intended
+accounts; a revoked/expired opaque session is refused immediately; roles and
+tenant come from an active local membership; a principal from organization B
+cannot read or mutate organization A.
+
+## Historical M1 — removed AuthinCore implementation
+
+The section below records work completed against the former identity platform.
+It is retained as engineering history only and is not an operational guide,
+current architecture, or runnable acceptance procedure.
 
 Dependencies: local Postgres/Redis/NATS stack; a local signing key; no external
 provider credentials.
@@ -152,26 +180,22 @@ provider credentials.
   instance, so "may edit accounts they do not own" cannot be expressed until
   someone decides who may grant it.
 
-Acceptance criteria: a clean `make up` plus documented bootstrap command works
-without committed credentials; an admin receives only tenant-local grants; a
-valid AuthinCore token succeeds against CRM; wrong scope returns 403; a token
-from org B cannot read or mutate org A records; JWKS validation survives a
-service restart with the persistent development key.
+Historical acceptance criteria were met for that implementation. They were
+superseded by the native-auth criteria above when AuthinCore was removed.
 
 ## M2 — CRM web foundation and core records (75%)
 
-Dependencies: M1 browser authentication contract and generated Connect client
+Dependencies: M1 native session contract and generated Connect client
 or an equivalent typed contract client.
 
 - [x] `apps/web` (React + TS strict + Vite), a design-system primitive set,
   an app shell (sidebar/topbar/command palette/toasts; responsive since
   the drawer/stacking/a11y work recorded in `task.md` § Web application — the
-  earlier "desktop-only" note here was stale), and the full auth session boundary:
-  OIDC Authorization Code + PKCE login/callback, token renewal (refresh-token
-  grant, not silent-iframe — AuthinCore's `X-Frame-Options: DENY` rules that
-  out), logout, and error/not-found/unavailable states. Verified live end to
-  end via `apps/web/tests-e2e/auth.spec.ts` (Playwright, 2/2 passing) and by
-  hand against the real Compose stack.
+  earlier "desktop-only" note here was stale), and an auth session boundary
+  now migrated to the CRM API's email-OTP/Google login and HttpOnly opaque
+  session cookie. Login, session restore, logout, and unavailable/error states
+  have component coverage; live SMTP and Google-account acceptance remain M1
+  launch gates.
 - [x] Live accounts and contacts lists/detail/create/edit flows (Phase 3).
   Server-side search/filter/sort and keyset pagination, account hierarchy
   and activity timeline on the detail page, permission-aware actions,
@@ -192,9 +216,8 @@ or an equivalent typed contract client.
   worker were its own cancelled writes, not contention — see `task.md`
   Phase 3.2.
 
-**Four real backend bugs were found and fixed while building and live-testing
-this** (AuthinCore had never been exercised by a public/third-party-style
-OAuth client before): no consent-approval UI existed at all (blocking every
+**Historical note:** four backend bugs were found while live-testing the former
+AuthinCore OAuth client: no consent-approval UI existed at all (blocking every
 public client's login), the consent endpoint only accepted JSON although
 completing consent requires a real browser form-post navigation, a CSRF
 check rejected genuine same-origin form posts once `Referrer-Policy:
@@ -207,7 +230,7 @@ and covered by tests: a successful save prompted the user to discard the
 changes it had just saved (the unsaved-changes guard blocked its own success
 navigation); two account-detail sections reported "none" when their query had
 actually failed; and the browser suite's sign-in was both racy and tripping
-AuthinCore's per-IP login rate limit. See `task.md` Phase 3.2.
+the former identity service's per-IP login rate limit. See `task.md` Phase 3.2.
 
 Acceptance criteria: no mock-only data path; a user can sign in, view only
 authorized tenant data, create/update accounts and contacts through CRM API,
@@ -329,7 +352,7 @@ Dependencies: M2/M3 stable record schemas and indexes.
   implemented. **Tags are done**: tenant-scoped definitions and assignments
   for an explicit allowlist of record types, RLS-enforced, idempotent
   assign/remove, deny-by-default `crm:tag:*` scopes in the role matrix and
-  AuthinCore bootstrap, a settings page, and an assign/remove panel on every
+  native CRM bootstrap, a settings page, and an assign/remove panel on every
   taggable record's detail page — verified live against the running stack.
   **Bulk operations are also started**: bounded (≤200 ids), per-item-
   authorized bulk RPCs for tag assign/remove, task complete/reopen, task
@@ -579,8 +602,12 @@ this milestone — covers only the genuine zeroes.
   project has not been run here, because the suite signs in first and this
   machine has no bootstrapped organization.
 
-  **Push on a new lead (§10.2) is not done** — it needs a provider choice and
-  key ownership. A native app is explicitly **not** planned; see §10.4.
+  **Push on a new lead (§10.2) is not done** — it needs provider and key
+  ownership. A focused Flutter application for iOS and Android is now an
+  approved product direction; its native CRM-session handoff, capability-contract, security,
+  offline boundary, test and release plan is documented in
+  `docs/FLUTTER_MOBILE_ARCHITECTURE.md`. This supersedes the earlier PWA-only
+  recommendation in §10.4.
 - [x] **Automations draft messages** (`task_crm.md` §6,
   `migrations/0032_outbound_messages.sql`). A `draft_message` workflow action
   that checks consent, renders a template and leaves a personalised message in
@@ -630,11 +657,11 @@ check that jsdom cannot give it.
 Dependencies: target hosting, domains/TLS, production secrets/KMS, SMTP, and
 backup ownership supplied by the product owner.
 
-- [x] Containers use a persistent signing-key secret boundary and local health
-  endpoints. CRM and AuthinCore now have safe request IDs, structured access
-  logs, liveness/readiness endpoints, Prometheus HTTP/Connect metrics,
-  database pool/query-latency gauges, NATS state, and safe CRM outbox/Auth
-  OIDC/JWKS failure counters. Both ingress paths continue W3C `traceparent`
+- [~] The CRM container has local health endpoints, safe request IDs,
+  structured access logs, Prometheus HTTP/Connect metrics, database
+  pool/query-latency gauges, NATS state, and outbox/integration counters. The
+  native OTP/Google/session paths still need dedicated bounded counters and
+  production alert thresholds. CRM ingress continues W3C `traceparent`
   and can export optional OTLP spans. The CRM browser → API → durable outbox
   → NATS path now persists/restores W3C context without putting request data
   in trace metadata. `docs/OBSERVABILITY.md` documents scrape/auth posture,
@@ -653,7 +680,9 @@ backup ownership supplied by the product owner.
 - [ ] Select backup/PITR and retention policy, perform restore/upgrade drills,
   then add production deployment manifests, CI/CD, release checklist, and
   load/security tests.
-- [ ] Confirm AuthinCore license provenance before external distribution.
+- [ ] Run a final SBOM/license scan and confirm the repository's Apache-2.0
+  grant before external distribution. AuthinCore provenance is historical
+  because that source is no longer distributed.
 
 Acceptance criteria: deployment and restore are rehearsed; no development
 credentials are accepted in production; observability identifies tenant-safe

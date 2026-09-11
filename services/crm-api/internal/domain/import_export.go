@@ -181,8 +181,8 @@ func AccountsToCSV(accounts []*Account) (string, error) {
 	}
 	for _, a := range accounts {
 		row := []string{
-			a.ID, a.Name, a.Industry, a.Tier, a.OwnerID, a.Website,
-			strconv.FormatFloat(a.AnnualRevenue, 'f', -1, 64), a.ParentID, a.DuplicateOfAccountID,
+			safeCSVCell(a.ID), safeCSVCell(a.Name), safeCSVCell(a.Industry), safeCSVCell(a.Tier), safeCSVCell(a.OwnerID), safeCSVCell(a.Website),
+			strconv.FormatFloat(a.AnnualRevenue, 'f', -1, 64), safeCSVCell(a.ParentID), safeCSVCell(a.DuplicateOfAccountID),
 			a.CreatedAt.UTC().Format(time.RFC3339), a.UpdatedAt.UTC().Format(time.RFC3339),
 		}
 		if err := w.Write(row); err != nil {
@@ -194,6 +194,22 @@ func AccountsToCSV(accounts []*Account) (string, error) {
 		return "", fmt.Errorf("flush export: %w", err)
 	}
 	return buf.String(), nil
+}
+
+// safeCSVCell prevents spreadsheet programs from interpreting exported tenant
+// data as a formula when the CSV is opened. The leading apostrophe is the
+// conventional display-preserving escape understood by spreadsheet tools.
+func safeCSVCell(value string) string {
+	trimmed := strings.TrimLeft(value, " \t\r\n")
+	if trimmed == "" {
+		return value
+	}
+	switch trimmed[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
 }
 
 // parseImportCSV splits raw CSV content into a header and its data rows,

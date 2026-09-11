@@ -28,9 +28,14 @@ WITH matches AS (
   FROM contacts
   WHERE tenant_id = $1 AND (first_name ILIKE '%' || $2 || '%' OR last_name ILIKE '%' || $2 || '%' OR email ILIKE '%' || $2 || '%')
   UNION ALL
-  SELECT 'lead', id, company, COALESCE(NULLIF(contact_email, ''), NULLIF(source, ''), '')
+  SELECT 'lead', id,
+    COALESCE(NULLIF(btrim(first_name || ' ' || last_name), ''), NULLIF(company, ''),
+             NULLIF(contact_email, ''), NULLIF(phone, ''), 'Lead'),
+    COALESCE(NULLIF(company, ''), NULLIF(contact_email, ''), NULLIF(phone, ''), NULLIF(source, ''), '')
   FROM leads
-  WHERE tenant_id = $1 AND (company ILIKE '%' || $2 || '%' OR contact_email ILIKE '%' || $2 || '%' OR source ILIKE '%' || $2 || '%')
+  WHERE tenant_id = $1 AND (first_name ILIKE '%' || $2 || '%' OR last_name ILIKE '%' || $2 || '%'
+    OR company ILIKE '%' || $2 || '%' OR contact_email ILIKE '%' || $2 || '%'
+    OR phone ILIKE '%' || $2 || '%' OR source ILIKE '%' || $2 || '%')
   UNION ALL
   SELECT 'opportunity', id, name, stage
   FROM opportunities

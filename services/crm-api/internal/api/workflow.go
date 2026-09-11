@@ -58,10 +58,10 @@ func (s *CRMService) DescribeWorkflowCatalog(
 		Triggers:           out,
 		ActionTypes:        domain.WorkflowActionTypes(),
 		AssigneeSelectors:  domain.WorkflowAssigneeSelectors(),
-		MaxConditions:      int32(maxConditions),
-		MaxActions:         int32(maxActions),
-		MaxTextLength:      int32(maxText),
-		MaxRotationMembers: int32(domain.MaxRotationMembers()),
+		MaxConditions:      boundedInt32(maxConditions),
+		MaxActions:         boundedInt32(maxActions),
+		MaxTextLength:      boundedInt32(maxText),
+		MaxRotationMembers: boundedInt32(domain.MaxRotationMembers()),
 		AssignableSubjects: domain.SortedAssignableSubjects(),
 	}), nil
 }
@@ -318,7 +318,7 @@ func (s *CRMService) ListNotifications(
 		}
 	}
 	return connect.NewResponse(&crmv1.ListNotificationsResponse{
-		Notifications: out, UnreadCount: int32(len(unread)),
+		Notifications: out, UnreadCount: boundedInt32(len(unread)),
 	}), nil
 }
 
@@ -372,13 +372,13 @@ func workflowVersionToProto(v *domain.WorkflowRuleVersion) *crmv1.WorkflowRuleVe
 		actions = append(actions, &crmv1.WorkflowAction{
 			Type: action.Type, Title: action.Title, Body: action.Body,
 			Assignee: action.Assignee, AssigneeId: action.AssigneeID,
-			Priority: action.Priority, DueInDays: int32(action.DueInDays),
+			Priority: action.Priority, DueInDays: boundedInt32(action.DueInDays),
 			ActivityKind: action.ActivityKind, RotationMembers: action.RotationMembers,
 			ChannelKind: action.ChannelKind, TemplateId: action.TemplateID,
 		})
 	}
 	return &crmv1.WorkflowRuleVersion{
-		Id: v.ID, RuleId: v.RuleID, Version: int32(v.Version),
+		Id: v.ID, RuleId: v.RuleID, Version: boundedInt32(v.Version),
 		TriggerEventType: v.TriggerEventType, TriggerObjectType: v.TriggerObjectType,
 		Conditions: conditions, Actions: actions, CreatedBy: v.CreatedBy,
 		CreatedAt: optionalTimestamp(v.CreatedAt),
@@ -417,8 +417,8 @@ func workflowExecutionToProto(v *domain.WorkflowExecution) *crmv1.WorkflowExecut
 		Id: v.ID, RuleId: v.RuleID, RuleVersionId: v.RuleVersionID,
 		SourceEventId: v.SourceEventID, SourceEventType: v.SourceEventType,
 		SubjectType: v.SubjectType, SubjectId: v.SubjectID, Status: v.Status,
-		Attempts: int32(v.Attempts), ErrorCategory: v.ErrorCategory,
-		ActionsCompleted: int32(v.ActionsCompleted),
+		Attempts: boundedInt32(v.Attempts), ErrorCategory: v.ErrorCategory,
+		ActionsCompleted: boundedInt32(v.ActionsCompleted),
 		NextAttemptAt:    optionalTimestamp(v.NextAttemptAt),
 		StartedAt:        optionalTimestamp(v.StartedAt),
 		FinishedAt:       optionalTimestamp(v.FinishedAt),

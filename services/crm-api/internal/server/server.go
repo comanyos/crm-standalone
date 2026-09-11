@@ -22,6 +22,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
 	"github.com/santoshguru/crm/internal/integration/leadcapture"
+	metaintegration "github.com/santoshguru/crm/internal/integration/meta"
 	"github.com/santoshguru/crm/internal/integration/privacy"
 	"github.com/santoshguru/crm/internal/metrics"
 	"github.com/santoshguru/crm/internal/platform"
@@ -30,6 +31,8 @@ import (
 )
 
 const moduleID = "crm"
+
+const maxRequestBodyBytes = 4 << 20
 
 // Server holds the wired CRM HTTP server.
 type Server struct {
@@ -45,6 +48,7 @@ type Server struct {
 	// then not registered at all, rather than registered and failing: an
 	// endpoint that cannot verify a signature must not exist.
 	leadCapture *leadcapture.Service
+	meta        *metaintegration.Service
 	// captureSealer is the same key the ingestion service uses, handed to the
 	// API layer so issuing an endpoint and verifying its deliveries cannot
 	// drift onto two different keys.
@@ -117,6 +121,10 @@ func New(
 			return nil, err
 		}
 	}
+	metaSvc, err := newMetaService(cfg, store)
+	if err != nil {
+		return nil, err
+	}
 	emitter := platform.NewEmitter(moduleID, cfg.NATSURL)
 	s := &Server{
 		cfg:      cfg,
@@ -129,6 +137,7 @@ func New(
 		calendar: calendarSyncer,
 
 		leadCapture:   captureSvc,
+		meta:          metaSvc,
 		captureSealer: captureSealer,
 		gmailSender:   gmailSender,
 
@@ -154,6 +163,7 @@ func (s *Server) CalendarSyncer() *calendar.Syncer { return s.calendar }
 // Close gracefully drains the server's NATS connection.
 func (s *Server) Close() {
 	s.emitter.Close()
+	s.authn.Close()
 }
 
 // Publisher returns a bus publisher sharing the server's NATS connection.
@@ -166,27 +176,32 @@ func (s *Server) Publisher() *platform.Publisher {
 
 // Handler exposes the mux wrapped in middleware.
 func (s *Server) Handler() http.Handler {
-	mws := []func(http.Handler) http.Handler{requestIDMW, tracing.HTTPMiddleware, metrics.Middleware, loggingMW, recoverMW}
-	if len(s.cfg.CORSOrigins) > 0 {
-		mws = append(mws, corsMW(s.cfg.CORSOrigins))
-	}
+	// CORS is also the Origin gate for cookie-authenticated requests, so it
+	// must remain installed when the allowlist is empty. Omitting it in that
+	// state would let an unapproved same-site origin execute simple POSTs even
+	// though the browser could not read their responses.
+	mws := []func(http.Handler) http.Handler{requestIDMW, requestBodyLimitMW, tracing.HTTPMiddleware, metrics.Middleware, loggingMW, recoverMW, corsMW(s.cfg.CORSOrigins, s.cfg.AuthCORSOrigins)}
 	return chain(s.mux, mws...)
 }
 
 func (s *Server) routes() {
-	// /healthz is liveness: the process is up and serving. It deliberately
-	// does not consult the identity provider — a CRM that restarts itself
-	// because AuthinCore is briefly unreachable turns a recoverable outage
-	// into a crash loop.
+	// Passwordless and Google login are first-party CRM routes. Successful
+	// authentication establishes the opaque session consumed by the Connect
+	// interceptors registered below.
+	s.authn.RegisterRoutes(s.mux)
+
+	// /healthz is liveness: the process is up and serving. Dependency state is
+	// reported by /readyz instead, so a transient database outage does not
+	// turn into a restart loop.
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
-	// /readyz is readiness: this instance can actually do its job. It can
-	// only do its job if it holds signing keys, because without them every
-	// authenticated request fails — and fails in a way that looks to the user
-	// like their own credentials are wrong, not like an outage.
+	// /readyz is readiness: this instance can actually do its job. The auth
+	// check is kept separate from the domain-store check because deployments
+	// may use distinct pools or credentials even though both point at CRM
+	// Postgres.
 	//
 	// Splitting the two is the point. A single endpoint has to choose
 	// between restarting on an upstream outage and routing traffic to an
@@ -195,22 +210,20 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
 		err := s.readiness(ctx)
-		cancel()
 		if err != nil {
 			slog.Warn("readiness check failed", "dependency", "database", "request_id", RequestID(r.Context()))
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "not_ready", "reason": "dependencies unavailable"})
 			return
 		}
-		if err := s.authn.Ready(r.Context()); err != nil {
-			slog.Warn("readiness check failed", "dependency", "signing_keys", "request_id", RequestID(r.Context()))
+		if err := s.authn.Ready(ctx); err != nil {
+			slog.Warn("readiness check failed", "dependency", "authentication_store", "request_id", RequestID(r.Context()))
 			w.WriteHeader(http.StatusServiceUnavailable)
-			// The reason names the subsystem, never the JWKS URL's contents
-			// or any token material.
 			_ = json.NewEncoder(w).Encode(map[string]string{
 				"status": "not_ready",
-				"reason": "signing keys unavailable",
+				"reason": "authentication store unavailable",
 			})
 			return
 		}
@@ -232,14 +245,15 @@ func (s *Server) routes() {
 	s.mux.Handle("GET /metrics", s.requireMetricsToken(metricsHandler))
 
 	interceptors := connect.WithInterceptors(s.authn.Interceptor(scopePolicy))
+	readLimit := connect.WithReadMaxBytes(maxRequestBodyBytes)
 
 	modPath, modHandler := platformv1connect.NewModuleServiceHandler(
-		api.NewModuleService(s.cfg, s.store), interceptors)
+		api.NewModuleService(s.cfg, s.store), interceptors, readLimit)
 	s.mux.Handle(modPath, modHandler)
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
 		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar, s.privacy,
-			s.captureSealer, s.gmailSender), interceptors)
+			s.captureSealer, s.gmailSender, s.meta), interceptors, readLimit)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect
@@ -248,6 +262,11 @@ func (s *Server) routes() {
 	// for authentication is the one-time state record written before the
 	// redirect — see internal/integration/google.
 	s.mux.Handle("GET "+googleCallbackPath, s.googleCallbackHandler())
+	if s.meta != nil && s.meta.Configured() {
+		s.mux.Handle("GET "+metaCallbackPath, s.metaCallbackHandler())
+		s.mux.Handle("GET "+metaWebhookPath, s.metaWebhookHandler())
+		s.mux.Handle("POST "+metaWebhookPath, s.metaWebhookHandler())
+	}
 
 	// Inbound lead capture, likewise outside the interceptor: the caller is a
 	// third-party server with no CRM session. It is registered only when a
@@ -301,6 +320,25 @@ func newGoogleService(cfg config.Config, store domain.Store) (*google.Service, e
 		return nil, err
 	}
 	return google.New(store, client, cfg.WebAppBaseURL), nil
+}
+
+func newMetaService(cfg config.Config, store domain.Store) (*metaintegration.Service, error) {
+	if cfg.MetaAppID == "" && cfg.MetaAppSecret == "" && cfg.MetaOAuthRedirectURL == "" &&
+		cfg.MetaWebhookVerifyToken == "" && cfg.MetaTokenKey == "" {
+		return metaintegration.NewService(store, nil, nil, cfg.WebAppBaseURL), nil
+	}
+	sealer, err := secrets.New(cfg.MetaTokenKey)
+	if err != nil {
+		return nil, fmt.Errorf("meta token sealing: %w", err)
+	}
+	client, err := metaintegration.NewClient(metaintegration.Config{
+		AppID: cfg.MetaAppID, AppSecret: cfg.MetaAppSecret,
+		RedirectURL: cfg.MetaOAuthRedirectURL, GraphVersion: cfg.MetaGraphVersion,
+	}, nil)
+	if err != nil {
+		return nil, err
+	}
+	return metaintegration.NewService(store, client, sealer, cfg.WebAppBaseURL), nil
 }
 
 // requireMetricsToken protects scrape data when CRM_METRICS_TOKEN is set. An

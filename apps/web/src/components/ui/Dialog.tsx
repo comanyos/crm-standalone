@@ -51,24 +51,28 @@ export function Dialog({ open, onClose, title, children, footer }: DialogProps) 
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className="w-full max-w-md rounded-lg p-0 backdrop:bg-slate-900/50"
+      className="w-[calc(100%_-_2rem)] max-w-md rounded-2xl border border-slate-200 bg-white p-0 shadow-lg backdrop:bg-slate-950/55"
       onClose={onClose}
     >
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-        <h2 id={titleId} className="text-base font-semibold text-slate-900">
+        <h2 id={titleId} className="text-lg font-semibold tracking-[-0.015em] text-slate-950">
           {title}
         </h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
-          className="rounded text-slate-400 hover:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-xl text-slate-500 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
         >
           ×
         </button>
       </div>
-      <div className="px-5 py-4 text-sm text-slate-700">{children}</div>
-      {footer && <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">{footer}</div>}
+      <div className="px-5 py-4 text-sm leading-6 text-slate-700">{children}</div>
+      {footer && (
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3.5">
+          {footer}
+        </div>
+      )}
     </dialog>
   );
 }

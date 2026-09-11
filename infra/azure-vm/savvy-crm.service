@@ -1,0 +1,18 @@
+[Unit]
+Description=Savvy CRM production containers
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/savvy-crm
+ExecStartPre=/usr/bin/docker compose --env-file runtime.env -f compose.yaml pull
+ExecStart=/usr/bin/docker compose --env-file runtime.env -f compose.yaml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose --env-file runtime.env -f compose.yaml down
+TimeoutStartSec=900
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

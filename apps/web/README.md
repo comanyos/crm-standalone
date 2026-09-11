@@ -1,125 +1,67 @@
-# CRM web application
+# Savvy CRM web application
 
-The browser CRM. React 18 + TypeScript (strict) + Vite, TanStack Query for
-data fetching/caching, React Router, React Hook Form + Zod for forms,
-Tailwind for styling, and a typed Connect-ES client (`@crm/contracts`)
-generated from `services/crm-api/proto`. OIDC Authorization Code + PKCE
-login/session logic lives in `@crm/auth-client` (`packages/auth-client`).
+The browser CRM. It uses React 18, strict TypeScript, Vite, TanStack Query,
+React Router, React Hook Form, Zod, Tailwind CSS, and typed Connect-ES clients
+generated in `@crm/contracts`.
 
-## Prerequisites
+## Authentication
 
-- The full standalone stack running and bootstrapped — from the repo root:
-  ```sh
-  make dev-key && make up
-  BOOTSTRAP_ORG_NAME='Acme CRM' BOOTSTRAP_ORG_DOMAIN='localhost' \
-  BOOTSTRAP_ADMIN_NAME='Admin' BOOTSTRAP_ADMIN_EMAIL='admin@localhost' \
-  BOOTSTRAP_ADMIN_PASSWORD='use-a-unique-12-character-minimum-password' \
-  make bootstrap
-  ```
-  Set the printed `organization_id` as `CRM_WEB_AUTH_ORG_ID` in the ignored
-  root `.env` before `make up` builds the persistent browser container.
-- `npm install` at the repo root (this is an npm workspace; installing here
-  alone will not link `@crm/contracts`/`@crm/auth-client`).
+Authentication is first-party and passwordless. The public marketing site's
+combined Login / Sign-up dialog owns account entry:
 
-## Persistent local app
+1. `POST /auth/email/request` sends a six-digit email code.
+2. `POST /auth/email/verify` verifies it and sets the HttpOnly
+   `savvy_session` cookie.
+3. `GET /auth/session` restores the UI session after a reload.
+4. `POST /auth/logout` revokes and clears the session.
 
-`make up` builds the web application and serves it at `CRM_WEB_ORIGIN`
-(`http://localhost:3000` by default). It uses an nginx SPA fallback, so the
-OIDC redirect to `/auth/callback` remains available after terminal sessions
-end. The browser image contains public OIDC configuration only; never supply a
-client secret to it.
+Google login in that dialog is available as a secondary option only when
+`GET /auth/capabilities` returns `{ "google": true }`. It starts through
+`GET /auth/google/start?flow=login`; the API owns OAuth state and callback
+handling, so no Google client secret enters the browser bundle. A missing or
+unreachable capabilities endpoint simply leaves email OTP available.
 
-## Vite development setup
+The browser never stores or reads the opaque session token. Auth fetches from
+the marketing dialog and Connect RPC calls from this app use
+`credentials: "include"`, with separate exact CORS allowlists. The app's
+`/login` route exists only for old bookmarks and immediately opens the
+marketing dialog. `hasScope` and `hasRole` only control UI hints; the API
+remains the authorization authority.
+
+The app signs out after 30 minutes without deliberate activity across all open
+CRM tabs. Activity heartbeats are throttled and contain no user/session data.
+Logout hides protected data immediately, but the UI claims success only after
+the API confirms revocation; failures and timeouts expose a retry action.
+
+## Local development
+
+Install workspace dependencies at the repository root, start the CRM API, then:
 
 ```sh
 cp apps/web/.env.example apps/web/.env
-# edit apps/web/.env: set VITE_AUTH_ORG_ID to the organization_id from bootstrap
 npm run dev --workspace=@crm/web
 ```
 
-Open `http://localhost:3000`. Signing in redirects to AuthinCore's hosted
-login page (`http://localhost:18080/login`) — sign in with the bootstrap
-administrator's email/password, approve the consent screen on first login,
-and you land on the dashboard.
+The required browser configuration is `VITE_CRM_API_URL` plus
+`VITE_CRM_AUTH_PORTAL_URL`. Authentication secrets, SMTP credentials, and
+signing keys belong to the CRM API and must never use a `VITE_` prefix.
 
-**Port 3000 must be free by default.** The OIDC client's `redirect_uri` and
-both backends' CORS allowlists (`CORS_ALLOWED_ORIGINS`) must match the web
-origin exactly. `vite.config.ts` sets `strictPort: true` so a conflict fails
-loudly instead of silently running on a different origin (which would break
-login, not just the dev server).
-
-If another local application owns port 3000, use one free port consistently:
-
-1. In the ignored root `.env`, set `CRM_WEB_PORT=<port>`,
-   `CRM_WEB_ORIGIN=http://localhost:<port>`, and
-   `CRM_WEB_REDIRECT_URI=http://localhost:<port>/auth/callback`.
-2. In the ignored `apps/web/.env`, set `VITE_WEB_PORT=<port>` only when using
-   the Vite development server.
-3. Recreate the standalone AuthinCore and CRM API services, then re-run
-   `make bootstrap` with the same organization and administrator values so
-   the `crm-web` client's redirect URI is reconciled.
-
-The web server binds to loopback by default; it is intentionally not exposed
-to the local network during development.
-
-## Why no dev proxy?
-
-`services/authincore/admin-ui` and `hosted-ui` (in this same repo) proxy
-AuthinCore through Vite in dev. This app deliberately does not: it's an OIDC
-*client* on its own origin, not AuthinCore's own first-party UI, and the
-login redirect is a full top-level navigation to AuthinCore's real origin
-regardless of any proxy. The token exchange, refresh, and logout calls rely
-on AuthinCore's (and crm-api's) `CORS_ALLOWED_ORIGINS` allowlist instead —
-already configured for `http://localhost:3000` by default in the root
-`compose.yaml`, and the same mechanism a production deployment with the web
-app on its own subdomain would need anyway.
-
-## Session model
-
-- The access token lives in memory only — never in `localStorage` or
-  `sessionStorage`.
-- The refresh token (rotated by AuthinCore on every use) lives in
-  `sessionStorage` — cleared when the tab/browser closes, but present across
-  a reload. AuthinCore's authorization endpoints send `X-Frame-Options: DENY`
-  (correct hardening on an identity provider), which rules out the
-  hidden-iframe "silent renew" pattern some SPAs use instead; the
-  `grant_type=refresh_token` exchange is the strategy this architecture
-  actually supports. See `packages/auth-client/src/client.ts` and
-  `session-store.ts`.
-- Renewal fires ~60s before the access token's `exp` claim. If it fails
-  (revoked/expired refresh token), the user sees a toast and is prompted to
-  sign in again — not silently kicked out mid-action.
-- Sign out clears local state, revokes the stored refresh token, and ends
-  AuthinCore's own browser session (`DELETE /api/v1/sessions/me`), so a
-  reload afterward genuinely requires signing in again rather than silently
-  resuming.
+`VITE_WEB_PORT` defaults to `3000`, and Vite uses `strictPort: true`. If the
+port is taken, choose another one and add the resulting exact origin to the
+API's credentialed CORS allowlist. The development server binds to loopback by
+default.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `make up` | Persistent Docker-served CRM app at `CRM_WEB_ORIGIN` |
-| `npm run dev` | Vite development server on `VITE_WEB_PORT` (3000 by default) |
-| `npm run build` | Type-check (`tsc -b`) + production build |
-| `npm run test` | Unit/component tests (Vitest + Testing Library) |
-| `npm run test:e2e` | Browser tests (Playwright) — needs the backend stack up and bootstrapped, and `apps/web/.env` configured; see `tests-e2e/auth.spec.ts` |
-| `npm run lint` | ESLint (includes `jsx-a11y` for the WCAG 2.2 AA baseline) |
-| `npm run typecheck` | `tsc -b --noEmit` |
+| `npm run dev` | Run the Vite development server |
+| `npm run build` | Type-check and create the production bundle |
+| `npm run test` | Run Vitest unit/component tests |
+| `npm run test:e2e` | Run Playwright against a live CRM API |
+| `npm run lint` | Run ESLint, including accessibility rules |
+| `npm run typecheck` | Run TypeScript without emitting output |
 
-## What exists today (Phase 2 of `task.md`)
-
-- Application shell: sidebar, top bar, command palette (`⌘K`, navigation
-  only for now — Phase 6 adds live search), breadcrumbs/page headers, a
-  global toast system.
-- Design-system primitives: `Button`, `Input`, `Table`, `Dialog`/
-  `ConfirmDialog` (built on the native `<dialog>` element), `Badge`,
-  `Skeleton`, `Pagination`, and `EmptyState`/`ErrorState`/`ForbiddenState`/
-  `UnavailableState` patterns.
-- Full OIDC Authorization Code + PKCE login/callback/renewal/logout, a
-  `RequireAuth` route guard, and a permission-hint API (`hasScope`/
-  `hasRole`) — the backend remains the authorization authority.
-- A live Dashboard page (`crm.v1.CRMService/GetSummary`, not mocked) proving
-  the Connect-ES client, auth, and CORS wiring end-to-end.
-- Accounts, Contacts, and Leads have live list/detail/create/edit workflows.
-  Lead conversion uses the CRM API's atomic conversion contract. Opportunities
-  remains an honest placeholder until the pipeline/stage module is built.
+For passwordless browser tests, set the API's development-only `AUTH_DEV_OTP`
+and provide the same six-digit value as `E2E_LOGIN_CODE`. Production and
+staging reject the fixed-code setting.

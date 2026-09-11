@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useCrmClients } from "../../lib/useCrmClients";
@@ -45,27 +46,29 @@ function RecordSearchResults({ query, onSelect }: { query: string; onSelect: (to
         key: `${record.objectType}-${record.id}`,
         label: record.title,
         detail: `${record.objectType[0].toUpperCase()}${record.objectType.slice(1)}${record.subtitle ? ` · ${record.subtitle}` : ""}`,
-        to: record.objectType === "task" ? `/tasks/${record.id}/edit` : `${destinations[record.objectType]}/${record.id}`,
+        to:
+          record.objectType === "task"
+            ? `/tasks/${record.id}/edit`
+            : `${destinations[record.objectType]}/${record.id}`,
         score: 0,
       }));
     },
   });
-  if (recordSearch.isPending) return <li className="px-4 py-3 text-sm text-slate-500">Searching CRM…</li>;
+  if (recordSearch.isPending)
+    return <li className="px-4 py-3 text-sm text-slate-500">Searching Savvy CRM…</li>;
   if ((recordSearch.data?.length ?? 0) === 0)
-    return <li className="px-4 py-3 text-sm text-slate-500">No CRM records match “{query.trim()}”.</li>;
+    return <li className="px-4 py-3 text-sm text-slate-500">No Savvy CRM records match “{query.trim()}”.</li>;
   return (
     <>
       <li className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        CRM records
+        Savvy CRM records
       </li>
       {recordSearch.data?.map((record) => (
         <li key={record.key}>
           <button
             type="button"
-            role="option"
-            aria-selected={false}
             onClick={() => onSelect(record.to)}
-            className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+            className="block w-full px-5 py-2.5 text-left text-sm text-slate-700 hover:bg-brand-50/60"
           >
             <span className="block font-medium text-slate-900">{record.label}</span>
             <span className="block text-xs text-slate-500">{record.detail}</span>
@@ -117,37 +120,49 @@ export function CommandPalette() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+        aria-label="Search or jump to"
+        className="ml-auto flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500 hover:border-slate-300 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 sm:ml-0"
       >
-        <span>Search or jump to…</span>
-        <kbd className="rounded border border-slate-300 bg-slate-50 px-1 font-sans">⌘K</kbd>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-4 w-4 sm:hidden"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m16 16 4 4" strokeLinecap="round" />
+        </svg>
+        <span className="hidden sm:inline">Search or jump to…</span>
+        <kbd className="hidden rounded border border-slate-300 bg-white px-1.5 font-sans sm:inline">⌘K</kbd>
       </button>
     );
   }
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
-      className="fixed inset-0 z-50 flex items-start justify-center pt-24"
+      className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[12vh]"
     >
       <button
         type="button"
         aria-label="Close command palette"
         onClick={() => setOpen(false)}
-        className="absolute inset-0 h-full w-full cursor-default bg-slate-900/40"
+        className="absolute inset-0 h-full w-full cursor-default bg-slate-950/45 backdrop-blur-[2px]"
       />
-      <div className="relative w-full max-w-lg rounded-lg bg-white shadow-xl">
+      <div className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search records or jump to a section…"
           aria-label="Search records or jump to a section"
-          className="w-full rounded-t-lg border-b border-slate-200 px-4 py-3 text-sm focus:outline-none"
+          className="w-full border-b border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-950 placeholder:text-slate-400 focus:outline-none"
         />
-        <ul role="listbox" className="max-h-72 overflow-y-auto py-1">
+        <ul aria-label="Search and navigation results" className="max-h-72 overflow-y-auto py-1">
           {!hasRecordQuery && navigationResults.length === 0 && (
             <li className="px-4 py-3 text-sm text-slate-500">No matches.</li>
           )}
@@ -165,13 +180,11 @@ export function CommandPalette() {
               <li key={c.to}>
                 <button
                   type="button"
-                  role="option"
-                  aria-selected={false}
                   onClick={() => {
                     setOpen(false);
                     navigate(c.to);
                   }}
-                  className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  className="block w-full px-5 py-2.5 text-left text-sm text-slate-700 hover:bg-brand-50/60"
                 >
                   {c.label}
                 </button>
@@ -179,6 +192,7 @@ export function CommandPalette() {
             ))}
         </ul>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

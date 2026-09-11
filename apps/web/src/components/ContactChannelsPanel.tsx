@@ -18,6 +18,7 @@ import {
   type ChannelKind,
 } from "../lib/messagingLinks";
 import { mergeValuesForContact, renderTemplate } from "../lib/messageTemplates";
+import type { MessagingChannel } from "@crm/contracts";
 
 /** Reach out to a contact on the channel they prefer, in one tap
  * (task_crm.md §3).
@@ -46,6 +47,58 @@ export function ContactChannelsPanel({
   email?: string;
   accountName?: string;
 }) {
+  return (
+    <RecordChannelsPanel
+      subjectType="contact"
+      subjectId={contactId}
+      firstName={firstName}
+      lastName={lastName}
+      email={email}
+      accountName={accountName}
+    />
+  );
+}
+
+export function LeadChannelsPanel({
+  leadId,
+  firstName,
+  lastName = "",
+  email = "",
+  company = "",
+}: {
+  leadId: string;
+  firstName: string;
+  lastName?: string;
+  email?: string;
+  company?: string;
+}) {
+  return (
+    <RecordChannelsPanel
+      subjectType="lead"
+      subjectId={leadId}
+      firstName={firstName}
+      lastName={lastName}
+      email={email}
+      accountName={company}
+    />
+  );
+}
+
+function RecordChannelsPanel({
+  subjectType,
+  subjectId,
+  firstName,
+  lastName,
+  email,
+  accountName,
+}: {
+  subjectType: "contact" | "lead";
+  subjectId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  accountName: string;
+}) {
   const { crm } = useCrmClients();
   const { hasScope, session } = useAuth();
   const toast = useToast();
@@ -57,11 +110,17 @@ export function ContactChannelsPanel({
   const canLog = hasScope("crm:activity:write");
   const canUseTemplates = hasScope("crm:template:read");
 
-  const channelsKey = ["crm.listContactChannels", contactId] as const;
-  const channelsQuery = useQuery({
+  const channelsKey = [`crm.list${subjectType === "lead" ? "Lead" : "Contact"}Channels`, subjectId] as const;
+  const channelsQuery = useQuery<{ channels: MessagingChannel[] }>({
     queryKey: channelsKey,
-    queryFn: () => crm.listContactChannels({ contactId }),
-    enabled: canRead && !!contactId,
+    queryFn: async () => {
+      const response =
+        subjectType === "lead"
+          ? await crm.listLeadChannels({ leadId: subjectId })
+          : await crm.listContactChannels({ contactId: subjectId });
+      return { channels: response.channels };
+    },
+    enabled: canRead && !!subjectId,
   });
 
   const templatesQuery = useQuery({
@@ -93,15 +152,15 @@ export function ContactChannelsPanel({
         activity: {
           kind: OUTREACH_ACTIVITY_KIND,
           notes: outreachNote(vars.kind, vars.address, message),
-          subjectType: "contact",
-          subjectId: contactId,
+          subjectType,
+          subjectId,
           actorId: session?.claims.sub ?? "",
           occurredAt: timestampFromDate(new Date()),
         },
       }),
     onSuccess: () =>
       void queryClient.invalidateQueries({
-        queryKey: ["crm.listActivitiesForSubject", "contact", contactId],
+        queryKey: ["crm.listActivitiesForSubject", subjectType, subjectId],
       }),
     // A failed log must not look like a failed message. The hand-off already
     // happened — the anchor navigated — so the honest report is that the
@@ -160,7 +219,9 @@ export function ContactChannelsPanel({
         <h2 id="channels-heading" className="mb-2 text-sm font-semibold text-slate-900">
           Reach out
         </h2>
-        <p className="text-sm text-slate-500">No email address or phone number on this contact yet.</p>
+        <p className="text-sm text-slate-500">
+          No email address or phone number on this {subjectType} yet.
+        </p>
       </section>
     );
   }

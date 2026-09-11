@@ -8,6 +8,8 @@ const { crm, auth } = vi.hoisted(() => ({
   crm: {
     getLead: vi.fn(), deleteLead: vi.fn(), convertLead: vi.fn(), getContact: vi.fn(),
     listActivitiesForSubject: vi.fn(), createActivity: vi.fn(),
+    listLeadChannels: vi.fn(), recordMessagingConsent: vi.fn(), listMessageTemplates: vi.fn(),
+    getLeadMetaAttribution: vi.fn(),
     listTasks: vi.fn(), completeTask: vi.fn(),
     listNotes: vi.fn(), createNote: vi.fn(), updateNote: vi.fn(), deleteNote: vi.fn(),
   },
@@ -33,6 +35,9 @@ beforeEach(() => {
   crm.listActivitiesForSubject.mockResolvedValue({ activities: [], nextPageToken: "" });
   crm.listTasks.mockResolvedValue({ tasks: [makeTask()], nextPageToken: "" });
   crm.listNotes.mockResolvedValue({ notes: [makeNote()], nextPageToken: "" });
+  crm.listLeadChannels.mockResolvedValue({ channels: [] });
+  crm.listMessageTemplates.mockResolvedValue({ templates: [] });
+  crm.getLeadMetaAttribution.mockResolvedValue({});
 });
 
 /** The lead detail page composes the most parts of any screen: a definition
@@ -43,7 +48,7 @@ beforeEach(() => {
 describe("LeadDetailPage accessibility", () => {
   it("has no violations with its panels assembled", async () => {
     const { container } = renderRoutes(routes, ["/leads/lead-1"]);
-    await screen.findByRole("heading", { name: /Northwind/ });
+    await screen.findByRole("heading", { name: /Grace Hopper/ });
     await screen.findByText("Renewal owner is now Priya.");
     await expectNoA11yViolations(container);
   });

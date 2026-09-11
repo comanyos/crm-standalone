@@ -154,11 +154,13 @@ const (
 // silently stops matching. That needs a versioning story of its own.
 var workflowFields = map[string]map[string]fieldKind{
 	SubjectLead: {
-		"source":   kindString,
-		"status":   kindString,
-		"owner_id": kindString,
-		"company":  kindString,
-		"score":    kindNumber,
+		"source":     kindString,
+		"status":     kindString,
+		"owner_id":   kindString,
+		"company":    kindString,
+		"first_name": kindString,
+		"last_name":  kindString,
+		"score":      kindNumber,
 	},
 	SubjectOpportunity: {
 		"stage":       kindString,

@@ -1,19 +1,7 @@
-import { createClient, type Interceptor } from "@connectrpc/connect";
+import { Code, ConnectError, createClient, type Interceptor } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { CRMService, ModuleService } from "@crm/contracts";
-
-/** Attaches the current access token to every outgoing RPC. Reading it via a
- * callback (rather than a value captured once) means a token renewed after
- * the client was created is still picked up on the next call. */
-function authInterceptor(getAccessToken: () => string | null): Interceptor {
-  return (next) => async (req) => {
-    const token = getAccessToken();
-    if (token) {
-      req.header.set("Authorization", `Bearer ${token}`);
-    }
-    return next(req);
-  };
-}
+import { reportUnauthenticatedResponse } from "../auth/unauthenticated-response";
 
 /** Starts a W3C trace for each browser-to-CRM RPC. The value is opaque random
  * telemetry context only: it contains no user, tenant, token, URL, or request
@@ -25,6 +13,21 @@ export function traceContextInterceptor(): Interceptor {
       if (traceparent) req.header.set("traceparent", traceparent);
     }
     return next(req);
+  };
+}
+
+/** Connect errors can arrive in a successful HTTP envelope, so checking the
+ * decoded RPC code is required in addition to checking the fetch status. */
+export function unauthenticatedResponseInterceptor(): Interceptor {
+  return (next) => async (req) => {
+    try {
+      return await next(req);
+    } catch (error) {
+      if (ConnectError.from(error).code === Code.Unauthenticated) {
+        reportUnauthenticatedResponse();
+      }
+      throw error;
+    }
   };
 }
 
@@ -41,10 +44,19 @@ function hex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function createCrmClients(baseUrl: string, getAccessToken: () => string | null) {
+export async function credentialedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, { ...init, credentials: "include" });
+  if (response.status === 401) reportUnauthenticatedResponse();
+  return response;
+}
+
+export function createCrmClients(baseUrl: string) {
   const transport = createConnectTransport({
     baseUrl,
-    interceptors: [traceContextInterceptor(), authInterceptor(getAccessToken)],
+    interceptors: [traceContextInterceptor(), unauthenticatedResponseInterceptor()],
+    // The server session is an HttpOnly cookie. Wrapping fetch is the
+    // supported Connect-Web hook for including it on cross-origin calls.
+    fetch: credentialedFetch,
   });
   return {
     crm: createClient(CRMService, transport),

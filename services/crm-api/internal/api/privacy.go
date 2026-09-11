@@ -25,7 +25,7 @@ import (
 // so this deliberately does not offer the option of doing only one.
 func (s *CRMService) EraseSyncedContentForContact(
 	ctx context.Context, req *connect.Request[crmv1.EraseSyncedContentForContactRequest],
-) (*connect.Response[crmv1.EraseSyncedContentResponse], error) {
+) (*connect.Response[crmv1.EraseSyncedContentForContactResponse], error) {
 	scope, err := scopeFrom(ctx)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (s *CRMService) EraseSyncedContentForContact(
 	if err != nil {
 		return nil, connectErr(err)
 	}
-	return connect.NewResponse(&crmv1.EraseSyncedContentResponse{
+	return connect.NewResponse(&crmv1.EraseSyncedContentForContactResponse{
 		Result: erasureResultToProto(result),
 	}), nil
 }
@@ -100,10 +100,10 @@ func (s *CRMService) ReleaseSyncAddress(
 
 func erasureResultToProto(r domain.ErasureResult) *crmv1.ErasureResult {
 	return &crmv1.ErasureResult{
-		ActivitiesDeleted:   int32(r.ActivitiesDeleted),
-		MessagesRedacted:    int32(r.MessagesRedacted),
-		EventsRedacted:      int32(r.EventsRedacted),
-		AddressesSuppressed: int32(r.AddressesSuppressed),
+		ActivitiesDeleted:   boundedInt32(r.ActivitiesDeleted),
+		MessagesRedacted:    boundedInt32(r.MessagesRedacted),
+		EventsRedacted:      boundedInt32(r.EventsRedacted),
+		AddressesSuppressed: boundedInt32(r.AddressesSuppressed),
 	}
 }
 

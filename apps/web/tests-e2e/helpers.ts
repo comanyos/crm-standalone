@@ -9,6 +9,14 @@ export function appOrigin(): string {
   return process.env.PLAYWRIGHT_APP_ORIGIN ?? `http://localhost:${process.env.VITE_WEB_PORT ?? "3000"}`;
 }
 
+export function apiOrigin(): string {
+  return process.env.PLAYWRIGHT_API_ORIGIN ?? "http://localhost:19431";
+}
+
+export function authPortalUrl(): URL {
+  return new URL(process.env.PLAYWRIGHT_AUTH_PORTAL_URL ?? "http://localhost:4173/?auth=login#top");
+}
+
 function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -18,48 +26,45 @@ function escapeForRegExp(value: string): string {
 export const AUTH_STATE_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), ".auth", "state.json");
 
 /**
- * Local-development bootstrap credentials (apps/web/README.md). These are
- * the documented defaults `make bootstrap` creates on a developer machine —
- * override them with E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for any stack that
- * isn't a throwaway local one. Never point this at a shared environment.
+ * Local development account and development-only OTP. The API must be
+ * started with AUTH_DEV_OTP matching E2E_LOGIN_CODE; production and staging
+ * reject that server setting.
  */
 export const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@localhost";
-export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "use-a-unique-12-character-minimum-password";
+export const LOGIN_CODE = process.env.E2E_LOGIN_CODE ?? "123456";
 
-/** Drives AuthinCore's hosted login with a password and waits for the app
- * to take over. Used by auth.setup.ts once per run, and by auth.spec.ts,
- * which owns asserting the details of the PKCE flow itself. Most specs
- * should not call this — they inherit the saved session instead, because
- * AuthinCore rate-limits password logins per IP (see auth.setup.ts). */
-export async function passwordSignIn(page: Page) {
+/** Creates the first-party passwordless session through the real API and then
+ * waits for the app dashboard. The combined Login / Sign-up UI lives in the
+ * separately deployed marketing artifact, so this app suite tests its
+ * redirect contract while that artifact owns its UI acceptance test. */
+export async function otpSignIn(page: Page) {
+  const requestCode = await page.request.post(`${apiOrigin()}/auth/email/request`, {
+    data: { email: ADMIN_EMAIL, flow: "login" },
+  });
+  expect(requestCode.ok()).toBeTruthy();
+  const challenge = (await requestCode.json()) as { challengeId: string };
+
+  const verifyCode = await page.request.post(`${apiOrigin()}/auth/email/verify`, {
+    data: { challengeId: challenge.challengeId, code: LOGIN_CODE },
+  });
+  expect(verifyCode.ok()).toBeTruthy();
+
   await page.goto("/");
-  await expect(page).toHaveURL(/localhost:18080/);
-
-  // AuthinCore offers several sign-in methods as tabs and does not always
-  // render them in the same order, so which one starts selected varies
-  // between loads. Select the password tab explicitly and wait for its form
-  // — a non-retrying isVisible() check here silently skips the click when
-  // the page hasn't painted yet, leaving a different method selected.
-  const passwordTab = page.getByRole("tab", { name: "password" });
-  await expect(passwordTab).toBeVisible();
-  await passwordTab.click();
-  await expect(page.getByLabel("Identifier")).toBeVisible();
-
-  await page.getByLabel("Identifier").fill(ADMIN_EMAIL);
-  await page.getByLabel("Password").fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  const allowButton = page.getByRole("button", { name: "Allow" });
-  if (await allowButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await allowButton.click();
-  }
-
-  // Back on the app's own origin, whatever port it was configured with —
-  // asserting a literal :3000 here fails on any machine that moved the dev
-  // server, which is the same value playwright.config.ts derives its baseURL
-  // from.
   await expect(page).toHaveURL(new RegExp(`^${escapeForRegExp(appOrigin())}/?$`));
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+}
+
+/** Prevents a CRM-app test from depending on a separately checked-out static
+ * website while preserving the exact cross-origin redirect URL for assertion. */
+export async function stubAuthPortal(page: Page) {
+  const portal = authPortalUrl();
+  await page.route(`${portal.origin}/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><title>Savvy CRM sign in</title><h1>Savvy CRM sign in</h1>",
+    }),
+  );
 }
 
 /** A name unique to this run. These tests write to a live development
@@ -112,9 +117,7 @@ export async function deleteFromDetailPage(page: Page, url: string) {
   await expect(page).toHaveURL(new RegExp(`${listPath}$`));
 }
 
-/** Opens the app as the already-signed-in user from the saved storage
- * state, completing the OIDC authorize round-trip against AuthinCore's
- * existing session rather than re-entering a password. */
+/** Opens the app with the saved HttpOnly session cookie. */
 export async function openApp(page: Page) {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();

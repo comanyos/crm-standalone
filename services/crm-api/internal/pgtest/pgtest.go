@@ -15,7 +15,7 @@ import (
 // `make test-db-up`, compose service crm-postgres-test, tmpfs-backed, on a
 // port of its own. It is a superuser connection so migration 0003 can create
 // both crm_app and crm_drain, which the tenant-isolation tests connect as.
-const DefaultDSN = "postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable"
+const DefaultDSN = "postgres://postgres:crm_admin_test@localhost:15533/crm?sslmode=disable" // #nosec G101 -- disposable local test database only
 
 // RequireEnv, when set to anything non-empty, turns "the database is not
 // reachable" from a skip into a failure.

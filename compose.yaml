@@ -1,22 +1,6 @@
 name: independent-crm
 
 services:
-  auth-postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: authincore
-      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-authincore_dev}
-      POSTGRES_DB: authincore
-    ports:
-      - "15432:5432"
-    volumes:
-      - auth_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U authincore"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
   crm-postgres:
     image: postgres:17-alpine
     environment:
@@ -33,17 +17,6 @@ services:
       timeout: 5s
       retries: 20
 
-  redis:
-    image: redis:7-alpine
-    command: redis-server --save "" --appendonly no
-    ports:
-      - "16379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   nats:
     image: nats:2.10-alpine
     command: ["-js"]
@@ -53,29 +26,10 @@ services:
 
   # --- Disposable integration-test databases (opt-in: `--profile test`) ---
   #
-  # Separate from auth-postgres/crm-postgres above: different ports, no named
-  # volume (tmpfs — data lives only for the container's lifetime), and never
-  # started by a plain `make up`. Integration tests must run against these,
-  # never against the development databases, so a test run can never read or
-  # leave behind real local data, and `docker compose down` (or a container
-  # restart) always leaves a completely clean database for the next run.
-  auth-postgres-test:
-    image: postgres:16-alpine
-    profiles: ["test"]
-    tmpfs:
-      - /var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: authincore
-      POSTGRES_PASSWORD: authincore_test
-      POSTGRES_DB: authincore
-    ports:
-      - "15532:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U authincore"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
+  # Separate from crm-postgres above: different port, no named volume (tmpfs —
+  # data lives only for the container's lifetime), and never started by a
+  # plain `make up`. Integration tests must run here, never against the
+  # development database.
   crm-postgres-test:
     image: postgres:17-alpine
     profiles: ["test"]
@@ -94,105 +48,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-
-  auth-migrate:
-    build:
-      context: ./services/authincore
-      dockerfile: Dockerfile
-    command: ["migrate"]
-    environment:
-      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
-    depends_on:
-      auth-postgres:
-        condition: service_healthy
-    restart: "no"
-
-  # Deliberately opt-in: this provisions the first tenant only when the
-  # operator supplies BOOTSTRAP_* values at runtime. It never stores secrets
-  # in the repository or starts as part of a normal `make up`.
-  auth-bootstrap:
-    build:
-      context: ./services/authincore
-      dockerfile: Dockerfile
-    entrypoint: ["/authinctl"]
-    command: ["bootstrap"]
-    profiles: ["tools"]
-    environment:
-      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
-      BOOTSTRAP_ORG_NAME: ${BOOTSTRAP_ORG_NAME:-}
-      BOOTSTRAP_ORG_DOMAIN: ${BOOTSTRAP_ORG_DOMAIN:-}
-      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
-      CRM_WEB_CLIENT_ID: ${CRM_WEB_CLIENT_ID:-crm-web}
-      CRM_WEB_REDIRECT_URI: ${CRM_WEB_REDIRECT_URI:-http://localhost:3000/auth/callback}
-    depends_on:
-      auth-postgres:
-        condition: service_healthy
-      auth-migrate:
-        condition: service_completed_successfully
-    restart: "no"
-
-  # Administrator password recovery. Separate from auth-bootstrap on purpose:
-  # bootstrap is re-run routinely and never changes an existing password, so
-  # changing one has to be asked for by name. See docs/BOOTSTRAP.md.
-  auth-reset-password:
-    build:
-      context: ./services/authincore
-      dockerfile: Dockerfile
-    entrypoint: ["/authinctl"]
-    command: ["reset-admin-password"]
-    profiles: ["tools"]
-    environment:
-      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
-      RESET_ORG_DOMAIN: ${RESET_ORG_DOMAIN:-}
-      RESET_ADMIN_EMAIL: ${RESET_ADMIN_EMAIL:-}
-      RESET_ADMIN_PASSWORD: ${RESET_ADMIN_PASSWORD:-}
-      RESET_ADMIN_CONFIRM: ${RESET_ADMIN_CONFIRM:-}
-    depends_on:
-      auth-postgres:
-        condition: service_healthy
-      auth-migrate:
-        condition: service_completed_successfully
-    restart: "no"
-
-  authincore:
-    build:
-      context: ./services/authincore
-      dockerfile: Dockerfile
-    environment:
-      APP_ENV: ${APP_ENV:-development}
-      DATABASE_URL: postgres://authincore:${AUTH_DB_PASSWORD:-authincore_dev}@auth-postgres:5432/authincore?sslmode=disable
-      REDIS_ADDR: redis:6379
-      NATS_URL: nats://nats:4222
-      PORT: "8080"
-      ISSUER: ${AUTH_PUBLIC_URL:-http://localhost:18080}
-      RSA_PRIVATE_KEY_FILE: /run/secrets/jwt_private_key
-      JWT_KEY_ID: crm-dev-k1
-      REQUIRE_PERSISTENT_SIGNING_KEY: "true"
-      DEV_MODE: "true"
-      CORS_ALLOWED_ORIGINS: ${CRM_WEB_ORIGIN:-http://localhost:3000}
-    secrets:
-      - jwt_private_key
-    ports:
-      - "18080:8080"
-    depends_on:
-      auth-postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      auth-migrate:
-        condition: service_completed_successfully
-    restart: on-failure
-
-  auth-admin:
-    build:
-      context: ./services/authincore/admin-ui
-      dockerfile: Dockerfile
-    ports:
-      - "13001:3001"
-    depends_on:
-      - authincore
 
   # Applies CRM SQL migrations on every `make up`, recording each successful
   # version. This replaces Postgres initdb hooks for the main development
@@ -228,15 +83,50 @@ services:
       # Empty only in local Compose: /metrics is intentionally local/internal
       # unauthenticated there. Staging/production requires CRM_METRICS_TOKEN.
       CRM_METRICS_TOKEN: ${CRM_METRICS_TOKEN:-}
-      AUTH_ISSUER: ${AUTH_PUBLIC_URL:-http://localhost:18080}
-      AUTH_AUDIENCE: ${AUTH_PUBLIC_URL:-http://localhost:18080}
-      AUTH_JWKS_URL: http://authincore:8080/oauth2/keys
       NATS_URL: nats://nats:4222
-      CORS_ALLOWED_ORIGINS: ${CRM_WEB_ORIGIN:-http://localhost:3000}
+      # Full credentialed CRM access belongs only to the authenticated app.
+      CORS_ALLOWED_ORIGINS: ${CRM_CORS_ALLOWED_ORIGINS:-${CRM_WEB_ORIGIN:-http://localhost:3003}}
+      # The public marketing site can reach only the allowlisted auth surface
+      # (capabilities, Google start, and email request/verify).
+      AUTH_CORS_ALLOWED_ORIGINS: ${AUTH_CORS_ALLOWED_ORIGINS:-http://localhost:4173,http://127.0.0.1:4173}
+      OTP_PEPPER: ${OTP_PEPPER:-savvy-crm-development-only-otp-pepper-change-me}
+      AUTH_SESSION_TTL: ${AUTH_SESSION_TTL:-720h}
+      AUTH_OTP_TTL: ${AUTH_OTP_TTL:-10m}
+      # Deterministic six-digit code for automated APP_ENV=test journeys only.
+      AUTH_DEV_OTP: ${AUTH_DEV_OTP:-}
+      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-savvy_session}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_LOGIN_SUCCESS_URL: ${AUTH_LOGIN_SUCCESS_URL:-${CRM_WEB_ORIGIN:-http://localhost:3003}}
+      AUTH_JOIN_RESULT_URL: ${AUTH_JOIN_RESULT_URL:-http://localhost:4173/?auth=signup#top}
+      AUTH_BOOTSTRAP_EMAIL: ${AUTH_BOOTSTRAP_EMAIL:-}
+      AUTH_BOOTSTRAP_ORG_NAME: ${AUTH_BOOTSTRAP_ORG_NAME:-}
+      AUTH_BOOTSTRAP_ORG_ID: ${AUTH_BOOTSTRAP_ORG_ID:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: "${SMTP_FROM:-Savvy CRM <support@savvyadvi.com>}"
+      SMTP_TLS: ${SMTP_TLS:-false}
+      SMTP_REQUIRE_STARTTLS: ${SMTP_REQUIRE_STARTTLS:-true}
+      # Sign-in identity OAuth. These credentials/scopes are intentionally
+      # separate from the Gmail and Calendar integration below.
+      AUTH_GOOGLE_CLIENT_ID: ${AUTH_GOOGLE_CLIENT_ID:-}
+      AUTH_GOOGLE_CLIENT_SECRET: ${AUTH_GOOGLE_CLIENT_SECRET:-}
+      # Keep this empty with the client id/secret. Supplying only a redirect
+      # URL is a partial OAuth configuration and the API correctly refuses it.
+      AUTH_GOOGLE_REDIRECT_URL: ${AUTH_GOOGLE_REDIRECT_URL:-}
       # Inbound lead capture (docs/LEAD_CAPTURE.md). Unset means the feature
       # is off and the route is not registered — there is deliberately no
       # unsigned mode, so a deployment either has a key or has no endpoint.
       LEAD_CAPTURE_SECRET_KEY: ${LEAD_CAPTURE_SECRET_KEY:-}
+      # Native Facebook + Instagram Lead Ads. The API enables the connector
+      # only when this complete group is supplied; all-empty is safely off.
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_OAUTH_REDIRECT_URL: ${META_OAUTH_REDIRECT_URL:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_TOKEN_KEY: ${META_TOKEN_KEY:-}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v25.0}
       # This API's own public origin, used only to assemble the delivery URL
       # an administrator hands to a third party. Configured rather than read
       # from a Host header, since that value gets pasted into somebody's
@@ -249,37 +139,25 @@ services:
         condition: service_healthy
       crm-migrate:
         condition: service_completed_successfully
-      authincore:
-        condition: service_started
       nats:
         condition: service_started
     restart: on-failure
 
-  # The CRM browser app is served as a static SPA so its OAuth callback stays
-  # available across shell/Codex sessions. Vite is still available for local
-  # component development, but normal `make up` no longer depends on it.
+  # The CRM browser app is a static SPA. Authentication and session renewal
+  # are same-product API calls; no separate identity-provider runtime exists.
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_AUTH_ISSUER_URL: ${AUTH_PUBLIC_URL:-http://localhost:18080}
-        VITE_AUTH_ORG_ID: ${CRM_WEB_AUTH_ORG_ID:?CRM_WEB_AUTH_ORG_ID is required; use authinctl bootstrap output}
-        VITE_AUTH_CLIENT_ID: ${CRM_WEB_CLIENT_ID:-crm-web}
         VITE_CRM_API_URL: ${CRM_PUBLIC_URL:-http://localhost:19431}
+        VITE_CRM_AUTH_PORTAL_URL: ${CRM_AUTH_PORTAL_URL:-http://localhost:4173/?auth=login#top}
     ports:
-      - "${CRM_WEB_PORT:-3000}:80"
+      - "${CRM_WEB_PORT:-3003}:8080"
     depends_on:
-      authincore:
-        condition: service_started
       crm-api:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  auth_pgdata:
   crm_pgdata:
-
-secrets:
-  jwt_private_key:
-    file: ${JWT_PRIVATE_KEY_FILE:-./deploy/secrets/jwt_private_key.pem}

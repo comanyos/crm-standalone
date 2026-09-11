@@ -35,6 +35,9 @@ type Store interface {
 	// dedup flagging and by ConvertLead to reuse rather than duplicate an
 	// existing Contact.
 	FindContactByEmail(ctx context.Context, scope Scope, email string) (*Contact, error)
+	// FindContactByPhone returns an exact canonical E.164 match. It is the
+	// identity fallback for phone-only leads and conversion.
+	FindContactByPhone(ctx context.Context, scope Scope, phone string) (*Contact, error)
 	// FindAccountByDomain returns the tenant's Account whose Website names the
 	// given domain, or ErrNotFound. Used by ConvertLead to attach a newly
 	// created Contact to an existing Account instead of creating a duplicate
@@ -154,6 +157,20 @@ type Store interface {
 	GetGoogleConnection(ctx context.Context, scope Scope, ownerID string) (*GoogleConnection, error)
 	ListGoogleConnections(ctx context.Context, scope Scope) ([]*GoogleConnection, error)
 	DeleteGoogleConnection(ctx context.Context, scope Scope, ownerID string) error
+
+	// Native Facebook/Instagram Lead Ads. OAuth states and tokens follow the
+	// same tenant and ciphertext rules as Google, while a signed webhook may
+	// resolve only the minimum Page/Form routing reference across tenants.
+	CreateMetaOAuthState(ctx context.Context, scope Scope, v *MetaOAuthState) (*MetaOAuthState, error)
+	ConsumeMetaOAuthState(ctx context.Context, scope Scope, state string, now time.Time) (*MetaOAuthState, error)
+	PurgeExpiredMetaOAuthStates(ctx context.Context, scope Scope, now time.Time) (int, error)
+	ResolveMetaOAuthStateTenant(ctx context.Context, state string) (string, error)
+	SaveMetaConnection(ctx context.Context, scope Scope, v *MetaConnection) (*MetaConnection, error)
+	GetMetaConnection(ctx context.Context, scope Scope) (*MetaConnection, error)
+	DeleteMetaConnection(ctx context.Context, scope Scope, id string) error
+	ResolveMetaConnections(ctx context.Context, pageID, formID string) ([]MetaConnectionRef, error)
+	CreateMetaCapturedLead(ctx context.Context, scope Scope, lead *Lead, attribution *MetaLeadAttribution) (*Lead, bool, error)
+	GetMetaLeadAttribution(ctx context.Context, scope Scope, leadID string) (*MetaLeadAttribution, error)
 
 	// Gmail synchronisation (migrations/0020_gmail_sync.sql).
 	GetGmailSyncState(ctx context.Context, scope Scope, ownerID string) (*GmailSyncState, error)
@@ -403,6 +420,10 @@ type Store interface {
 	// caller created it. Every webhook provider retries, so a repeat is the
 	// ordinary case: the second arrival gets false and the stored row.
 	RecordCaptureDelivery(ctx context.Context, scope Scope, v *LeadCaptureDelivery) (*LeadCaptureDelivery, bool, error)
+	// CreateCapturedLead atomically claims the provider delivery, creates the
+	// Lead, writes lead.created, links the delivery, and updates endpoint
+	// health. A duplicate returns created=false and the original delivery.
+	CreateCapturedLead(ctx context.Context, scope Scope, endpointID, dedupKey, rawPayload string, lead *Lead) (*LeadCaptureDelivery, *Lead, bool, error)
 	// LinkCaptureDeliveryLead records which lead a delivery became.
 	//
 	// Separate from RecordCaptureDelivery because the delivery row is claimed
@@ -411,6 +432,9 @@ type Store interface {
 	// this second write the delivery log would say "created" and not say what
 	// it created, and a provider's retry would be answered with an empty id.
 	LinkCaptureDeliveryLead(ctx context.Context, scope Scope, deliveryID, leadID string) error
+	// FailCaptureDelivery makes a claimed delivery retryable after lead
+	// creation fails. A subsequent RecordCaptureDelivery atomically reclaims it.
+	FailCaptureDelivery(ctx context.Context, scope Scope, deliveryID, reason string) error
 	ListCaptureDeliveries(ctx context.Context, scope Scope, endpointID string, limit int) ([]*LeadCaptureDelivery, error)
 	TouchCaptureEndpoint(ctx context.Context, scope Scope, id, reason string) error
 

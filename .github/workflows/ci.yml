@@ -5,20 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   compose-config:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      # compose.yaml declares CRM_WEB_AUTH_ORG_ID with `:?` so a real `make up`
-      # fails loudly rather than building the web image with an empty public
-      # OIDC organization id. That guard also makes `docker compose config`
-      # fail on a clean checkout, where no operator has run `make bootstrap`.
-      # Validation only needs *a* syntactically valid value, so supply a
-      # placeholder here — the guard still protects every real deployment.
+      - uses: actions/checkout@v6
       - name: Validate Compose config
-        env:
-          CRM_WEB_AUTH_ORG_ID: 00000000-0000-0000-0000-000000000000
         run: docker compose config --quiet
 
   # The backup and restore scripts addressed a `crm` role that has never
@@ -29,7 +24,7 @@ jobs:
   backup-restore:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install age
         run: sudo apt-get update && sudo apt-get install -y age
       - name: Backup/restore round trip
@@ -41,8 +36,8 @@ jobs:
       run:
         working-directory: services/crm-api
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: services/crm-api/go.mod
       - name: gofmt
@@ -55,10 +50,15 @@ jobs:
           fi
       - name: go vet
         run: go vet ./...
-      - uses: golangci/golangci-lint-action@v6
+      - name: vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - uses: bufbuild/buf-setup-action@v1
+      - name: protobuf lint
+        run: buf lint
+      - uses: golangci/golangci-lint-action@v9
         with:
           working-directory: services/crm-api
-          version: latest
+          version: v2.12.2
       - name: build
         run: go build ./...
       # The PostgreSQL tier — row-level security, tenant isolation, the
@@ -78,12 +78,7 @@ jobs:
       # that a missing schema is fatal rather than skipped, that race would be
       # a flaky red instead of a silent green.
       #
-      # CRM_WEB_AUTH_ORG_ID is compose's `:?` guard on an unrelated service;
-      # `docker compose` parses the whole file whatever you ask it to start,
-      # so supply the same placeholder the compose-config job uses.
       - name: Start the test database
-        env:
-          CRM_WEB_AUTH_ORG_ID: 00000000-0000-0000-0000-000000000000
         working-directory: .
         run: docker compose --profile test up -d --wait crm-postgres-test
       - name: test
@@ -94,104 +89,62 @@ jobs:
           REQUIRE_LIVE_POSTGRES: "1"
         run: go test -race -cover ./...
 
-  authincore:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: services/authincore
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: services/authincore/go.mod
-      # cmd/authincore embeds hosted-ui/dist via `//go:embed all:dist`, and
-      # dist/ is gitignored build output. Without this step every Go command
-      # that loads those packages fails with "pattern all:dist: no matching
-      # files found" — build, vet and test alike. `make test` builds it via
-      # the auth-ui target; CI has to do the same.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: services/authincore/hosted-ui/package-lock.json
-      - name: build hosted login UI (embedded by cmd/authincore)
-        working-directory: services/authincore/hosted-ui
-        run: npm ci && npm run build
-      - name: gofmt
-        run: |
-          out="$(gofmt -l .)"
-          if [ -n "$out" ]; then
-            echo "$out"
-            echo "gofmt found unformatted files (run 'make fmt')"
-            exit 1
-          fi
-      - name: go vet
-        run: go vet ./...
-      # NOTE: informational only until the pre-existing lint backlog in this
-      # service (~90 issues predating this CI setup, see CONTRIBUTING.md) is
-      # triaged and fixed. Do not remove continue-on-error silently — flip it
-      # off only once golangci-lint run ./... is clean here too.
-      - uses: golangci/golangci-lint-action@v6
-        continue-on-error: true
-        with:
-          working-directory: services/authincore
-          version: latest
-      - name: build
-        run: go build ./cmd/...
-      # Same reasoning as the crm-api job: cmd/authinctl's bootstrap tier is a
-      # live-database tier that skips itself, so CI has to provide the
-      # database and refuse to accept a skip.
-      - name: Start the test database
-        env:
-          CRM_WEB_AUTH_ORG_ID: 00000000-0000-0000-0000-000000000000
-        working-directory: .
-        run: docker compose --profile test up -d --wait auth-postgres-test
-      - name: test
-        env:
-          AUTH_TEST_DATABASE_URL: postgres://authincore:authincore_test@localhost:15532/authincore?sslmode=disable
-          REQUIRE_LIVE_POSTGRES: "1"
-        run: go test -race -cover ./...
-      # test/integration is behind a build tag, so `go test ./...` never
-      # compiles it and it has run nowhere but a developer's `make test-int`.
-      # It is the tier that proves one organization cannot see another's
-      # identities, SCIM users, sessions, projects or admin resources — the
-      # security property this service exists to provide — plus the
-      # register/login/token/logout journey, command atomicity on event
-      # failure, and blueprint rollback.
-      #
-      # It needs a migrated database: unlike cmd/authinctl's tests it applies
-      # no migrations of its own, and fails with `relation "orgs" does not
-      # exist` against a bare one.
-      - name: Apply the AuthinCore schema
-        env:
-          DATABASE_URL: postgres://authincore:authincore_test@localhost:15532/authincore?sslmode=disable
-        run: go run ./cmd/authinctl migrate up
-      - name: integration tests
-        env:
-          DATABASE_URL: postgres://authincore:authincore_test@localhost:15532/authincore?sslmode=disable
-        run: go test -tags=integration ./test/integration/... -race -count=1 -timeout=300s
-
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - name: install (npm workspace root)
         run: npm ci
+      - name: dependency audit
+        run: npm audit --audit-level=high
       # packages/contracts/gen/ is committed generated code (see
       # CONTRIBUTING.md's generated-code policy) — consumed as-is here, the
       # same way crm-api's Go job below never re-runs `buf generate` either.
       - name: typecheck + build
+        env:
+          VITE_CRM_API_URL: http://localhost:19431
+          VITE_CRM_AUTH_PORTAL_URL: http://localhost:4174/?auth=login#top
         run: npm run build --workspace=@crm/web
       - name: lint
         run: npm run lint --workspace=@crm/web
       - name: unit tests
         run: npm run test --workspace=@crm/web
-      - name: auth-client unit tests
-        run: npm run test --workspace=@crm/auth-client
-      # Browser tests (npm run test:e2e --workspace=@crm/web) need the full
-      # backend stack up and bootstrapped — not run in this job. See
-      # apps/web/README.md and CONTRIBUTING.md's test-tiers section.
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_ENV: test
+      AUTH_BOOTSTRAP_ORG_NAME: E2E CRM
+      AUTH_BOOTSTRAP_EMAIL: admin@localhost
+      AUTH_DEV_OTP: "246810"
+      OTP_PEPPER: e2e-only-passwordless-code-pepper-at-least-32-bytes
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install application and browser dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Start the disposable application stack
+        run: docker compose up -d --build --wait crm-api
+      - name: Run browser journeys
+        env:
+          VITE_CRM_API_URL: http://localhost:19431
+          VITE_CRM_AUTH_PORTAL_URL: http://localhost:4174/?auth=login#top
+          E2E_ADMIN_EMAIL: admin@localhost
+          E2E_LOGIN_CODE: "246810"
+        run: npm run test:e2e --workspace=@crm/web
+      - name: Show service logs after a failure
+        if: failure()
+        run: docker compose logs --no-color --tail=300 crm-api
+      - name: Stop the disposable stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans

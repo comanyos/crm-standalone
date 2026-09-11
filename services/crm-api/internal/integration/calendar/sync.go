@@ -46,8 +46,8 @@ const (
 // The bounded reason codes recorded on a calendar and reported as metrics.
 const (
 	ReasonNotConnected     = "not_connected"
-	ReasonTokenUnavailable = "token_unavailable"
-	ReasonSyncTokenExpired = "sync_token_expired"
+	ReasonTokenUnavailable = "token_unavailable"  // #nosec G101 -- bounded status code, not a credential
+	ReasonSyncTokenExpired = "sync_token_expired" // #nosec G101 -- bounded status code, not a credential
 	ReasonProviderError    = "provider_error"
 	ReasonStorageFailed    = "storage_failed"
 )

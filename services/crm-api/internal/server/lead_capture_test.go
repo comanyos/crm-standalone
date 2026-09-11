@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,10 @@ type captureHarness struct {
 // newCaptureHarness stands up a real server with a real store and one active
 // endpoint, sealed the way the running service seals it.
 func newCaptureHarness(t *testing.T) captureHarness {
+	return newCaptureHarnessWithStore(t, nil)
+}
+
+func newCaptureHarnessWithStore(t *testing.T, wrap func(domain.Store) domain.Store) captureHarness {
 	t.Helper()
 	ctx := context.Background()
 
@@ -92,7 +97,11 @@ func newCaptureHarness(t *testing.T) captureHarness {
 		t.Fatalf("seal endpoint secret: %v", err)
 	}
 
-	srv, err := New(config.Config{LeadCaptureSecretKey: key}, store, nil)
+	serverStore := domain.Store(store)
+	if wrap != nil {
+		serverStore = wrap(store)
+	}
+	srv, err := New(config.Config{LeadCaptureSecretKey: key}, serverStore, nil)
 	if err != nil {
 		t.Fatalf("build server: %v", err)
 	}
@@ -104,6 +113,21 @@ func newCaptureHarness(t *testing.T) captureHarness {
 		server: http, store: store, scope: scope,
 		token: token, secret: secret, endpointID: endpoint.ID,
 	}
+}
+
+type failFirstCapturedLeadStore struct {
+	domain.Store
+	failed bool
+}
+
+func (s *failFirstCapturedLeadStore) CreateCapturedLead(
+	ctx context.Context, scope domain.Scope, endpointID, dedupKey, rawPayload string, lead *domain.Lead,
+) (*domain.LeadCaptureDelivery, *domain.Lead, bool, error) {
+	if !s.failed {
+		s.failed = true
+		return nil, nil, false, errors.New("temporary database failure")
+	}
+	return s.Store.CreateCapturedLead(ctx, scope, endpointID, dedupKey, rawPayload, lead)
 }
 
 // post sends one delivery. signature is used verbatim, so a test can send a
@@ -179,6 +203,22 @@ func TestLeadCaptureCreatesALead(t *testing.T) {
 	}
 	if !sawCreated {
 		t.Error("a captured lead emitted no lead.created event; automations would not fire on it")
+	}
+}
+
+func TestLeadCaptureRetriesAfterTransientCreateFailure(t *testing.T) {
+	h := newCaptureHarnessWithStore(t, func(store domain.Store) domain.Store {
+		return &failFirstCapturedLeadStore{Store: store}
+	})
+	body := []byte(`{"id":"retryable-1","email":"retry@example.com","company":"Retry Ltd"}`)
+	if response := h.signed(t, body); response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("first status = %d, want 503 so the provider retries", response.StatusCode)
+	}
+	if response := h.signed(t, body); response.StatusCode != http.StatusAccepted {
+		t.Fatalf("retry status = %d, want 202", response.StatusCode)
+	}
+	if leads := h.leads(t); len(leads) != 1 || leads[0].ContactEmail != "retry@example.com" {
+		t.Fatalf("retried delivery created leads %#v", leads)
 	}
 }
 

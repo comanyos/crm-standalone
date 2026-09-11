@@ -10,10 +10,11 @@ interface StatePanelProps {
 
 function StatePanel({ icon, title, description, action }: StatePanelProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 px-6 py-12 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-9 text-center">
       {icon}
-      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-      {description && <p className="max-w-sm text-sm text-slate-500">{description}</p>}
+      <span aria-hidden="true" className="mb-1 h-1.5 w-1.5 rounded-full bg-brand-600" />
+      <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+      {description && <p className="max-w-md text-sm leading-5 text-slate-500">{description}</p>}
       {action}
     </div>
   );
@@ -81,7 +82,7 @@ export function UnavailableState({ onRetry }: { onRetry?: () => void }) {
   return (
     <StatePanel
       title="The service is temporarily unavailable"
-      description="We couldn't reach the CRM backend. Check your connection and try again."
+      description="We couldn't reach Savvy CRM. Check your connection and try again."
       action={
         onRetry && (
           <Button variant="secondary" size="sm" onClick={onRetry}>

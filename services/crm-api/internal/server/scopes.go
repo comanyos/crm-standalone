@@ -86,8 +86,17 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListGoogleConnections":      "crm:integration_admin:read",
 	// Synchronising writes CRM Activities, so it is a write even though it
 	// reads a mailbox to decide what to write.
-	"/crm.v1.CRMService/SyncGoogleMailbox":  "crm:integration:write",
-	"/crm.v1.CRMService/SyncGoogleCalendar": "crm:integration:write",
+	"/crm.v1.CRMService/SyncGoogleMailbox":        "crm:integration:write",
+	"/crm.v1.CRMService/SyncGoogleCalendar":       "crm:integration:write",
+	"/crm.v1.CRMService/StartMetaConnection":      "crm:integration:write",
+	"/crm.v1.CRMService/GetMetaConnection":        "crm:integration:read",
+	"/crm.v1.CRMService/ListMetaBusinesses":       "crm:integration:read",
+	"/crm.v1.CRMService/ListMetaPages":            "crm:integration:read",
+	"/crm.v1.CRMService/ListMetaForms":            "crm:integration:read",
+	"/crm.v1.CRMService/SelectMetaLeadForm":       "crm:integration:write",
+	"/crm.v1.CRMService/ImportMetaLeads":          "crm:integration:write",
+	"/crm.v1.CRMService/DisconnectMetaConnection": "crm:integration:write",
+	"/crm.v1.CRMService/GetLeadMetaAttribution":   "crm:lead:read",
 
 	// Data-subject requests are administrative, not personal: they act on
 	// behalf of somebody who is usually not a CRM user, so they need an
@@ -235,6 +244,7 @@ var crmScopes = map[string]string{
 	// caller who may read contacts but not consent still sees every contact
 	// field through GetContact.
 	"/crm.v1.CRMService/ListContactChannels":    "crm:consent:read",
+	"/crm.v1.CRMService/ListLeadChannels":       "crm:consent:read",
 	"/crm.v1.CRMService/ListMessagingConsent":   "crm:consent:read",
 	"/crm.v1.CRMService/RecordMessagingConsent": "crm:consent:write",
 

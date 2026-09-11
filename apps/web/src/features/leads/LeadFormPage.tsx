@@ -14,9 +14,16 @@ import { renderQueryError, mutationErrorMessage } from "../../lib/connectErrors"
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useUnsavedChangesGuard } from "../../lib/useUnsavedChangesGuard";
 import { useToast } from "../../components/ui/Toast";
+import { isE164Input, leadDisplayName } from "../../lib/leadIdentity";
 
 const schema = z.object({
-  company: z.string().trim().min(1, "Company is required").max(200, "Company must be 200 characters or fewer"),
+  firstName: z.string().trim().max(200, "First name must be 200 characters or fewer").optional().default(""),
+  lastName: z.string().trim().max(200, "Last name must be 200 characters or fewer").optional().default(""),
+  phone: z.string().trim().max(32, "Phone must be 32 characters or fewer").refine(
+    isE164Input,
+    "Use international format, for example +91 98765 43210",
+  ).optional().default(""),
+  company: z.string().trim().max(200, "Company must be 200 characters or fewer").optional().default(""),
   contactEmail: z.string().trim().max(320, "Email is too long").optional().default("").refine(
     (value) => value === "" || z.string().email().safeParse(value).success,
     "Enter a valid email address",
@@ -25,7 +32,10 @@ const schema = z.object({
   ownerId: z.string().trim().min(1, "Owner is required"),
   score: z.coerce.number().int("Score must be a whole number").min(0, "Score cannot be negative").default(0),
   status: z.enum(["new", "working", "qualified", "disqualified"]),
-});
+}).refine(
+  (value) => !!(value.firstName || value.lastName || value.company || value.contactEmail || value.phone),
+  { path: ["firstName"], message: "Add a name, company, email, or phone" },
+);
 
 type FormValues = z.infer<typeof schema>;
 
@@ -61,12 +71,18 @@ export default function LeadFormPage({ mode }: { mode: "create" | "edit" }) {
     formState: { errors, isDirty, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { company: "", contactEmail: "", source: "", ownerId: "", score: 0, status: "new" },
+    defaultValues: {
+      firstName: "", lastName: "", phone: "", company: "", contactEmail: "",
+      source: "", ownerId: "", score: 0, status: "new",
+    },
   });
 
   useEffect(() => {
     if (!existing) return;
     reset({
+      firstName: existing.firstName,
+      lastName: existing.lastName,
+      phone: existing.phone,
       company: existing.company,
       contactEmail: existing.contactEmail,
       source: existing.source,
@@ -106,7 +122,7 @@ export default function LeadFormPage({ mode }: { mode: "create" | "edit" }) {
     onSuccess: (saved) => {
       disarm();
       queryClient.invalidateQueries({ queryKey: ["crm.listLeads"] });
-      toast.show({ tone: saved?.duplicateOfContactId ? "warning" : "success", message: saved?.duplicateOfContactId ? "Lead saved — its email matches an existing contact." : "Lead saved." });
+      toast.show({ tone: saved?.duplicateOfContactId ? "warning" : "success", message: saved?.duplicateOfContactId ? "Lead saved — its email or phone matches an existing contact." : "Lead saved." });
       navigate(saved ? `/leads/${saved.id}` : "/leads");
     },
     onError: (error) => toast.show({ tone: "danger", message: mutationErrorMessage(error) }),
@@ -122,13 +138,18 @@ export default function LeadFormPage({ mode }: { mode: "create" | "edit" }) {
   return (
     <div>
       <PageHeader
-        title={mode === "create" ? "New lead" : `Edit ${existing?.company ?? "lead"}`}
-        breadcrumbs={[{ label: "Leads", to: "/leads" }, ...(mode === "edit" && existing ? [{ label: existing.company, to: `/leads/${id}` }] : [])]}
+        title={mode === "create" ? "New lead" : `Edit ${existing ? leadDisplayName(existing) : "lead"}`}
+        breadcrumbs={[{ label: "Leads", to: "/leads" }, ...(mode === "edit" && existing ? [{ label: leadDisplayName(existing), to: `/leads/${id}` }] : [])]}
       />
       {terminal && <p className="mb-4 max-w-xl rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">This lead is {existing?.status}, a terminal state, and cannot be edited.</p>}
       <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="flex max-w-xl flex-col gap-4" noValidate>
-        <Input label="Company" {...register("company")} error={errors.company?.message} required disabled={terminal} />
-        <Input label="Contact email" type="email" {...register("contactEmail")} error={errors.contactEmail?.message} hint="Required before a qualified lead can be converted." disabled={terminal} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input label="First name" {...register("firstName")} error={errors.firstName?.message} disabled={terminal} />
+          <Input label="Last name" {...register("lastName")} error={errors.lastName?.message} disabled={terminal} />
+        </div>
+        <Input label="Phone / WhatsApp" type="tel" placeholder="+91 98765 43210" {...register("phone")} error={errors.phone?.message} hint="Include the country code so consent and WhatsApp use one unambiguous number." disabled={terminal} />
+        <Input label="Contact email" type="email" {...register("contactEmail")} error={errors.contactEmail?.message} hint="Email or an international phone number is required before conversion." disabled={terminal} />
+        <Input label="Company (optional)" {...register("company")} error={errors.company?.message} disabled={terminal} />
         <Input label="Source" placeholder="e.g. Webinar, referral" {...register("source")} error={errors.source?.message} disabled={terminal} />
         <Input label="Owner ID" {...register("ownerId")} error={errors.ownerId?.message} required disabled={terminal} />
         <Input label="Score" type="number" min={0} step={1} {...register("score")} error={errors.score?.message} disabled={terminal} />

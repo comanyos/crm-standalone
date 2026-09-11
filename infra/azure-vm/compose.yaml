@@ -1,0 +1,205 @@
+name: savvy-crm
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${CRM_DB_ADMIN_PASSWORD:?CRM_DB_ADMIN_PASSWORD is required}
+      POSTGRES_DB: crm
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/postgresql/tls/server.crt
+      - -c
+      - ssl_key_file=/etc/postgresql/tls/server.key
+      - -c
+      - ssl_ca_file=/etc/postgresql/tls/ca.crt
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - max_connections=100
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./tls/postgres:/etc/postgresql/tls:ro
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    mem_limit: 2500m
+    networks:
+      - backend
+    logging: *default-logging
+
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    command: ["-js", "--store_dir", "/data"]
+    volumes:
+      - nats_data:/data
+    expose:
+      - "4222"
+    mem_limit: 512m
+    networks:
+      - backend
+    logging: *default-logging
+
+  migrate:
+    image: ${ACR_LOGIN_SERVER:?ACR_LOGIN_SERVER is required}/savvy-crm-migrate:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: ${CRM_DB_ADMIN_PASSWORD:?CRM_DB_ADMIN_PASSWORD is required}
+      PGDATABASE: crm
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /tls/ca.crt
+      CRM_DB_APP_PASSWORD: ${CRM_DB_APP_PASSWORD:?CRM_DB_APP_PASSWORD is required}
+      CRM_DB_DRAIN_PASSWORD: ${CRM_DB_DRAIN_PASSWORD:?CRM_DB_DRAIN_PASSWORD is required}
+    volumes:
+      - ./tls/postgres/ca.crt:/tls/ca.crt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 512m
+    networks:
+      - backend
+    logging: *default-logging
+
+  crm-api:
+    image: ${ACR_LOGIN_SERVER:?ACR_LOGIN_SERVER is required}/savvy-crm-api:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      MODE: standalone
+      CRM_EDITION: OSS
+      CRM_ADDR: :9431
+      DATABASE_URL: postgres://crm_app:${CRM_DB_APP_PASSWORD}@postgres:5432/crm?sslmode=verify-full&sslrootcert=/etc/savvy/postgres-ca.crt
+      OUTBOX_DRAIN_DATABASE_URL: postgres://crm_drain:${CRM_DB_DRAIN_PASSWORD}@postgres:5432/crm?sslmode=verify-full&sslrootcert=/etc/savvy/postgres-ca.crt
+      NATS_URL: nats://nats:4222
+      CRM_METRICS_TOKEN: ${CRM_METRICS_TOKEN:?CRM_METRICS_TOKEN is required}
+      CORS_ALLOWED_ORIGINS: https://crmapp.savvyadvi.com
+      AUTH_CORS_ALLOWED_ORIGINS: https://crm.savvyadvi.com,https://crmapp.savvyadvi.com
+      OTP_PEPPER: ${OTP_PEPPER:?OTP_PEPPER is required}
+      AUTH_SESSION_TTL: 720h
+      AUTH_OTP_TTL: 10m
+      AUTH_COOKIE_NAME: savvy_session
+      AUTH_COOKIE_SECURE: "true"
+      AUTH_LOGIN_SUCCESS_URL: https://crmapp.savvyadvi.com
+      AUTH_JOIN_RESULT_URL: https://crm.savvyadvi.com/?auth=signup#top
+      AUTH_BOOTSTRAP_EMAIL: support@savvyadvi.com
+      AUTH_BOOTSTRAP_ORG_NAME: Savvy CRM
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: "465"
+      SMTP_USERNAME: support@savvyadvi.com
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?SMTP_PASSWORD is required}
+      SMTP_FROM: Savvy CRM <support@savvyadvi.com>
+      SMTP_TLS: "true"
+      SMTP_REQUIRE_STARTTLS: "false"
+      AUTH_GOOGLE_CLIENT_ID: ${AUTH_GOOGLE_CLIENT_ID:?AUTH_GOOGLE_CLIENT_ID is required}
+      AUTH_GOOGLE_CLIENT_SECRET: ${AUTH_GOOGLE_CLIENT_SECRET:?AUTH_GOOGLE_CLIENT_SECRET is required}
+      AUTH_GOOGLE_REDIRECT_URL: https://crmapi.savvyadvi.com/auth/google/callback
+      LEAD_CAPTURE_SECRET_KEY: ${LEAD_CAPTURE_SECRET_KEY:?LEAD_CAPTURE_SECRET_KEY is required}
+      # Optional until the Meta app has approved production credentials. All
+      # five empty keeps the route absent; a partial group fails startup.
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_OAUTH_REDIRECT_URL: ${META_OAUTH_REDIRECT_URL:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_TOKEN_KEY: ${META_TOKEN_KEY:-}
+      META_GRAPH_VERSION: v25.0
+      CRM_WEB_APP_BASE_URL: https://crmapp.savvyadvi.com
+      CRM_PUBLIC_BASE_URL: https://crmapi.savvyadvi.com
+      SYNC_RETENTION_DAYS: "0"
+    volumes:
+      - ./tls/postgres/ca.crt:/etc/savvy/postgres-ca.crt:ro
+    expose:
+      - "9431"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9431/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_started
+    mem_limit: 1200m
+    networks:
+      - backend
+      - egress
+    logging: *default-logging
+
+  web:
+    image: ${ACR_LOGIN_SERVER:?ACR_LOGIN_SERVER is required}/savvy-crm-web:${IMAGE_TAG:?IMAGE_TAG is required}
+    restart: unless-stopped
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      crm-api:
+        condition: service_healthy
+    mem_limit: 256m
+    networks:
+      - edge
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      crm-api:
+        condition: service_healthy
+    mem_limit: 256m
+    networks:
+      - edge
+      - backend
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  nats_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+  egress:
+  backend:
+    internal: true

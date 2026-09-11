@@ -12,12 +12,11 @@ import (
 )
 
 // The messaging consent surface end to end (task_crm.md §2): a real HTTP
-// server, real RS256 tokens verified against a real JWKS, the real scope
-// interceptor, and a real PostgreSQL store connected as crm_app — the role
-// row-level security binds.
+// server, opaque test sessions, the real scope interceptor, and a real
+// PostgreSQL store connected as crm_app — the role row-level security binds.
 //
 // The domain tests prove the gate's logic and the API tests prove the
-// handlers compose it. Neither proves that the thing a signed token actually
+// handlers compose it. Neither proves that the authenticated session actually
 // reaches is the thing RLS actually constrains, which is what this tier is
 // for and what makes "verified live" mean something here.
 

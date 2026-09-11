@@ -51,7 +51,9 @@ func (s *PgStore) EraseSyncedContent(
 		}
 		result.EventsRedacted = redactedEvents
 
-		doomed := append(messageActivities, eventActivities...)
+		doomed := make([]string, 0, len(messageActivities)+len(eventActivities))
+		doomed = append(doomed, messageActivities...)
+		doomed = append(doomed, eventActivities...)
 		if len(doomed) > 0 {
 			// The kind filter is not belt and braces: an id that turns out to
 			// name a hand-logged activity must survive, because that is the

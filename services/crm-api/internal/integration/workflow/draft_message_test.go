@@ -115,6 +115,49 @@ func TestARuleDraftsAPersonalisedMessage(t *testing.T) {
 	}
 }
 
+func TestARuleDraftsWhatsAppForAPhoneOnlyPersonFirstLead(t *testing.T) {
+	ctx := context.Background()
+	store := domain.NewMemStore()
+	scope := testScope()
+	template, err := store.CreateMessageTemplate(ctx, scope, &domain.MessageTemplate{
+		Name: "WhatsApp intro", ChannelKind: domain.ChannelWhatsApp,
+		Body: "Hi {{contact.first_name}}, thanks for your enquiry.", CreatedBy: "author-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule, err := store.CreateWorkflowRule(ctx, scope, &domain.WorkflowRule{Name: "WhatsApp new leads", CreatedBy: "author-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := store.CreateWorkflowRuleVersion(ctx, scope, &domain.WorkflowRuleVersion{
+		RuleID: rule.ID, TriggerEventType: domain.EventLeadCreated, CreatedBy: "author-1",
+		Actions: []domain.WorkflowAction{{
+			Type: domain.ActionDraftMessage, ChannelKind: domain.ChannelWhatsApp, TemplateID: template.ID,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule.Status, rule.ActiveVersionID = domain.WorkflowActive, version.ID
+	if _, err := store.UpdateWorkflowRule(ctx, scope, rule); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateLead(ctx, scope, &domain.Lead{
+		FirstName: "Alex", Phone: "+1 (555) 010-0000", OwnerID: "rep-1", Source: "Meta Lead Ads",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(store, nil).RunTenant(ctx, scope); err != nil {
+		t.Fatal(err)
+	}
+	drafts := pendingDrafts(t, store)
+	if len(drafts) != 1 || drafts[0].ChannelKind != domain.ChannelWhatsApp ||
+		drafts[0].Address != "+15550100000" || drafts[0].Body != "Hi Alex, thanks for your enquiry." {
+		t.Fatalf("WhatsApp drafts = %+v", drafts)
+	}
+}
+
 // TestARuleWillNotDraftForSomebodyWhoOptedOut is the reason §2 had to exist
 // before this section could.
 func TestARuleWillNotDraftForSomebodyWhoOptedOut(t *testing.T) {

@@ -131,31 +131,41 @@ func (s *PgStore) CommitImportJob(ctx context.Context, scope Scope, id string) (
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
-	job, err := s.GetImportJob(ctx, scope, id)
-	if err != nil {
-		return nil, err
-	}
-	if job.Status == ImportStatusCompleted {
-		return job, nil
-	}
-	created, skipped, errs, err := RunImportCommit(ctx, s, scope, job)
-	if err != nil {
-		return nil, err
-	}
-	rowErrs, err := marshalImportErrors(errs)
-	if err != nil {
-		return nil, err
-	}
-	out, err := scanImportJob(s.db.QueryRow(ctx, scope,
-		`UPDATE import_jobs SET status = $3, created_rows = $4, skipped_rows = $5, errors = $6, updated_at = $7
-		  WHERE tenant_id = $1 AND id = $2
-		RETURNING `+importJobColumns,
-		scope.TenantID, id, ImportStatusCompleted, created, skipped, rowErrs, nowStamp()))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+	var out *ImportJob
+	err := s.db.transaction(ctx, scope, func(txCtx context.Context) error {
+		job, scanErr := scanImportJob(s.db.QueryRow(txCtx, scope,
+			`SELECT `+importJobColumns+` FROM import_jobs
+			  WHERE tenant_id = $1 AND id = $2 FOR UPDATE`, scope.TenantID, id))
+		if errors.Is(scanErr, pgx.ErrNoRows) {
+			return ErrNotFound
 		}
-		return nil, fmt.Errorf("commit import job: %w", err)
+		if scanErr != nil {
+			return fmt.Errorf("lock import job: %w", scanErr)
+		}
+		if job.Status == ImportStatusCompleted {
+			out = job
+			return nil
+		}
+		created, skipped, errs, runErr := RunImportCommit(txCtx, s, scope, job)
+		if runErr != nil {
+			return runErr
+		}
+		rowErrs, marshalErr := marshalImportErrors(errs)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		out, scanErr = scanImportJob(s.db.QueryRow(txCtx, scope,
+			`UPDATE import_jobs SET status = $3, created_rows = $4, skipped_rows = $5, errors = $6, updated_at = $7
+			  WHERE tenant_id = $1 AND id = $2
+			RETURNING `+importJobColumns,
+			scope.TenantID, id, ImportStatusCompleted, created, skipped, rowErrs, nowStamp()))
+		if scanErr != nil {
+			return fmt.Errorf("commit import job: %w", scanErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return out, nil
 }

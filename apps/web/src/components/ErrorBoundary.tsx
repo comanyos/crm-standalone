@@ -27,14 +27,17 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div className="flex h-screen flex-col items-center justify-center gap-3 text-center" role="alert">
-          <h1 className="text-lg font-semibold text-slate-900">Something went wrong</h1>
-          <p className="max-w-sm text-sm text-slate-500">
-            This page hit an unexpected error. Reloading usually fixes it; if it keeps happening, contact your
-            administrator.
-          </p>
-          <Button onClick={() => window.location.reload()}>Reload</Button>
-        </div>
+        <main className="flex h-screen items-center justify-center bg-paper px-5" role="alert">
+          <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-savvy">
+            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-brand-600" />
+            <h1 className="font-display text-3xl font-normal tracking-[-0.035em] text-slate-950">Something went wrong</h1>
+            <p className="max-w-sm text-sm leading-6 text-slate-500">
+              This page hit an unexpected error. Reloading usually fixes it; if it keeps happening, contact your
+              administrator.
+            </p>
+            <Button onClick={() => window.location.reload()}>Reload</Button>
+          </div>
+        </main>
       );
     }
     return this.props.children;

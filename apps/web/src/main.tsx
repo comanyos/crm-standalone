@@ -7,7 +7,6 @@ import { router } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { ToastProvider } from "./components/ui/Toast";
 import { AppEnvProvider } from "./lib/AppEnvContext";
-import { buildOidcConfig } from "./lib/auth-config";
 import { loadEnv, EnvValidationError } from "./env";
 import { registerServiceWorker } from "./lib/registerServiceWorker";
 
@@ -30,11 +29,11 @@ try {
     <StrictMode>
       <ToastProvider>
         <AppEnvProvider env={env}>
-          <AuthProvider config={buildOidcConfig(env)}>
-            <QueryClientProvider client={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider apiUrl={env.crmApiUrl} authPortalUrl={env.authPortalUrl}>
               <RouterProvider router={router} />
-            </QueryClientProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </QueryClientProvider>
         </AppEnvProvider>
       </ToastProvider>
     </StrictMode>,

@@ -10,6 +10,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/calendar"
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
+	metaintegration "github.com/santoshguru/crm/internal/integration/meta"
 	"github.com/santoshguru/crm/internal/integration/privacy"
 	"github.com/santoshguru/crm/internal/secrets"
 )
@@ -23,6 +24,7 @@ type CRMService struct {
 	// without GOOGLE_OAUTH_* is running correctly and simply cannot offer the
 	// feature.
 	google *google.Service
+	meta   *metaintegration.Service
 	// gmail is nil for the same reason google is: without provider
 	// credentials there is no mailbox to synchronise.
 	gmail    *gmail.Syncer
@@ -48,6 +50,7 @@ func NewCRMService(
 	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
 	privacySvc *privacy.Service, captureSealer *secrets.Sealer,
 	gmailSender *gmail.Sender,
+	metaSvc *metaintegration.Service,
 ) *CRMService {
 	if privacySvc == nil {
 		// Unlike the Google services, this one is not optional: a
@@ -62,7 +65,7 @@ func NewCRMService(
 	return &CRMService{
 		cfg: cfg, store: store, google: googleSvc,
 		gmail: gmailSyncer, calendar: calendarSyncer, privacy: privacySvc,
-		capture: captureSealer, gmailSender: gmailSender,
+		capture: captureSealer, gmailSender: gmailSender, meta: metaSvc,
 	}
 }
 

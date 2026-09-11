@@ -10,7 +10,7 @@ import {
 
 /** The sidebar link, not the breadcrumb — both are labelled "Accounts". */
 const accountsNavLink = (page: import("@playwright/test").Page) =>
-  page.getByLabel("Primary").getByRole("link", { name: "Accounts" });
+  page.getByLabel("Primary").getByRole("link", { name: "Accounts", exact: true });
 
 /**
  * The Accounts journey against a live backend: create, read, search, edit,
@@ -127,8 +127,7 @@ test("saving a stale edit reports the conflict instead of overwriting", async ({
 
   // Meanwhile a second, fully independent session saves a change first.
   // Explicit storageState: a context created here does not inherit the
-  // project's, and re-entering the password would hit AuthinCore's login
-  // rate limit (see tests-e2e/auth.setup.ts).
+  // project's cookie-backed session.
   const otherContext = await browser.newContext({ storageState: AUTH_STATE_PATH });
   const other = await otherContext.newPage();
   await openApp(other);
@@ -187,10 +186,19 @@ test("an account sharing a website domain is flagged as a possible duplicate", a
   await page.getByLabel("Website").fill(website);
   await page.getByRole("button", { name: "Create account" }).click();
 
-  // Flagged, not blocked and never merged: the account was still created.
+  // Flagged, not blocked and never merged automatically: the account was
+  // still created. The bootstrap user is a crm_admin with account-write
+  // scope, so it can open the review dialog; the read-only case is covered by
+  // AccountDetailPage's permission tests.
   await expectOnDetailPage(page, secondName);
   await expect(page.getByRole("link", { name: "another account" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /merge/i })).toBeHidden();
+  const reviewMerge = page.getByRole("button", { name: "Review & merge", exact: true });
+  await expect(reviewMerge).toBeVisible();
+  await reviewMerge.click();
+  const mergeDialog = page.getByRole("dialog", { name: "Review and merge duplicate account" });
+  await expect(mergeDialog).toBeVisible();
+  await mergeDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(mergeDialog).toBeHidden();
   const secondUrl = page.url();
 
   await deleteFromDetailPage(page, secondUrl);

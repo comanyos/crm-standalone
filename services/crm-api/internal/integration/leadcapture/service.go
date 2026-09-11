@@ -52,8 +52,7 @@ type Store interface {
 	ResolveCaptureEndpoint(ctx context.Context, token string) (domain.CaptureEndpointRef, error)
 	GetLeadCaptureEndpoint(ctx context.Context, scope domain.Scope, id string) (*domain.LeadCaptureEndpoint, error)
 	RecordCaptureDelivery(ctx context.Context, scope domain.Scope, v *domain.LeadCaptureDelivery) (*domain.LeadCaptureDelivery, bool, error)
-	CreateLead(ctx context.Context, scope domain.Scope, v *domain.Lead) (*domain.Lead, error)
-	LinkCaptureDeliveryLead(ctx context.Context, scope domain.Scope, deliveryID, leadID string) error
+	CreateCapturedLead(ctx context.Context, scope domain.Scope, endpointID, dedupKey, rawPayload string, lead *domain.Lead) (*domain.LeadCaptureDelivery, *domain.Lead, bool, error)
 	TouchCaptureEndpoint(ctx context.Context, scope domain.Scope, id, reason string) error
 }
 
@@ -94,6 +93,10 @@ func New(store Store, sealer *secrets.Sealer, log *slog.Logger) (*Service, error
 func (s *Service) Deliver(ctx context.Context, token string, body []byte, signature string) Result {
 	ref, err := s.store.ResolveCaptureEndpoint(ctx, token)
 	if err != nil {
+		if !errors.Is(err, domain.ErrNotFound) {
+			metrics.LeadCaptureDeliveries.WithLabelValues(domain.CaptureReasonStoreFailed).Inc()
+			return Result{Accepted: false, Reason: domain.CaptureReasonStoreFailed}
+		}
 		// Deliberately the same answer a bad signature gets. A caller must
 		// not be able to test whether a token is real.
 		metrics.LeadCaptureDeliveries.WithLabelValues(domain.CaptureReasonUnknownEndpoint).Inc()
@@ -144,7 +147,7 @@ func (s *Service) Deliver(ctx context.Context, token string, body []byte, signat
 	endpoint, err := s.store.GetLeadCaptureEndpoint(ctx, scope, ref.EndpointID)
 	if err != nil {
 		metrics.LeadCaptureDeliveries.WithLabelValues(domain.CaptureReasonStoreFailed).Inc()
-		return Result{Accepted: true, Reason: domain.CaptureReasonStoreFailed}
+		return Result{Accepted: false, Reason: domain.CaptureReasonStoreFailed}
 	}
 
 	lead, usable := domain.LeadFromCapture(endpoint, payload)
@@ -159,47 +162,24 @@ func (s *Service) Deliver(ctx context.Context, token string, body []byte, signat
 		return Result{Accepted: true, Reason: domain.CaptureReasonNoLeadFields}
 	}
 
-	// The delivery row is claimed *before* the lead is created, so the
-	// unique (tenant, endpoint, dedup_key) index is what decides whether this
-	// delivery does anything. A provider's retry loses the race here rather
-	// than creating a second lead.
-	delivery, created, err := s.store.RecordCaptureDelivery(ctx, scope, &domain.LeadCaptureDelivery{
-		EndpointID: ref.EndpointID,
-		DedupKey:   domain.CaptureDedupKey(payload, body),
-		Outcome:    domain.DeliveryCreated,
-		RawPayload: string(body),
-	})
+	// Claim, Lead row, lead.created outbox event, delivery linkage and endpoint
+	// health are one transaction. A process crash can therefore leave either
+	// all of that fact or none of it — never a "created" delivery with no
+	// recoverable Lead.
+	delivery, stored, created, err := s.store.CreateCapturedLead(
+		ctx, scope, ref.EndpointID, domain.CaptureDedupKey(payload, body), string(body), lead)
 	if err != nil {
+		s.log.Warn("a captured lead transaction failed",
+			"tenant", ref.TenantID, "endpoint", ref.EndpointID)
+		_ = s.store.TouchCaptureEndpoint(ctx, scope, ref.EndpointID, domain.CaptureReasonStoreFailed)
 		metrics.LeadCaptureDeliveries.WithLabelValues(domain.CaptureReasonStoreFailed).Inc()
-		return Result{Accepted: true, Reason: domain.CaptureReasonStoreFailed}
+		return Result{Accepted: false, Reason: domain.CaptureReasonStoreFailed}
 	}
 	if !created {
 		metrics.LeadCaptureDeliveries.WithLabelValues(domain.DeliveryDuplicate).Inc()
 		return Result{Accepted: true, Reason: domain.DeliveryDuplicate, LeadID: delivery.LeadID}
 	}
 
-	stored, err := s.store.CreateLead(ctx, scope, lead)
-	if err != nil {
-		s.log.Warn("a captured lead could not be created",
-			"tenant", ref.TenantID, "endpoint", ref.EndpointID, "delivery", delivery.ID)
-		_ = s.store.TouchCaptureEndpoint(ctx, scope, ref.EndpointID, domain.CaptureReasonStoreFailed)
-		metrics.LeadCaptureDeliveries.WithLabelValues(domain.CaptureReasonStoreFailed).Inc()
-		// The provider's own retry is what recovers this — see
-		// docs/LEAD_CAPTURE.md's named narrowings for why there is no second
-		// retry queue on this side.
-		return Result{Accepted: true, Reason: domain.CaptureReasonStoreFailed}
-	}
-
-	// The delivery row was claimed before the lead existed, so it is only now
-	// that it can say what it became. A failure here leaves a "created"
-	// delivery with no lead id — worth logging and not worth failing the
-	// delivery over, since the lead itself is safely stored.
-	if err := s.store.LinkCaptureDeliveryLead(ctx, scope, delivery.ID, stored.ID); err != nil {
-		s.log.Warn("a capture delivery could not be linked to the lead it created",
-			"tenant", ref.TenantID, "delivery", delivery.ID)
-	}
-
-	_ = s.store.TouchCaptureEndpoint(ctx, scope, ref.EndpointID, domain.CaptureReasonNone)
 	metrics.LeadCaptureDeliveries.WithLabelValues(domain.DeliveryCreated).Inc()
 	return Result{Accepted: true, Reason: domain.CaptureReasonNone, LeadID: stored.ID}
 }

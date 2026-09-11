@@ -76,9 +76,9 @@ func validateExpressionNode(node ast.Expr, depth int) error {
 }
 
 type expressionState struct {
-	values           CustomValues
-	steps, deadlineN int
-	deadline         time.Time
+	values   CustomValues
+	steps    int
+	deadline time.Time
 }
 
 func (s *expressionState) eval(node ast.Expr, depth int) (any, error) {

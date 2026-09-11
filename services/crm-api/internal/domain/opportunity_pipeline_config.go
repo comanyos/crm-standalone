@@ -129,16 +129,18 @@ func prepareOpportunityStage(
 	if existing != nil && v.PipelineID != existing.PipelineID {
 		return nil, fmt.Errorf("%w: an opportunity cannot move to another pipeline", ErrInvalidTransition)
 	}
-	if existing != nil && v.Stage != "" && v.Stage != existing.Stage {
+	switch {
+	case existing != nil && v.Stage != "" && v.Stage != existing.Stage:
 		// Compatibility for clients that predate stage_id: a changed legacy
 		// stage value is the requested stage identifier in the Sales pipeline.
 		v.StageID = v.Stage
-	} else if v.StageID == "" {
-		if existing != nil && v.Stage == existing.Stage {
+	case v.StageID == "":
+		switch {
+		case existing != nil && v.Stage == existing.Stage:
 			v.StageID = existing.StageID
-		} else if v.Stage != "" {
+		case v.Stage != "":
 			v.StageID = v.Stage
-		} else {
+		default:
 			stage, err := initialPipelineStage(ctx, r, scope, v.PipelineID)
 			if err != nil {
 				return nil, err

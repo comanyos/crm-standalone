@@ -20,6 +20,7 @@ import (
 	"github.com/santoshguru/crm/internal/integration/gmail"
 	"github.com/santoshguru/crm/internal/integration/google"
 	"github.com/santoshguru/crm/internal/integration/googleoauth"
+	metaintegration "github.com/santoshguru/crm/internal/integration/meta"
 	"github.com/santoshguru/crm/internal/integration/privacy"
 	"github.com/santoshguru/crm/internal/secrets"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -67,8 +68,16 @@ func newTestServiceWithStore() (*CRMService, domain.Store) {
 	if err != nil {
 		panic("api tests: build capture sealer: " + err.Error())
 	}
+	metaClient, err := metaintegration.NewClient(metaintegration.Config{
+		AppID: "test-meta-app", AppSecret: "test-meta-secret",
+		RedirectURL: "http://localhost:19431/integrations/meta/callback",
+	}, &http.Client{Transport: stubMetaTransport{}})
+	if err != nil {
+		panic("api tests: build Meta client: " + err.Error())
+	}
+	metaSvc := metaintegration.NewService(store, metaClient, sealer, "")
 	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer,
-		privacySvc, sealer, nil), store
+		privacySvc, sealer, nil, metaSvc), store
 }
 
 // testCaptureKey seals lead-capture secrets in this package's tests. Base64
@@ -121,6 +130,48 @@ func (stubGoogleTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Request:    r,
 	}, nil
+}
+
+type stubMetaTransport struct{}
+
+func (stubMetaTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	body := `{}`
+	status := http.StatusOK
+	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	label := strings.TrimPrefix(token, "meta-user-")
+	label = strings.TrimPrefix(label, "meta-page-")
+	switch {
+	case strings.HasSuffix(r.URL.Path, "/me/businesses"):
+		body = fmt.Sprintf(`{"data":[{"id":"business-%s","name":"%s Business"}]}`, label, label)
+	case strings.HasSuffix(r.URL.Path, "/owned_pages"):
+		body = fmt.Sprintf(`{"data":[{"id":"page-%s","name":"%s Meta Page","access_token":"meta-page-%s"}]}`, label, label, label)
+	case strings.Contains(r.URL.Path, "/leadgen_forms"):
+		body = fmt.Sprintf(`{"data":[{"id":"form-%s","name":"%s Lead Form","status":"ACTIVE"}]}`, label, label)
+	case strings.HasSuffix(r.URL.Path, "/subscribed_apps"):
+		body = `{"success":true}`
+	case strings.HasSuffix(r.URL.Path, "/leads"):
+		body = `{"data":[]}`
+	case r.Method == http.MethodDelete && strings.HasSuffix(r.URL.Path, "/me/permissions"):
+		body = `{"success":true}`
+	default:
+		status = http.StatusNotFound
+		body = `{"error":"unmodelled Meta test endpoint"}`
+	}
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)),
+		Header: http.Header{"Content-Type": []string{"application/json"}}, Request: r}, nil
+}
+
+func sealMetaTestToken(t *testing.T, tenantID, connectionID, kind, token string) []byte {
+	t.Helper()
+	sealer, err := secrets.New(testCaptureKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealed, err := sealer.Seal([]byte(token), []byte("meta:"+kind+":"+tenantID+":"+connectionID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sealed
 }
 
 // sealTestTokens produces a credential the service's own client can open,

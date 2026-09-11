@@ -110,7 +110,11 @@ func (s *MemStore) SearchRecords(ctx context.Context, scope Scope, query string,
 		results = append(results, SearchRecord{"contact", v.ID, strings.TrimSpace(v.FirstName + " " + v.LastName), v.Email})
 	}
 	for _, v := range leads {
-		results = append(results, SearchRecord{"lead", v.ID, v.Company, firstNonEmpty(v.ContactEmail, v.Source)})
+		results = append(results, SearchRecord{
+			"lead", v.ID,
+			firstNonEmpty(strings.TrimSpace(v.FirstName+" "+v.LastName), v.Company, v.ContactEmail, v.Phone, "Lead"),
+			firstNonEmpty(v.Company, v.ContactEmail, v.Phone, v.Source),
+		})
 	}
 	for _, v := range opportunities {
 		results = append(results, SearchRecord{"opportunity", v.ID, v.Name, v.Stage})

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "./RequireAuth";
 import * as AuthProviderModule from "./AuthProvider";
 
@@ -52,4 +53,31 @@ describe("RequireAuth", () => {
     expect(screen.getByText("Protected content")).toBeInTheDocument();
     expect(login).not.toHaveBeenCalled();
   });
+
+  it.each(["signing-out", "sign-out-error"] as const)(
+    "hides protected content while logout is %s",
+    (status) => {
+      useAuthMock.mockReturnValue({ status, login: vi.fn() } as unknown as ReturnType<
+        typeof AuthProviderModule.useAuth
+      >);
+      render(
+        <MemoryRouter initialEntries={["/private"]}>
+          <Routes>
+            <Route
+              path="/private"
+              element={
+                <RequireAuth>
+                  <p>Protected content</p>
+                </RequireAuth>
+              }
+            />
+            <Route path="/signed-out" element={<p>Safe session screen</p>} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
+      expect(screen.getByText("Safe session screen")).toBeInTheDocument();
+    },
+  );
 });

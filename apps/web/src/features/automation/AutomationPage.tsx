@@ -234,7 +234,7 @@ export default function AutomationPage() {
         <PageHeader title="Automation" />
         <EmptyState
           title="Automation access required"
-          description="Rules are managed by CRM managers and administrators."
+          description="Rules are managed by Savvy CRM managers and administrators."
         />
       </div>
     );

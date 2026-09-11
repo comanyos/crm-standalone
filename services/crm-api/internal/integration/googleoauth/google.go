@@ -23,7 +23,7 @@ import (
 
 const (
 	authorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth"
-	tokenEndpoint         = "https://oauth2.googleapis.com/token"
+	tokenEndpoint         = "https://oauth2.googleapis.com/token" // #nosec G101 -- public provider endpoint, not a token
 	revokeEndpoint        = "https://oauth2.googleapis.com/revoke"
 	// profileEndpoint is Gmail's users.getProfile. It is what identifies the
 	// account the user actually consented with, and it works under
@@ -241,7 +241,7 @@ func (c *Client) Revoke(ctx context.Context, token string) error {
 	if err != nil {
 		return fmt.Errorf("googleoauth: revoke request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // body close is best-effort after a bounded read
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
 	switch {
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
@@ -273,7 +273,7 @@ func (c *Client) AccountEmail(ctx context.Context, accessToken string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("googleoauth: profile request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // body close is best-effort after a bounded read
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return "", fmt.Errorf("googleoauth: profile endpoint returned HTTP %d", resp.StatusCode)
 	}
@@ -290,6 +290,7 @@ func (c *Client) AccountEmail(ctx context.Context, accessToken string) (string, 
 // associated data must be a stable tenant+connection binding so ciphertexts
 // cannot be replayed across tenants or connections.
 func (c *Client) Encrypt(tokens TokenSet, associatedData []byte) ([]byte, error) {
+	// #nosec G117 -- the token structure is serialized only to seal it with AEAD immediately below.
 	plain, err := json.Marshal(tokens)
 	if err != nil {
 		return nil, fmt.Errorf("googleoauth: encode tokens: %w", err)
@@ -329,7 +330,7 @@ func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenSet, e
 	if err != nil {
 		return TokenSet{}, fmt.Errorf("googleoauth: token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // body close is best-effort after a bounded read
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		// Provider response bodies can include diagnostics. Do not return them:
 		// callers must not accidentally log provider tokens or authorization data.

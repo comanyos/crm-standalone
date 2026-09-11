@@ -25,40 +25,65 @@ import (
 )
 
 func main() {
+	os.Exit(execute())
+}
+
+func execute() int {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(log)
 	shutdownTracing, err := tracing.Init(context.Background(), "crm-api")
 	if err != nil {
 		slog.Error("tracing init failed")
-		os.Exit(1)
+		return 1
 	}
-	defer func() { _ = shutdownTracing(context.Background()) }()
+	defer func() {
+		if err := shutdownTracing(context.Background()); err != nil {
+			slog.Error("tracing shutdown failed", "err", err)
+		}
+	}()
 
 	cfg := config.Load()
 	if err := cfg.Validate(); err != nil {
 		slog.Error("invalid config", "err", err)
-		os.Exit(1)
+		return 1
 	}
 
 	authCtx, authCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	authn, err := auth.FromConfig(authCtx, cfg.AuthJWKSURL, cfg.AuthIssuer, cfg.AuthAudience)
+	authn, err := auth.NewPostgres(authCtx, auth.Config{
+		DatabaseURL: cfg.DatabaseURL,
+		OTPSecret:   cfg.OTPPepper, OTPTTL: cfg.AuthOTPTTL,
+		SessionTTL: cfg.AuthSessionTTL, CookieName: cfg.AuthCookieName,
+		CookieSecure: cfg.AuthCookieSecure, DevOTP: cfg.AuthDevOTP,
+		SMTP: auth.SMTPConfig{
+			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword, From: cfg.SMTPFrom, UseTLS: cfg.SMTPTLS,
+			RequireSTARTTLS: cfg.SMTPRequireSTARTTLS,
+		},
+		GoogleClientID: cfg.AuthGoogleClientID, GoogleClientSecret: cfg.AuthGoogleClientSecret,
+		GoogleRedirectURL: cfg.AuthGoogleRedirectURL, LoginSuccessURL: cfg.AuthLoginSuccessURL,
+		JoinResultURL:  cfg.AuthJoinResultURL,
+		BootstrapEmail: cfg.AuthBootstrapEmail, BootstrapOrgName: cfg.AuthBootstrapOrgName,
+		BootstrapOrgID: cfg.AuthBootstrapOrgID,
+	})
 	authCancel()
 	if err != nil {
 		slog.Error("auth init", "err", err)
-		os.Exit(1)
+		return 1
 	}
 
 	store, err := openStore(cfg)
 	if err != nil {
+		authn.Close()
 		slog.Error("store", "err", err)
-		os.Exit(1)
+		return 1
 	}
 	defer func() { _ = store.Close() }()
 
 	srv, err := server.New(cfg, store, authn)
 	if err != nil {
+		authn.Close()
 		slog.Error("server", "err", err)
-		os.Exit(1)
+		return 1
 	}
 	defer srv.Close()
 
@@ -111,26 +136,38 @@ func main() {
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      120 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
+	serverErr := make(chan error, 1)
 	go func() {
 		slog.Info("crm-plug listening",
 			"addr", cfg.Addr, "mode", cfg.Mode, "edition", cfg.Edition)
 		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			slog.Error("server error", "err", err)
-			os.Exit(1)
+			serverErr <- err
 		}
 	}()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
+	exitCode := 0
+	select {
+	case <-stop:
+	case err := <-serverErr:
+		slog.Error("server error", "err", err)
+		exitCode = 1
+	}
+	signal.Stop(stop)
 
 	slog.Info("shutting down")
 	stopDispatch()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = httpSrv.Shutdown(ctx)
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		slog.Error("HTTP shutdown failed", "err", err)
+		exitCode = 1
+	}
+	return exitCode
 }
 
 // openStore returns the Postgres store when DATABASE_URL is set, and the in-memory

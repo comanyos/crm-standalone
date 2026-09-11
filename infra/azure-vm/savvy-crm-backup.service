@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up Savvy CRM PostgreSQL to Azure Blob Storage
+After=savvy-crm.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/savvy-crm/backup.env
+ExecStart=/opt/savvy-crm/backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

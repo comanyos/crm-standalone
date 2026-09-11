@@ -72,7 +72,7 @@ export function TagsPanel({ objectType, objectId }: { objectType: TaggableObject
           <Badge key={tag.id} tone="neutral">
             <span
               className="mr-1 inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: tag.color || "#94a3b8" }}
+              style={{ backgroundColor: tag.color || "#8b957d" }}
               aria-hidden="true"
             />
             {tag.name}

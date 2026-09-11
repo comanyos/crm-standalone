@@ -1,12 +1,13 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ContactChannelsPanel } from "./ContactChannelsPanel";
+import { ContactChannelsPanel, LeadChannelsPanel } from "./ContactChannelsPanel";
 import { renderRoutes } from "../test/harness";
 import { expectNoA11yViolations } from "../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
   crm: {
     listContactChannels: vi.fn(),
+    listLeadChannels: vi.fn(),
     recordMessagingConsent: vi.fn(),
     createActivity: vi.fn(),
     listMessageTemplates: vi.fn(),
@@ -39,6 +40,21 @@ const routes = [
   },
 ];
 
+const leadRoutes = [
+  {
+    path: "/",
+    element: (
+      <LeadChannelsPanel
+        leadId="lead-1"
+        firstName="Alex"
+        lastName="Rivera"
+        email=""
+        company=""
+      />
+    ),
+  },
+];
+
 /** The shape ListContactChannels returns: an answer, not ingredients. */
 function channel(over: Partial<Record<string, unknown>> = {}) {
   return {
@@ -64,12 +80,30 @@ beforeEach(() => {
       channel({ kind: "whatsapp" }),
     ],
   });
+  crm.listLeadChannels.mockResolvedValue({
+    channels: [channel({ kind: "whatsapp", address: "+15550100000" })],
+  });
   crm.recordMessagingConsent.mockResolvedValue({ consent: { id: "cons-1", state: "withdrawn" } });
   crm.createActivity.mockResolvedValue({ activity: { id: "act-1" } });
   crm.listMessageTemplates.mockResolvedValue({ templates: [] });
 });
 
 describe("ContactChannelsPanel", () => {
+  it("uses the Lead consent decision for a captured lead's WhatsApp hand-off", async () => {
+    renderRoutes(leadRoutes);
+    const whatsapp = (await screen.findByRole("link", { name: /WhatsApp/ })) as HTMLAnchorElement;
+    expect(crm.listLeadChannels).toHaveBeenCalledWith({ leadId: "lead-1" });
+    expect(whatsapp.href).toContain("https://wa.me/15550100000");
+
+    fireEvent.click(whatsapp);
+    await waitFor(() => expect(crm.createActivity).toHaveBeenCalled());
+    expect(crm.createActivity.mock.calls[0][0].activity).toMatchObject({
+      subjectType: "lead",
+      subjectId: "lead-1",
+      kind: "outreach_attempt",
+    });
+  });
+
   it("offers a real link per channel, addressed the way each app expects", async () => {
     renderRoutes(routes);
 

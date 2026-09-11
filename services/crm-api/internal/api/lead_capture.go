@@ -94,6 +94,16 @@ func (s *CRMService) CreateLeadCaptureEndpoint(
 	for k, target := range req.Msg.GetFieldMapping() {
 		mapping[strings.TrimSpace(k)] = strings.TrimSpace(target)
 	}
+	if len(mapping) == 0 {
+		// A newly issued endpoint must work before an administrator learns a
+		// mapping DSL. These names cover our documented contract and the common
+		// spelling used by form and ad providers; explicit mappings still win.
+		mapping = map[string]string{
+			"first_name": "first_name", "last_name": "last_name",
+			"email": "contact_email", "phone": "phone",
+			"company": "company", "source": "source",
+		}
+	}
 
 	// The row is created first with the secret sealed against a placeholder
 	// binding, then re-sealed against the real endpoint id. The binding names

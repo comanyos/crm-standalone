@@ -2,19 +2,13 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
-	"time"
 
 	"connectrpc.com/connect"
-	"github.com/golang-jwt/jwt/v5"
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
 	"github.com/santoshguru/crm/gen/crm/v1/crmv1connect"
 	platformv1 "github.com/santoshguru/crm/gen/platform/v1"
@@ -24,37 +18,14 @@ import (
 	"github.com/santoshguru/crm/internal/domain"
 )
 
-// End-to-end scope enforcement (task.md §1.4): a real HTTP server, real
-// signed tokens verified against a real JWKS, the real interceptor, and the
-// real handlers over a live store.
+// End-to-end scope enforcement (task.md §1.4): a real HTTP server, opaque
+// test sessions, the real interceptor, and the real handlers over a live
+// store.
 //
 // The unit tests above reason about the policy as data. This file is the one
 // that would catch the policy being correct but not actually wired — an
 // interceptor registered on one handler and not the other, say, which every
 // data-level test would still pass.
-
-const enforcementKID = "policy-test-key"
-
-// jwksFor serves the public half of key and returns the JWKS URL.
-func jwksFor(t *testing.T, pub *rsa.PublicKey) string {
-	t.Helper()
-	eBuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(eBuf, uint32(pub.E))
-	i := 0
-	for i < len(eBuf)-1 && eBuf[i] == 0 {
-		i++
-	}
-	doc := map[string]any{"keys": []map[string]string{{
-		"kty": "RSA", "use": "sig", "alg": "RS256", "kid": enforcementKID,
-		"n": base64.RawURLEncoding.EncodeToString(pub.N.Bytes()),
-		"e": base64.RawURLEncoding.EncodeToString(eBuf[i:]),
-	}}}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(doc)
-	}))
-	t.Cleanup(srv.Close)
-	return srv.URL
-}
 
 // liveServer wires a real CRM server behind a real authenticator and returns
 // clients for both registered services plus a token minter for arbitrary
@@ -62,14 +33,7 @@ func jwksFor(t *testing.T, pub *rsa.PublicKey) string {
 func liveServer(t *testing.T) (crmv1connect.CRMServiceClient, platformv1connect.ModuleServiceClient, func(org string, scopes []string) string) {
 	t.Helper()
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	authn, err := auth.FromConfig(context.Background(), jwksFor(t, &key.PublicKey), "authincore", "")
-	if err != nil {
-		t.Fatalf("build authenticator: %v", err)
-	}
+	authn, mint := testSessions(t)
 
 	srv, err := New(config.Config{}, domain.NewMemStore(), authn)
 	if err != nil {
@@ -79,28 +43,6 @@ func liveServer(t *testing.T) (crmv1connect.CRMServiceClient, platformv1connect.
 
 	http := httptest.NewServer(srv.Handler())
 	t.Cleanup(http.Close)
-
-	mint := func(org string, scopes []string) string {
-		t.Helper()
-		claims := jwt.MapClaims{
-			"sub": "user-" + org, "iss": "authincore", "org_id": org,
-			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
-		}
-		if scopes != nil {
-			raw := make([]any, 0, len(scopes))
-			for _, s := range scopes {
-				raw = append(raw, s)
-			}
-			claims["scopes"] = raw
-		}
-		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-		tok.Header["kid"] = enforcementKID
-		signed, err := tok.SignedString(key)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return signed
-	}
 
 	return crmv1connect.NewCRMServiceClient(http.Client(), http.URL),
 		platformv1connect.NewModuleServiceClient(http.Client(), http.URL),
@@ -413,80 +355,18 @@ func TestUnscopedProceduresWorkForAScopelessPrincipal(t *testing.T) {
 	}
 }
 
-// TestRoleChangesTakeEffectOnlyAtTheNextToken pins the session boundary
-// (task.md §1.4).
-//
-// Authority is carried in the access token, and this service verifies tokens
-// offline against JWKS rather than asking AuthinCore per request. So granting
-// or revoking a role does not change what a client can do until that client
-// presents a token minted after the change — its existing token keeps exactly
-// the authority it was signed with, until it expires.
-//
-// That is a deliberate trade (a network round trip per request is the
-// alternative), but it is the kind of behaviour an operator discovers at the
-// worst moment: revoking a role and watching the user carry on working. The
-// window is the access-token lifetime, and this test is where that is written
-// down rather than assumed.
-func TestRoleChangesTakeEffectOnlyAtTheNextToken(t *testing.T) {
-	client, _, mint := liveServer(t)
-	ctx := context.Background()
-
-	admin := mint("org-1", []string{"crm:*"})
-	created, err := client.CreateAccount(ctx, withToken(&crmv1.CreateAccountRequest{
-		Account: &crmv1.Account{Name: "Acme", OwnerId: "owner-1"},
-	}, admin))
-	if err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	id := created.Msg.GetAccount().GetId()
-
-	// The same person, before and after a role change. Both tokens are valid
-	// and unexpired; only their scope sets differ.
-	beforeRevocation := mint("org-1", []string{"crm:account:read", "crm:account:write"})
-	afterRevocation := mint("org-1", []string{"crm:account:read"})
-
-	// The newly minted, reduced token is refused the write immediately.
-	_, err = client.UpdateAccount(ctx, withToken(&crmv1.UpdateAccountRequest{
-		Account: &crmv1.Account{Id: id, Name: "Renamed by new token", OwnerId: "owner-1"},
-	}, afterRevocation))
-	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
-		t.Errorf("the post-change token still had write authority: code = %v", got)
-	}
-
-	// The token issued before the change still carries it. This is the
-	// documented window, not a defect — but it must be a window, not a
-	// permanent grant, which is why auth/jwks.go requires an exp claim.
-	if _, err := client.UpdateAccount(ctx, withToken(&crmv1.UpdateAccountRequest{
-		Account: &crmv1.Account{Id: id, Name: "Renamed by old token", OwnerId: "owner-1"},
-	}, beforeRevocation)); err != nil {
-		t.Fatalf("the pre-change token unexpectedly lost its authority: %v", err)
-	}
-
-	// The window closes at expiry, which is enforced rather than assumed:
-	// internal/auth requires an exp claim, so no token can carry stale
-	// authority indefinitely (TestDeactivatedOrganizationIsBoundedByTokenExpiry).
-}
-
-// TestReadyzReportsUnavailableWithoutSigningKeys covers the readiness
-// endpoint (task.md §1.2).
+// TestReadyzReportsUnavailableWithoutAuthStore covers the readiness endpoint.
 //
 // /healthz and /readyz answer different questions and an orchestrator uses
 // them differently. Liveness says the process is up; restarting on an
 // upstream outage turns a recoverable blip into a crash loop. Readiness says
-// this instance can do its job — and it cannot, if it holds no signing keys,
+// this instance can do its job — and it cannot if the session store is down,
 // because then every authenticated request fails in a way that looks to the
 // user like their own credentials are wrong.
-func TestReadyzReportsUnavailableWithoutSigningKeys(t *testing.T) {
-	// A JWKS endpoint that never answers with keys.
-	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	t.Cleanup(jwks.Close)
-
-	authn, err := auth.FromConfig(context.Background(), jwks.URL, "authincore", "")
-	if err != nil {
-		t.Fatalf("the authenticator refused to start degraded: %v", err)
-	}
+func TestReadyzReportsUnavailableWithoutAuthStore(t *testing.T) {
+	authn := auth.NewTestingAuthenticator(nil, func(context.Context) error {
+		return errors.New("database unavailable")
+	})
 	srv, err := New(config.Config{}, domain.NewMemStore(), authn)
 	if err != nil {
 		t.Fatal(err)
@@ -502,7 +382,7 @@ func TestReadyzReportsUnavailableWithoutSigningKeys(t *testing.T) {
 	}
 	defer func() { _ = live.Body.Close() }()
 	if live.StatusCode != http.StatusOK {
-		t.Errorf("/healthz = %d while only the identity provider is down; want 200 — "+
+		t.Errorf("/healthz = %d while only the auth store is down; want 200 — "+
 			"a liveness probe that fails here would crash-loop the service", live.StatusCode)
 	}
 
@@ -513,7 +393,7 @@ func TestReadyzReportsUnavailableWithoutSigningKeys(t *testing.T) {
 	}
 	defer func() { _ = ready.Body.Close() }()
 	if ready.StatusCode != http.StatusServiceUnavailable {
-		t.Errorf("/readyz = %d with no signing keys; want 503", ready.StatusCode)
+		t.Errorf("/readyz = %d with an unavailable auth store; want 503", ready.StatusCode)
 	}
 	var body map[string]string
 	if err := json.NewDecoder(ready.Body).Decode(&body); err != nil {
@@ -524,22 +404,15 @@ func TestReadyzReportsUnavailableWithoutSigningKeys(t *testing.T) {
 	}
 	// The reason names the subsystem and nothing else: a readiness endpoint is
 	// usually reachable without credentials.
-	if strings.Contains(body["reason"], jwks.URL) {
-		t.Errorf("/readyz leaks the JWKS URL to an unauthenticated caller: %q", body["reason"])
+	if body["reason"] != "authentication store unavailable" {
+		t.Errorf("/readyz reason = %q", body["reason"])
 	}
 }
 
-// TestReadyzReportsReadyWithSigningKeys is the positive case, so the test
+// TestReadyzReportsReadyWithAuthStore is the positive case, so the test
 // above cannot pass merely because /readyz always fails.
-func TestReadyzReportsReadyWithSigningKeys(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	authn, err := auth.FromConfig(context.Background(), jwksFor(t, &key.PublicKey), "authincore", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestReadyzReportsReadyWithAuthStore(t *testing.T) {
+	authn := auth.NewTestingAuthenticator(nil, func(context.Context) error { return nil })
 	srv, err := New(config.Config{}, domain.NewMemStore(), authn)
 	if err != nil {
 		t.Fatal(err)
@@ -554,7 +427,7 @@ func TestReadyzReportsReadyWithSigningKeys(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("/readyz = %d with a working JWKS; want 200", resp.StatusCode)
+		t.Fatalf("/readyz = %d with a working auth store; want 200", resp.StatusCode)
 	}
 	var body map[string]string
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {

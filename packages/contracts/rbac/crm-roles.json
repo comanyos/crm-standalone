@@ -2,21 +2,18 @@
   "version": 1,
   "$comment": [
     "The CRM role matrix (task.md §1.4). This file is the source of truth for",
-    "which scopes each built-in role grants, and both services pin themselves",
-    "to it in their own test suites:",
+    "which scopes each built-in role grants. Native authentication and API",
+    "authorization pin themselves to it in the CRM service test suite:",
     "",
-    "  services/authincore/cmd/authinctl/bootstrap.go — provisions the roles",
-    "    and their permissions into an organization. Pinned by",
-    "    bootstrap_roles_test.go.",
+    "  services/crm-api/internal/auth/simple.go — resolves a live membership",
+    "    into its server-owned scopes.",
     "  services/crm-api/internal/server/scopes.go — maps every procedure to the",
     "    scope it demands. Pinned by role_matrix_test.go, which also asserts",
     "    each role can reach exactly the procedures it is meant to.",
     "",
-    "The two services are separate Go modules and cannot share a package, so",
-    "without this file the matrix would exist twice with nothing comparing the",
-    "copies. Drift between an identity service that grants a scope and a",
-    "resource server that demands a different one is silent at build time and",
-    "shows up as a permission error for one role in production.",
+    "Without this file the membership grants and RPC requirements would exist",
+    "as unrelated copies. Their tests compare both sides so drift fails during",
+    "development rather than becoming a production permission error.",
     "",
     "Scopes are coarse: one read and one write per entity. Restrictions that",
     "depend on the record rather than its type — 'may edit only accounts they",
@@ -62,13 +59,13 @@
   "roles": [
     {
       "key": "crm_admin",
-      "displayName": "CRM Administrator",
+      "displayName": "Savvy CRM Administrator",
       "scopes": ["crm:*"],
-      "rationale": "Full authority over the organization's CRM, including pipeline configuration. Held via a server-side role grant only: AuthinCore strips a browser-requested crm:* from human tokens, so authority cannot be self-assigned by asking for it at the authorize endpoint."
+      "rationale": "Full authority over the organization's CRM, including pipeline configuration. Native auth assigns this role only on the server during workspace creation or administrator-controlled membership changes; browser requests cannot submit roles or scopes."
     },
     {
       "key": "crm_manager",
-      "displayName": "CRM Manager",
+      "displayName": "Savvy CRM Manager",
       "scopes": [
         "crm:account:read", "crm:account:write",
         "crm:contact:read", "crm:contact:write",
@@ -95,7 +92,7 @@
     },
     {
       "key": "crm_member",
-      "displayName": "CRM Member",
+      "displayName": "Savvy CRM Member",
       "scopes": [
         "crm:account:read",
         "crm:contact:read", "crm:contact:write",
@@ -121,7 +118,7 @@
     },
     {
       "key": "crm_viewer",
-      "displayName": "CRM Viewer",
+      "displayName": "Savvy CRM Viewer",
       "scopes": [
         "crm:account:read",
         "crm:contact:read",

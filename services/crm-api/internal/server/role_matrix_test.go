@@ -14,7 +14,7 @@ import (
 // The role matrix, checked as behaviour rather than as a list (task.md §1.4).
 //
 // The scopes each built-in role grants live in packages/contracts/rbac/
-// crm-roles.json, which AuthinCore's bootstrap provisions from and this
+// crm-roles.json, which the native membership mapper provisions from and this
 // service demands against. Those are two separate Go modules, so nothing but
 // a shared file and a test on each side keeps them agreeing.
 //
@@ -68,8 +68,8 @@ func loadRoleMatrix(t *testing.T) roleMatrix {
 	return m
 }
 
-// principalFor builds the principal AuthinCore would mint for a holder of one
-// role in one organization.
+// principalFor builds the principal a native membership creates for a holder
+// of one role in one organization.
 func principalFor(t *testing.T, m roleMatrix, roleKey string) *auth.Principal {
 	t.Helper()
 	for _, role := range m.Roles {

@@ -7,7 +7,7 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/santoshguru/crm/gen/crm/v1;crmv1";
 
 // CRMService is the domain API. Every RPC is tenant-scoped: the tenant is taken
-// from the caller's verified JWT, never from the request body.
+// from the caller's live server-side session membership, never from the request body.
 service CRMService {
   rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
   rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
@@ -138,6 +138,20 @@ service CRMService {
   rpc GetGoogleConnection(GetGoogleConnectionRequest) returns (GetGoogleConnectionResponse);
   rpc ListGoogleConnections(ListGoogleConnectionsRequest) returns (ListGoogleConnectionsResponse);
   rpc DisconnectGoogleConnection(DisconnectGoogleConnectionRequest) returns (DisconnectGoogleConnectionResponse);
+
+  // Native Meta Lead Ads connection. One tenant-level authorization is bound
+  // to a Facebook Page and Instant Form; the same webhook carries Facebook
+  // and Instagram leads. Responses expose status and provider names only,
+  // never the user/Page access tokens stored encrypted by the server.
+  rpc StartMetaConnection(StartMetaConnectionRequest) returns (StartMetaConnectionResponse);
+  rpc GetMetaConnection(GetMetaConnectionRequest) returns (GetMetaConnectionResponse);
+  rpc ListMetaBusinesses(ListMetaBusinessesRequest) returns (ListMetaBusinessesResponse);
+  rpc ListMetaPages(ListMetaPagesRequest) returns (ListMetaPagesResponse);
+  rpc ListMetaForms(ListMetaFormsRequest) returns (ListMetaFormsResponse);
+  rpc SelectMetaLeadForm(SelectMetaLeadFormRequest) returns (SelectMetaLeadFormResponse);
+  rpc ImportMetaLeads(ImportMetaLeadsRequest) returns (ImportMetaLeadsResponse);
+  rpc DisconnectMetaConnection(DisconnectMetaConnectionRequest) returns (DisconnectMetaConnectionResponse);
+  rpc GetLeadMetaAttribution(GetLeadMetaAttributionRequest) returns (GetLeadMetaAttributionResponse);
   // SyncGoogleMailbox runs one Gmail synchronisation pass for the calling
   // user's own mailbox, now, rather than waiting for the background poller.
   // It is bounded: one pass examines a fixed number of messages and stores a
@@ -155,7 +169,7 @@ service CRMService {
   // name a record or an address, because the person exercising a right is
   // usually not the person holding the CRM login. They carry their own scope
   // for that reason.
-  rpc EraseSyncedContentForContact(EraseSyncedContentForContactRequest) returns (EraseSyncedContentResponse);
+  rpc EraseSyncedContentForContact(EraseSyncedContentForContactRequest) returns (EraseSyncedContentForContactResponse);
   rpc ListSyncSuppressions(ListSyncSuppressionsRequest) returns (ListSyncSuppressionsResponse);
   rpc SuppressSyncAddress(SuppressSyncAddressRequest) returns (SuppressSyncAddressResponse);
   rpc ReleaseSyncAddress(ReleaseSyncAddressRequest) returns (ReleaseSyncAddressResponse);
@@ -298,6 +312,10 @@ service CRMService {
   // in the consent ledger, and inferring the country code would produce a
   // different person's number. See internal/domain/messaging.go.
   rpc ListContactChannels(ListContactChannelsRequest) returns (ListContactChannelsResponse);
+  // Leads are person-first acquisition records and may be contacted before
+  // conversion. The same consent gate and normalized addresses used for
+  // Contacts apply here; clients must not make a second policy decision.
+  rpc ListLeadChannels(ListLeadChannelsRequest) returns (ListLeadChannelsResponse);
   // RecordMessagingConsent appends one decision. There is no update and no
   // delete: withdrawing is a new row saying so, which is what lets the ledger
   // answer when a decision was made and on what evidence.
@@ -588,6 +606,8 @@ message MessagingChannel {
 
 message ListContactChannelsRequest { string contact_id = 1; }
 message ListContactChannelsResponse { repeated MessagingChannel channels = 1; }
+message ListLeadChannelsRequest { string lead_id = 1; }
+message ListLeadChannelsResponse { repeated MessagingChannel channels = 1; }
 
 // MessagingConsent is one immutable decision in the ledger.
 message MessagingConsent {
@@ -643,7 +663,7 @@ message CustomFieldConfig {
   string lookup_object_type = 2;
   int32 scale = 3;
   string expression = 4;
-  // Empty means every role. Non-empty lists name the AuthinCore role keys
+  // Empty means every role. Non-empty lists name the CRM membership role keys
   // permitted to see or edit this field; crm administrators always retain
   // access so a misconfiguration remains recoverable.
   repeated string visible_to_roles = 5;
@@ -810,6 +830,99 @@ message DisconnectGoogleConnectionRequest {
 }
 message DisconnectGoogleConnectionResponse { GoogleConnection connection = 1; }
 
+// ---------------------------------------------------------------------------
+// Meta / Facebook / Instagram Lead Ads
+// ---------------------------------------------------------------------------
+
+message MetaConnection {
+  string id = 1;
+  string meta_user_id = 2;
+  string meta_user_name = 3;
+  // selection_required | connected | reauthorization_required | disconnected
+  string status = 4;
+  repeated string granted_permissions = 5;
+  google.protobuf.Timestamp access_token_expires_at = 6;
+  string page_id = 7;
+  string page_name = 8;
+  string form_id = 9;
+  string form_name = 10;
+  string connected_by = 11;
+  google.protobuf.Timestamp connected_at = 12;
+  google.protobuf.Timestamp last_webhook_at = 13;
+  google.protobuf.Timestamp last_import_at = 14;
+  google.protobuf.Timestamp disconnected_at = 15;
+  // Bounded server reason code, never a provider response.
+  string last_error = 16;
+  string business_id = 17;
+  string business_name = 18;
+}
+
+message StartMetaConnectionRequest { string return_path = 1; }
+message StartMetaConnectionResponse { string authorization_url = 1; }
+message GetMetaConnectionRequest {}
+message GetMetaConnectionResponse {
+  MetaConnection connection = 1;
+  bool configured = 2;
+  repeated string requested_permissions = 3;
+  // The single callback registered in the Meta App dashboard.
+  string webhook_url = 4;
+}
+
+message MetaBusiness { string id = 1; string name = 2; }
+message ListMetaBusinessesRequest {}
+message ListMetaBusinessesResponse { repeated MetaBusiness businesses = 1; }
+
+message MetaPage { string id = 1; string name = 2; }
+message ListMetaPagesRequest { string business_id = 1; }
+message ListMetaPagesResponse { repeated MetaPage pages = 1; }
+
+message MetaLeadForm { string id = 1; string name = 2; string status = 3; }
+message ListMetaFormsRequest {
+  string page_id = 1;
+  string business_id = 2;
+}
+message ListMetaFormsResponse { repeated MetaLeadForm forms = 1; }
+
+message SelectMetaLeadFormRequest {
+  string page_id = 1;
+  string form_id = 2;
+  string business_id = 3;
+}
+message SelectMetaLeadFormResponse { MetaConnection connection = 1; }
+
+message ImportMetaLeadsRequest {
+  // Bounded by the server to 500. Meta retains lead data for a limited period;
+  // repeated imports are safe because provider_lead_id is idempotent.
+  int32 limit = 1;
+}
+message ImportMetaLeadsResponse {
+  int32 examined = 1;
+  int32 created = 2;
+  int32 duplicates = 3;
+  // Provider records that lacked enough valid identity data to become a Lead.
+  int32 rejected = 4;
+}
+
+message DisconnectMetaConnectionRequest { bool purge = 1; }
+message DisconnectMetaConnectionResponse { MetaConnection connection = 1; }
+
+message MetaLeadAttribution {
+  string provider_lead_id = 1;
+  string platform = 2;
+  string page_id = 3;
+  string form_id = 4;
+  string ad_id = 5;
+  string ad_name = 6;
+  string adset_id = 7;
+  string adset_name = 8;
+  string campaign_id = 9;
+  string campaign_name = 10;
+  google.protobuf.Timestamp provider_created_at = 11;
+  google.protobuf.Timestamp captured_at = 12;
+}
+message GetLeadMetaAttributionRequest { string lead_id = 1; }
+message GetLeadMetaAttributionResponse { MetaLeadAttribution attribution = 1; }
+
 // CalendarSyncStatus is how far calendar synchronisation has got. Like its
 // Gmail counterpart it reports progress and health only: no field here could
 // hold a meeting, an attendee, or a title.
@@ -851,7 +964,7 @@ message EraseSyncedContentForContactRequest {
   // event. It answers "why is this address here" months later.
   string reason = 2;
 }
-message EraseSyncedContentResponse { ErasureResult result = 1; }
+message EraseSyncedContentForContactResponse { ErasureResult result = 1; }
 
 // SyncSuppression is one address synchronisation must never match again.
 message SyncSuppression {
@@ -1025,6 +1138,12 @@ message Lead {
   string converted_account_id = 12;
   string converted_opportunity_id = 13;
   map<string, CustomValue> custom_fields = 14;
+  // Person-first identity. Email and company are optional. When supplied,
+  // phone uses international E.164 format so dedupe and channel consent share
+  // one stable identity.
+  string first_name = 15;
+  string last_name = 16;
+  string phone = 17;
 }
 
 message CreateLeadRequest { Lead lead = 1; }

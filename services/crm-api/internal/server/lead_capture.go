@@ -69,6 +69,14 @@ func (s *Server) leadCaptureHandler() http.Handler {
 				"reason", result.Reason, "request_id", RequestID(r.Context()))
 		}
 
+		// A transient failure after a request has proved it holds the endpoint
+		// secret must be retried. Returning 202 here used to acknowledge and
+		// permanently lose leads when CreateLead failed.
+		if !result.Accepted {
+			http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
 		// 202 for everything the service handled, including the rejections.
 		// A provider that gets an error retries, and retrying a bad signature
 		// forever helps nobody; the tenant sees the real outcome in the

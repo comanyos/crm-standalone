@@ -14,7 +14,7 @@ patches (generally the latest minor release of the current major version).
 ## Reporting a vulnerability
 
 If you discover a security vulnerability in this repository (in
-`services/authincore`, `services/crm-api`, `apps/web`, deployment manifests,
+`services/crm-api`, `apps/web`, deployment manifests,
 or documentation that would lead to a credential or data exposure):
 
 1. **Do not open a public GitHub issue.**
@@ -45,7 +45,8 @@ integrations, providers, or infrastructure that have not yet been implemented
 
 This repository is under active development toward the completion criteria in
 [task.md](task.md). Known security-relevant gaps that are already tracked
-there (not new reports) include: automated negative-path OIDC tests, key
-rotation testing, production configuration validation (rejecting development
-passwords/keys), and the full Phase 10 security hardening pass. Please still
+there (not new reports) include: native email-OTP and Google-login negative
+paths, opaque-session revocation/expiry tests, production configuration
+validation (rejecting development OTPs and insecure cookies), and the full
+Phase 10 security hardening pass. Please still
 report anything you find that is not already reflected in `task.md`.

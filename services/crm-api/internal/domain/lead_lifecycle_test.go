@@ -203,6 +203,38 @@ func TestLeadDuplicateFlagging(t *testing.T) {
 	})
 }
 
+func TestPersonFirstLeadNormalizesAndDeduplicatesByPhone(t *testing.T) {
+	s := NewMemStore()
+	acct, err := s.CreateAccount(ctx, tenantA, &Account{Name: "Example", OwnerID: "owner-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contact, err := s.CreateContact(ctx, tenantA, &Contact{
+		FirstName: "Existing", Phone: "+15550100000", AccountID: acct.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lead, err := s.CreateLead(ctx, tenantA, &Lead{
+		FirstName: " Alex ", LastName: " Rivera ", Phone: "+1 (555) 010-0000",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lead.FirstName != "Alex" || lead.LastName != "Rivera" || lead.Phone != "+15550100000" {
+		t.Fatalf("normalized lead = %+v", lead)
+	}
+	if lead.Company != "" || lead.ContactEmail != "" {
+		t.Fatalf("optional company/email were invented: %+v", lead)
+	}
+	if lead.DuplicateOfContactID != contact.ID {
+		t.Fatalf("phone duplicate = %q, want %q", lead.DuplicateOfContactID, contact.ID)
+	}
+	if _, err := s.CreateLead(ctx, tenantA, &Lead{FirstName: "Local", Phone: "9876543210"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("local phone without country code: %v", err)
+	}
+}
+
 // TestFindContactByEmailTenantIsolation is the mandatory tenancy test
 // (.claude/rules/tenancy-and-scopes.md) for this new lookup path.
 func TestFindContactByEmailTenantIsolation(t *testing.T) {

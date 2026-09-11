@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	oteltrace "go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func testEnvelope(tenant, entityID string, version int64) Envelope {
@@ -30,7 +30,7 @@ func testEnvelope(tenant, entityID string, version int64) Envelope {
 func TestEnqueueEventCapturesOnlyValidTraceParent(t *testing.T) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(sdktrace.NewTracerProvider())
-	t.Cleanup(func() { otel.SetTracerProvider(oteltrace.NewNoopTracerProvider()) })
+	t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
 
 	const traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
 	ctx := tracing.ContextWithTraceParent(context.Background(), traceparent)

@@ -37,8 +37,8 @@ func (s *CRMService) SyncGoogleCalendar(
 
 	return connect.NewResponse(&crmv1.SyncGoogleCalendarResponse{
 		CalendarSync:   calendarSyncToProto(state),
-		EventsExamined: int32(result.EventsExamined),
-		EntriesCreated: int32(result.EntriesCreated),
+		EventsExamined: boundedInt32(result.EventsExamined),
+		EntriesCreated: boundedInt32(result.EntriesCreated),
 	}), nil
 }
 

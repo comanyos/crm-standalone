@@ -32,6 +32,10 @@ func chain(h http.Handler, mws ...func(http.Handler) http.Handler) http.Handler 
 	return h
 }
 
+func requestBodyLimitMW(next http.Handler) http.Handler {
+	return http.MaxBytesHandler(next, maxRequestBodyBytes)
+}
+
 // recoverMW turns a panic into a 500 + structured error log instead of crashing.
 func recoverMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +58,11 @@ func requestIDMW(next http.Handler) http.Handler {
 		if !validRequestID(id) {
 			id = newID()
 		}
+		// Keep the canonical id in both the private server context and the
+		// request header. Nested packages such as the first-party auth handler
+		// cannot import server's context key without a dependency cycle, but
+		// still need the same id for correlated operational errors.
+		r.Header.Set("X-Request-ID", id)
 		w.Header().Set("X-Request-ID", id)
 		ctx := context.WithValue(r.Context(), requestIDKey, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -85,8 +94,8 @@ type statusWriter struct {
 // Without it every one of those returns "feature not supported" for any
 // handler behind this middleware, because ResponseController walks the
 // Unwrap chain and stops at the first wrapper that does not implement it.
-// The metrics recorder in internal/metrics and AuthinCore's equivalent both
-// do this; loggingMW was the one wrapper in the chain that broke it.
+// The metrics recorder in internal/metrics does this; loggingMW was the one
+// wrapper in the chain that broke it.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // WriteHeader records the first status only. net/http ignores a second
@@ -122,7 +131,7 @@ func validRequestID(id string) bool {
 		return false
 	}
 	for _, r := range id {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("._-", r)) {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && !strings.ContainsRune("._-", r) {
 			return false
 		}
 	}
@@ -146,27 +155,42 @@ func safeRoute(r *http.Request) string {
 // corsMW answers cross-origin browser calls (apps/web, on its own origin)
 // from an explicit allowlist. The allowlist is exact-match and never
 // wildcarded: the reflected origin is always one the operator configured, so
-// a hostile page cannot read a response. Connect-ES's browser client sends a
-// Connect-Protocol-Version header and an Authorization bearer token, both of
-// which must be allowed or the preflight fails closed.
-func corsMW(allowedOrigins []string) func(http.Handler) http.Handler {
-	allowed := make(map[string]bool, len(allowedOrigins))
-	for _, o := range allowedOrigins {
+// a hostile page cannot read a response or execute a cookie-authenticated
+// mutation. Connect-ES's browser client sends a Connect-Protocol-Version
+// header and may send an Authorization bearer token, both of which must be
+// allowed or the preflight fails closed.
+func corsMW(appOrigins, authOrigins []string) func(http.Handler) http.Handler {
+	appAllowed := make(map[string]bool, len(appOrigins))
+	for _, o := range appOrigins {
 		if o != "" {
-			allowed[o] = true
+			appAllowed[o] = true
+		}
+	}
+	authAllowed := make(map[string]bool, len(authOrigins))
+	for _, o := range authOrigins {
+		if o != "" {
+			authAllowed[o] = true
 		}
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			ok := origin != "" && allowed[origin]
+			method := r.Method
+			if method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+				method = strings.ToUpper(r.Header.Get("Access-Control-Request-Method"))
+			}
+			ok := origin != "" && (appAllowed[origin] ||
+				(authAllowed[origin] && publicAuthCORSRoute(method, r.URL.Path)))
+			if origin != "" {
+				w.Header().Add("Vary", "Origin")
+			}
 			if ok {
 				h := w.Header()
 				h.Set("Access-Control-Allow-Origin", origin)
+				h.Set("Access-Control-Allow-Credentials", "true")
 				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Connect-Protocol-Version, Connect-Timeout-Ms, X-Request-ID, traceparent")
-				h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 				h.Set("Access-Control-Max-Age", "600")
-				h.Add("Vary", "Origin")
 			}
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 				status := http.StatusNoContent
@@ -176,7 +200,30 @@ func corsMW(allowedOrigins []string) func(http.Handler) http.Handler {
 				w.WriteHeader(status)
 				return
 			}
+			// Cookie authentication makes an unapproved Origin more than a
+			// readability problem: allowing the request to execute would permit
+			// cross-origin state changes even though the response is hidden.
+			// Native/mobile/CLI clients normally send no Origin and remain valid.
+			if origin != "" && !ok {
+				http.Error(w, `{"error":"origin not allowed"}`, http.StatusForbidden)
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+func publicAuthCORSRoute(method, path string) bool {
+	switch {
+	case method == http.MethodPost && path == "/auth/email/request":
+		return true
+	case method == http.MethodPost && path == "/auth/email/verify":
+		return true
+	case method == http.MethodGet && path == "/auth/google/start":
+		return true
+	case method == http.MethodGet && path == "/auth/capabilities":
+		return true
+	default:
+		return false
 	}
 }

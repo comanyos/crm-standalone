@@ -21,7 +21,7 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const TONE_STYLES: Record<ToastTone, string> = {
-  info: "bg-slate-900 text-white",
+  info: "bg-slate-950 text-white",
   success: "bg-success-600 text-white",
   warning: "bg-warning-600 text-white",
   danger: "bg-danger-600 text-white",
@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role={t.tone === "danger" || t.tone === "warning" ? "alert" : "status"}
-            className={`flex items-start justify-between gap-3 rounded-md px-4 py-3 text-sm shadow-lg ${TONE_STYLES[t.tone]}`}
+            className={`flex items-start justify-between gap-3 rounded-xl border border-white/10 px-4 py-3 text-sm shadow-md ${TONE_STYLES[t.tone]}`}
           >
             <span>{t.message}</span>
             <button

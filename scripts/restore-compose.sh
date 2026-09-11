@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
-# Restore encrypted logical backups into the local Compose databases.
+# Restore an encrypted logical backup into the local Compose CRM database.
 # This is intentionally destructive and requires an exact acknowledgement.
 set -euo pipefail
 
-: "${RESTORE_AUTH_ARCHIVE:?set encrypted AuthinCore archive path}"
 : "${RESTORE_CRM_ARCHIVE:?set encrypted CRM archive path}"
 : "${BACKUP_AGE_IDENTITY_FILE:?set age identity file path}"
 
-if [[ ${RESTORE_CONFIRM:-} != "RESTORE_LOCAL_COMPOSE_DATABASES" ]]; then
-  echo "refusing restore: set RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASES" >&2
+if [[ ${RESTORE_CONFIRM:-} != "RESTORE_LOCAL_COMPOSE_DATABASE" ]]; then
+  echo "refusing restore: set RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASE" >&2
   exit 2
 fi
 if ! command -v age >/dev/null 2>&1; then
   echo "age is required to decrypt backups" >&2
   exit 2
 fi
-for archive in "$RESTORE_AUTH_ARCHIVE" "$RESTORE_CRM_ARCHIVE" "$BACKUP_AGE_IDENTITY_FILE"; do
+for archive in "$RESTORE_CRM_ARCHIVE" "$BACKUP_AGE_IDENTITY_FILE"; do
   if [[ ! -f "$archive" ]]; then
     echo "required restore input does not exist: $archive" >&2
     exit 2
@@ -96,7 +95,6 @@ require_roles() {
   fi
 }
 
-prepare_archive authincore "$RESTORE_AUTH_ARCHIVE"
 prepare_archive crm "$RESTORE_CRM_ARCHIVE"
 require_roles crm-postgres crm postgres crm_app crm_drain
 
@@ -121,7 +119,6 @@ SQL
   echo "restored ${database}"
 }
 
-echo "Restoring local Compose databases. Stop application containers before continuing."
-restore_database auth-postgres authincore authincore
+echo "Restoring the local Compose CRM database. Stop application containers before continuing."
 restore_database crm-postgres crm postgres
 echo "Restore completed. Run migrations and the smoke checks in docs/BACKUP_RESTORE.md before routing traffic."

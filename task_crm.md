@@ -8,6 +8,10 @@
 This document answers a third, narrower question: **"what does Privyr
 (https://www.privyr.com/intro/crm/) do that this codebase cannot do at all?"**
 
+The dated, code-reconciled comparison and prioritized follow-up list is kept in
+[`docs/PRIVYR_COMPARISON.md`](docs/PRIVYR_COMPARISON.md). It supersedes the
+unchecked implementation sketches below when reporting current status.
+
 Privyr is not a competitor on the same axis as the platforms in `task_v2.md`.
 It is a mobile-first, chat-centric *speed-to-lead* tool for solo agents and
 small sales teams. Its value is the seconds between an ad click and a
@@ -37,18 +41,17 @@ break them.
   `TestUnscopedQuerySeesNothingInAnyTenantTable` — a policy that exists but is
   never asserted to filter is the failure mode the metadata-layer tables are
   already in.
-- **Migrations are append-only.** 0028–0030 are taken by the work below; the
-  next free number is `0031_*.sql`. Never edit a shipped migration.
+- **Migrations are append-only.** Native authentication uses migration 0033;
+  inspect the migration directory for the next free number. Never edit a
+  shipped migration.
 - **Deny by default.** Every new procedure needs an entry in
   `services/crm-api/internal/server/scopes.go`. `assertPolicyIsTotal` refuses
   to start a server whose policy does not decide every served procedure, so a
   handler added without a decision is unreachable rather than public.
-- **The role matrix is pinned on both sides.** A new scope must land in
-  `packages/contracts/rbac/crm-roles.json`, in `scopes.go`, and in AuthinCore's
-  `cmd/authinctl/bootstrap.go`, with `role_matrix_test.go` and
-  `bootstrap_roles_test.go` updated. Existing organizations need `make
-  bootstrap` re-run to pick a new scope up — this bit us before on
-  `crm:pipeline:read`.
+- **The role matrix is local and pinned.** A new scope must land in
+  `packages/contracts/rbac/crm-roles.json`, `scopes.go`, and the native
+  CRM-auth role mapping/bootstrap, with their parity tests updated. Tenant and
+  role come only from an active membership resolved by the server.
 - **Provider credentials.** Sealed with AES-256-GCM by the pattern in
   `internal/integration/googleoauth`, associated data binding the ciphertext to
   `(tenant_id, connection id)` so a row copied into another tenant fails to
@@ -75,7 +78,7 @@ builds something twice.
 | Lead management, notes, follow-up reminders | Leads + tasks + notes + activity timeline | `proto/crm/v1/crm.proto`, `internal/api/crm.go`, `apps/web/src/features/leads` |
 | Client/contact records with timeline | Accounts + contacts with shared timeline | `apps/web/src/features/{accounts,contacts}` |
 | Contact import | CSV import with preview/commit, field mapping, per-row errors | `docs/CSV_IMPORT_EXPORT.md`, `migrations/0027_import_export.sql` — **accounts only** |
-| Team CRM, multi-user | Multi-tenant + 4-role RBAC + OIDC/PKCE identity service | `packages/contracts/rbac/crm-roles.json`, `services/authincore` |
+| Team CRM, multi-user | Multi-tenant + 4-role RBAC + native email/Google login and opaque sessions | `packages/contracts/rbac/crm-roles.json`, `services/crm-api/internal/auth` |
 | New-lead automations | Rule engine on `lead.created` / `opportunity.stage_changed` / `opportunity.closed_won` | `docs/WORKFLOW_AUTOMATION.md`, `internal/integration/workflow` |
 | Auto follow-up reminders | `create_task` action with `record_owner`/`fixed_user` assignee selector | `internal/integration/workflow/actions.go` |
 | Sales oversight / manager view | Dashboard: per-pipeline stage breakdown, task tiles, conversion funnel, weighted forecast | `internal/domain/reporting.go`, `GetDashboardReport` |
@@ -91,10 +94,10 @@ layout — see §10.
 Also worth stating plainly, because it changes what "parity" is worth: Privyr
 has **no** configurable pipelines with weighted forecasting, no custom
 fields/objects, no record merge with audit trail, no saved views, no
-versioned workflow rules with an execution ledger, no RLS-enforced tenant
-isolation proven at four layers, and no first-party identity service. Parity
-is one-directional here. Do not trade any of the above away to buy items
-below.
+versioned workflow rules with an execution ledger, and no RLS-enforced tenant
+isolation proven at four layers. Savvy's compact first-party auth remains part
+of that security boundary. Parity is one-directional here. Do not trade any of
+the above away to buy items below.
 
 ---
 
@@ -111,7 +114,7 @@ below.
 | 7 | Bulk / campaign sending | **Defer.** Highest legal risk, lowest fit for a B2B CRM. | Not started — D3, legal review |
 | 8 | Automatic lead distribution (round-robin / rules) | **Build.** Small, self-contained, no external dependency. | **Done** |
 | 9 | Trackable file sharing (PDF open tracking) | **Defer.** | Not started — D5 |
-| 10 | Mobile speed-to-lead (PWA, push, tap-to-act) | **Build §10.1–10.3.** Native app: **do not build.** | **10.1 and 10.3 done**; 10.2 (push) needs a provider decision |
+| 10 | Mobile speed-to-lead (PWA, push, tap-to-act, native app) | **Build.** Keep the PWA and add a focused Flutter app for iOS and Android. | **10.1 and 10.3 done**; push and Flutter app are not started; see `docs/FLUTTER_MOBILE_ARCHITECTURE.md` |
 | 11 | Meta Conversions API / ad conversion feedback | **Defer.** | Not started — §1 first |
 
 ## What has been delivered
@@ -801,12 +804,30 @@ fallback state.
   jsdom. Tap targets are exactly what a phone-first workflow gets wrong.
 
 ### 10.4 — Native app
-- [ ] **Do not build.** A native iOS/Android client means two more codebases,
-  two store review pipelines, a mobile release train, and a second auth
-  implementation — against a PWA that reaches the same tap-to-call,
-  tap-to-WhatsApp and push capabilities. Revisit only if a specific capability
-  the web cannot reach (contact-book sync, call-log capture) is shown to be
-  required by a real customer, not anticipated.
+- [ ] **Build one focused Flutter application for iOS and Android.** This
+  product decision supersedes the earlier PWA-only recommendation. It shares
+  protobuf/Connect contracts and backend truth with the web app; it does not
+  create a second authorization model or attempt full desktop-admin parity.
+- [ ] Add the CRM API's one-time mobile session exchange, exact App/Universal
+  Links, and separate Google account-login registrations for staging and
+  production. The Google client secret stays on the server; the app stores one
+  opaque CRM session token in Keychain/Keystore. Decide multi-membership
+  workspace selection before implementation.
+- [ ] Generate and pin a Connect-Dart client from the existing CRM protobuf
+  contract. Add a versioned server capability/metadata response for supported
+  fields, permissions, validation and mobile actions.
+- [ ] Ship the mobile loop first: My Day, lead inbox/detail, contacts/search,
+  tasks, timeline, opportunity movement, push deep links, and one-tap call,
+  email, SMS and WhatsApp.
+- [ ] Start with encrypted cached reads and online-only writes. Offline writes
+  require idempotency keys, optimistic versions, authorization re-check,
+  conflict UI, and explicit retry/discard state.
+- [ ] Keep the responsive PWA as the complete fallback for administration and
+  unsupported dynamic/custom features. Never execute tenant-authored browser
+  scripts in Flutter.
+- [ ] Follow the architecture, release gates and external-account checklist in
+  `docs/FLUTTER_MOBILE_ARCHITECTURE.md` and
+  `docs/THIRD_PARTY_ACCOUNT_TEST_PLAN.md`.
 
 ---
 
@@ -843,9 +864,11 @@ Strictly ordered by dependency and by value per unit of risk:
    at a fraction of §4's cost.
 4. **§8 Lead distribution** — self-contained, real team-CRM capability.
 5. **§10.1–10.3 PWA, push, mobile verification** — makes §1 and §3 actually fast.
-6. **§6 Messaging automation** — once §2, §3, §5 are proven.
-7. Everything else stays behind its decision: **§4** (D2/D3/D4), **§7**
-   (legal), **§9** (D5), **§11** (D3), **§10.4** (do not build).
+6. **§10.4 focused Flutter app** — after the native session handoff, push and capability
+   contracts are in place; build the speed-to-lead slice before broad parity.
+7. **§6 Messaging automation** — once §2, §3, §5 are proven.
+8. Everything else stays behind its decision: **§4** (D2/D3/D4), **§7**
+   (legal), **§9** (D5), **§11** (D3).
 
 Steps 1–5 close the gap that matters and require **one** product-owner decision
 (**D1**). Steps 6–7 require the rest.
@@ -867,8 +890,20 @@ Steps 1–5 close the gap that matters and require **one** product-owner decisio
 
 ---
 
-*Skipped deliberately: WhatsApp BSP integration (§4), bulk campaigns (§7),
-file open-tracking (§9), Meta CAPI (§11), and a native mobile app (§10.4). Add
-§4 when §3's measured usage justifies the provider contract; §7 only after
-legal review; §9 when object storage has an owner; §11 after §1 ships; §10.4
-only for a capability the web genuinely cannot reach.*
+*Still decision-gated: WhatsApp BSP integration (§4), bulk campaigns (§7),
+file open-tracking (§9), and Meta CAPI (§11). The native Flutter app (§10.4)
+is now an approved product direction, but must follow the shared-contract,
+focused-mobile scope in `docs/FLUTTER_MOBILE_ARCHITECTURE.md`.*
+
+## Savvy CRM planning references
+
+- `docs/SAVVY_CRM_PRODUCT_BLUEPRINT.md` — cross-market product curation,
+  internal gap register, technology choices, and delivery order.
+- `docs/PRODUCTION_ARCHITECTURE.md` — production DNS, AWS application/data
+  topology, security boundaries, CI/CD, operations, recovery, and cost phases.
+- `docs/FLUTTER_MOBILE_ARCHITECTURE.md` — iOS/Android architecture and release
+  plan.
+- `docs/THIRD_PARTY_ACCOUNT_TEST_PLAN.md` — provider accounts and production
+  acceptance evidence.
+- `../savvy_crm_website/docs/AWS_HOSTING_ARCHITECTURE.md` — low-cost static
+  website hosting on private S3 and CloudFront.

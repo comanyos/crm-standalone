@@ -54,6 +54,27 @@ func TestRequestIDPreservesSafeInboundAndReplacesUnsafeValue(t *testing.T) {
 	}
 }
 
+func TestRequestIDIsAvailableToNestedHandlersThroughCanonicalHeader(t *testing.T) {
+	var seen string
+	h := requestIDMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Get("X-Request-ID")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Request-ID", "unsafe token-shaped value")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if seen == "" {
+		t.Fatal("nested handler did not receive the canonical request id")
+	}
+	if seen != rec.Header().Get("X-Request-ID") {
+		t.Fatalf("nested request id=%q response id=%q", seen, rec.Header().Get("X-Request-ID"))
+	}
+	if seen == "unsafe token-shaped value" {
+		t.Fatal("unsafe inbound request id reached the nested handler")
+	}
+}
+
 func TestRequestLogDoesNotExposeAuthenticationSecrets(t *testing.T) {
 	var buf bytes.Buffer
 	old := slog.Default()

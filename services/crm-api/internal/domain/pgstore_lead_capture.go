@@ -257,6 +257,19 @@ func (s *PgStore) RecordCaptureDelivery(
 		scope.TenantID, record.ID, record.EndpointID, record.DedupKey,
 		record.Outcome, record.Reason, record.RawPayload, record.LeadID))
 	if errors.Is(err, pgx.ErrNoRows) {
+		reclaimed, reclaimErr := scanCaptureDelivery(s.db.QueryRow(ctx, scope,
+			`UPDATE lead_capture_deliveries
+			    SET outcome = $4, reason = '', lead_id = '', raw_payload = $5, received_at = now()
+			  WHERE tenant_id = $1 AND endpoint_id = $2 AND dedup_key = $3 AND outcome = $6
+			  RETURNING `+captureDeliveryColumns,
+			scope.TenantID, record.EndpointID, record.DedupKey, record.Outcome,
+			record.RawPayload, DeliveryFailed))
+		if reclaimErr == nil {
+			return reclaimed, true, nil
+		}
+		if !errors.Is(reclaimErr, pgx.ErrNoRows) {
+			return nil, false, fmt.Errorf("reclaim failed delivery: %w", reclaimErr)
+		}
 		existing, getErr := scanCaptureDelivery(s.db.QueryRow(ctx, scope,
 			`SELECT `+captureDeliveryColumns+` FROM lead_capture_deliveries
 			  WHERE tenant_id = $1 AND endpoint_id = $2 AND dedup_key = $3`,
@@ -270,6 +283,44 @@ func (s *PgStore) RecordCaptureDelivery(
 		return nil, false, fmt.Errorf("record capture delivery: %w", err)
 	}
 	return out, true, nil
+}
+
+// CreateCapturedLead commits the provider delivery and every consequence of
+// accepting it as one tenant-bound transaction. Every nested store call joins
+// scopedDB.transaction through the context, including the outbox write made
+// by CreateLead.
+func (s *PgStore) CreateCapturedLead(
+	ctx context.Context, scope Scope, endpointID, dedupKey, rawPayload string, lead *Lead,
+) (delivery *LeadCaptureDelivery, stored *Lead, created bool, err error) {
+	if !scope.Valid() {
+		return nil, nil, false, ErrNoTenant
+	}
+	err = s.db.transaction(ctx, scope, func(txCtx context.Context) error {
+		var txErr error
+		delivery, created, txErr = s.RecordCaptureDelivery(txCtx, scope, &LeadCaptureDelivery{
+			EndpointID: endpointID, DedupKey: dedupKey,
+			Outcome: DeliveryCreated, RawPayload: rawPayload,
+		})
+		if txErr != nil || !created {
+			return txErr
+		}
+		stored, txErr = s.CreateLead(txCtx, scope, lead)
+		if txErr != nil {
+			return txErr
+		}
+		if txErr = s.LinkCaptureDeliveryLead(txCtx, scope, delivery.ID, stored.ID); txErr != nil {
+			return txErr
+		}
+		if txErr = s.TouchCaptureEndpoint(txCtx, scope, endpointID, CaptureReasonNone); txErr != nil {
+			return txErr
+		}
+		delivery.LeadID = stored.ID
+		return nil
+	})
+	if err != nil {
+		return nil, nil, false, err
+	}
+	return delivery, stored, created, nil
 }
 
 const captureDeliveryColumns = `id, endpoint_id, dedup_key, outcome, reason, raw_payload, lead_id, received_at`
@@ -293,6 +344,25 @@ func (s *PgStore) LinkCaptureDeliveryLead(ctx context.Context, scope Scope, deli
 		  WHERE tenant_id = $1 AND id = $2`, scope.TenantID, deliveryID, leadID)
 	if err != nil {
 		return fmt.Errorf("link capture delivery lead: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// FailCaptureDelivery releases a delivery claim for a provider retry while
+// retaining the failed attempt in the tenant-visible delivery log.
+func (s *PgStore) FailCaptureDelivery(ctx context.Context, scope Scope, deliveryID, reason string) error {
+	if !scope.Valid() {
+		return ErrNoTenant
+	}
+	tag, err := s.db.Exec(ctx, scope,
+		`UPDATE lead_capture_deliveries SET outcome = $3, reason = $4
+		  WHERE tenant_id = $1 AND id = $2 AND lead_id = ''`,
+		scope.TenantID, deliveryID, DeliveryFailed, reason)
+	if err != nil {
+		return fmt.Errorf("fail capture delivery: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound

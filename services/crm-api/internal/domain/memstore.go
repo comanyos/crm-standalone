@@ -228,6 +228,8 @@ type MemStore struct {
 	// google holds the integration's two records. They are not memTables:
 	// see memstore_google.go for why.
 	google *googleTables
+	// meta holds tenant-wide Meta OAuth, Page/Form routing and attribution.
+	meta *metaTables
 	// gmail holds synchronisation cursors and the timeline index — likewise
 	// not memTables, see memstore_gmail.go.
 	gmail *gmailTables
@@ -277,6 +279,7 @@ func NewMemStore() *MemStore {
 		capture:          newCaptureTables(),
 		assignment:       newAssignmentTables(),
 		google:           newGoogleTables(),
+		meta:             newMetaTables(),
 		gmail:            newGmailTables(),
 		calendar:         newCalendarTables(),
 		suppressions:     make(map[string]map[string]*SyncSuppression),
@@ -676,6 +679,9 @@ func (s *MemStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead,
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
+	if err := normalizeLeadIdentity(v); err != nil {
+		return nil, err
+	}
 	if err := v.Validate(); err != nil {
 		return nil, err
 	}
@@ -728,6 +734,9 @@ func (s *MemStore) ListLeads(_ context.Context, scope Scope, page Page) ([]*Lead
 func (s *MemStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
+	}
+	if err := normalizeLeadIdentity(v); err != nil {
+		return nil, err
 	}
 	if err := v.Validate(); err != nil {
 		return nil, err
@@ -793,6 +802,29 @@ func (s *MemStore) FindContactByEmail(_ context.Context, scope Scope, email stri
 	return nil, ErrNotFound
 }
 
+// FindContactByPhone returns the tenant's Contact whose international phone
+// number is the same canonical identity key.
+func (s *MemStore) FindContactByPhone(_ context.Context, scope Scope, phone string) (*Contact, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	wanted, err := NormalizeE164Phone(phone)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	all, err := s.contact.all(scope)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range all {
+		candidate, normalizeErr := NormalizeE164Phone(c.Phone)
+		if normalizeErr == nil && candidate == wanted {
+			return c, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 // FindAccountByDomain returns the tenant's Account whose Website names the
 // given domain, or ErrNotFound.
 func (s *MemStore) FindAccountByDomain(_ context.Context, scope Scope, domain string) (*Account, error) {
@@ -845,12 +877,12 @@ func (s *MemStore) ConvertLead(ctx context.Context, scope Scope, in ConvertLeadI
 		return nil, err
 	}
 
-	email, err := requireLeadContactEmail(lead.ContactEmail)
+	email, phone, err := requireLeadContactIdentity(lead)
 	if err != nil {
 		return nil, err
 	}
 
-	contact, account, err := s.resolveConversionContactAndAccount(ctx, scope, lead, email)
+	contact, account, err := s.resolveConversionContactAndAccount(ctx, scope, lead, email, phone)
 	if err != nil {
 		return nil, err
 	}
@@ -890,11 +922,21 @@ func (s *MemStore) ConvertLead(ctx context.Context, scope Scope, in ConvertLeadI
 // whatever Account it already carries), or create a fresh Contact attached
 // to a domain-matched or newly created Account.
 func (s *MemStore) resolveConversionContactAndAccount(
-	ctx context.Context, scope Scope, lead *Lead, email string,
+	ctx context.Context, scope Scope, lead *Lead, email, phone string,
 ) (*Contact, *Account, error) {
-	existing, err := s.FindContactByEmail(ctx, scope, email)
-	if err != nil && !errors.Is(err, ErrNotFound) {
-		return nil, nil, err
+	var existing *Contact
+	var err error
+	if email != "" {
+		existing, err = s.FindContactByEmail(ctx, scope, email)
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, nil, err
+		}
+	}
+	if existing == nil && phone != "" {
+		existing, err = s.FindContactByPhone(ctx, scope, phone)
+		if err != nil && !errors.Is(err, ErrNotFound) {
+			return nil, nil, err
+		}
 	}
 	if existing != nil {
 		account, aerr := s.GetAccount(ctx, scope, existing.AccountID)
@@ -906,7 +948,7 @@ func (s *MemStore) resolveConversionContactAndAccount(
 		}
 		// The reused contact has no valid account (dangling or never set):
 		// attach it, same as the fresh-contact path below.
-		account, err = s.resolveOrCreateConversionAccount(ctx, scope, lead.Company, emailDomain(email))
+		account, err = s.resolveOrCreateConversionAccount(ctx, scope, lead.Company, emailDomain(email), leadDisplayName(lead))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -918,11 +960,14 @@ func (s *MemStore) resolveConversionContactAndAccount(
 		return updated, account, nil
 	}
 
-	account, err := s.resolveOrCreateConversionAccount(ctx, scope, lead.Company, emailDomain(email))
+	account, err := s.resolveOrCreateConversionAccount(ctx, scope, lead.Company, emailDomain(email), leadDisplayName(lead))
 	if err != nil {
 		return nil, nil, err
 	}
-	contact, err := s.CreateContact(ctx, scope, &Contact{Email: email, AccountID: account.ID})
+	contact, err := s.CreateContact(ctx, scope, &Contact{
+		Email: email, Phone: phone, AccountID: account.ID,
+		FirstName: lead.FirstName, LastName: lead.LastName,
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("create conversion contact: %w", err)
 	}
@@ -932,7 +977,7 @@ func (s *MemStore) resolveConversionContactAndAccount(
 // resolveOrCreateConversionAccount matches an existing Account by email
 // domain, or creates a new one.
 func (s *MemStore) resolveOrCreateConversionAccount(
-	ctx context.Context, scope Scope, company, domain string,
+	ctx context.Context, scope Scope, company, domain, fallback string,
 ) (*Account, error) {
 	if domain != "" {
 		acct, err := s.FindAccountByDomain(ctx, scope, domain)
@@ -943,7 +988,7 @@ func (s *MemStore) resolveOrCreateConversionAccount(
 			return nil, err
 		}
 	}
-	acct, err := s.createAccount(ctx, scope, newConversionAccount(company, domain), false)
+	acct, err := s.createAccount(ctx, scope, newConversionAccount(company, domain, fallback), false)
 	if err != nil {
 		return nil, fmt.Errorf("create conversion account: %w", err)
 	}

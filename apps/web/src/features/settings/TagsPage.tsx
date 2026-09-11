@@ -15,7 +15,7 @@ import { mutationErrorMessage, renderQueryError } from "../../lib/connectErrors"
 import { useToast } from "../../components/ui/Toast";
 
 type Draft = { id?: string; name: string; color: string };
-const blankDraft = (): Draft => ({ name: "", color: "#2563eb" });
+const blankDraft = (): Draft => ({ name: "", color: "#bb431d" });
 
 export default function TagsPage() {
   const { crm } = useCrmClients();
@@ -59,7 +59,7 @@ export default function TagsPage() {
   }
 
   const startEdit = (tag: (typeof tags)[number]) => {
-    setDraft({ id: tag.id, name: tag.name, color: tag.color || "#2563eb" });
+    setDraft({ id: tag.id, name: tag.name, color: tag.color || "#bb431d" });
     setDialogOpen(true);
   };
 
@@ -98,7 +98,7 @@ export default function TagsPage() {
                 <Badge tone="neutral">
                   <span
                     className="mr-1 inline-block h-2 w-2 rounded-full"
-                    style={{ backgroundColor: tag.color || "#94a3b8" }}
+                    style={{ backgroundColor: tag.color || "#8b957d" }}
                     aria-hidden="true"
                   />
                   {tag.name}

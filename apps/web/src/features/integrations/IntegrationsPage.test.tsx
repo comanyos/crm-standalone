@@ -12,6 +12,14 @@ const { crm, auth } = vi.hoisted(() => ({
     disconnectGoogleConnection: vi.fn(),
     syncGoogleMailbox: vi.fn(),
     syncGoogleCalendar: vi.fn(),
+    getMetaConnection: vi.fn(),
+    startMetaConnection: vi.fn(),
+    listMetaBusinesses: vi.fn(),
+    listMetaPages: vi.fn(),
+    listMetaForms: vi.fn(),
+    selectMetaLeadForm: vi.fn(),
+    importMetaLeads: vi.fn(),
+    disconnectMetaConnection: vi.fn(),
   },
   auth: { hasScope: vi.fn(), session: { claims: { sub: "user-1" } } },
 }));
@@ -93,6 +101,38 @@ function connectedWithSync(
   };
 }
 
+function metaConnectionResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    configured: true,
+    requestedPermissions: [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_metadata",
+      "leads_retrieval",
+      "business_management",
+      "ads_read",
+    ],
+    webhookUrl: "https://crmapi.savvyadvi.com/integrations/meta/webhook",
+    connection: {
+      $typeName: "crm.v1.MetaConnection",
+      id: "meta-1",
+      metaUserId: "meta-user-1",
+      metaUserName: "Meta Owner",
+      status: "selection_required",
+      grantedPermissions: [],
+      businessId: "",
+      businessName: "",
+      pageId: "",
+      pageName: "",
+      formId: "",
+      formName: "",
+      connectedBy: "user-1",
+      lastError: "",
+      ...overrides,
+    },
+  };
+}
+
 // window.location.assign is how the page hands the browser to Google's
 // consent screen. jsdom's implementation is not navigable, so it is replaced
 // with a spy the tests can assert on.
@@ -108,6 +148,18 @@ beforeEach(() => {
   crm.disconnectGoogleConnection.mockResolvedValue({ connection: connectionResponse().connection });
   crm.syncGoogleMailbox.mockResolvedValue({ messagesExamined: 40, entriesCreated: 3 });
   crm.syncGoogleCalendar.mockResolvedValue({ eventsExamined: 25, entriesCreated: 2 });
+  crm.getMetaConnection.mockResolvedValue({
+    configured: false,
+    requestedPermissions: [],
+    webhookUrl: "",
+    connection: { status: "", grantedPermissions: [] },
+  });
+  crm.listMetaBusinesses.mockResolvedValue({ businesses: [] });
+  crm.listMetaPages.mockResolvedValue({ pages: [] });
+  crm.listMetaForms.mockResolvedValue({ forms: [] });
+  crm.selectMetaLeadForm.mockResolvedValue({ connection: { status: "connected" } });
+  crm.importMetaLeads.mockResolvedValue({ examined: 0, created: 0, duplicates: 0, rejected: 0 });
+  crm.disconnectMetaConnection.mockResolvedValue({ connection: { status: "disconnected" } });
   Object.defineProperty(window, "location", {
     configurable: true,
     value: { ...window.location, assign },
@@ -115,6 +167,66 @@ beforeEach(() => {
 });
 
 describe("IntegrationsPage", () => {
+  it("selects Meta Business, Page and Instant Form before subscribing", async () => {
+    crm.getMetaConnection.mockResolvedValue(metaConnectionResponse());
+    crm.listMetaBusinesses.mockResolvedValue({
+      businesses: [{ id: "business-1", name: "Savvy Business" }],
+    });
+    crm.listMetaPages.mockResolvedValue({ pages: [{ id: "page-1", name: "Savvy Page" }] });
+    crm.listMetaForms.mockResolvedValue({
+      forms: [{ id: "form-1", name: "Book a demo", status: "ACTIVE" }],
+    });
+    const { container } = renderRoutes(routes, ["/settings/integrations"]);
+
+    expect(await screen.findByLabelText("Meta Business")).toHaveValue("business-1");
+    expect(await screen.findByLabelText("Facebook Page")).toHaveValue("page-1");
+    fireEvent.change(await screen.findByLabelText("Instant Form"), {
+      target: { value: "form-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect this form" }));
+
+    await waitFor(() =>
+      expect(crm.selectMetaLeadForm).toHaveBeenCalledWith({
+        businessId: "business-1",
+        pageId: "page-1",
+        formId: "form-1",
+      }),
+    );
+    expect(crm.listMetaPages).toHaveBeenCalledWith({ businessId: "business-1" });
+    expect(crm.listMetaForms).toHaveBeenCalledWith({
+      businessId: "business-1",
+      pageId: "page-1",
+    });
+    await expectNoA11yViolations(container);
+  });
+
+  it("shows Meta connection health and reports accepted, duplicate and rejected imports", async () => {
+    crm.getMetaConnection.mockResolvedValue(
+      metaConnectionResponse({
+        status: "connected",
+        businessId: "business-1",
+        businessName: "Savvy Business",
+        pageId: "page-1",
+        pageName: "Savvy Page",
+        formId: "form-1",
+        formName: "Book a demo",
+        lastWebhookAt: timestampFromDate(new Date("2026-09-10T10:00:00Z")),
+      }),
+    );
+    crm.importMetaLeads.mockResolvedValue({ examined: 4, created: 2, duplicates: 1, rejected: 1 });
+    renderRoutes(routes, ["/settings/integrations"]);
+
+    expect(await screen.findByText("Savvy Business")).toBeInTheDocument();
+    expect(screen.getByText("Savvy Page")).toBeInTheDocument();
+    expect(screen.getByText("Book a demo")).toBeInTheDocument();
+    expect(screen.getByText(/crmapi\.savvyadvi\.com\/integrations\/meta\/webhook/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Import recent leads" }));
+    expect(
+      await screen.findByText(/2 added, 1 already present, 1 rejected/i),
+    ).toBeInTheDocument();
+    expect(crm.listMetaBusinesses).not.toHaveBeenCalled();
+  });
+
   it("offers to connect and states the permissions Google will be asked for", async () => {
     const { container } = renderRoutes(routes, ["/settings/integrations"]);
 
@@ -222,18 +334,18 @@ describe("IntegrationsPage", () => {
     });
     renderRoutes(routes, ["/settings/integrations"]);
 
-    expect(await screen.findByText(/Google is not configured for this CRM/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Google is not configured for Savvy CRM/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Connect Google/ })).not.toBeInTheDocument();
   });
 
-  it("explains that only email involving contacts is read into the CRM", async () => {
+  it("explains that only email involving contacts is read into Savvy CRM", async () => {
     crm.getGoogleConnection.mockResolvedValue(connectedWithSync());
     const { container } = renderRoutes(routes, ["/settings/integrations"]);
 
     // The privacy boundary is the thing a user most needs stated plainly, so
     // it is on the page rather than buried in documentation.
     expect(
-      await screen.findByText(/Email with no matching contact is never read into the CRM/i),
+      await screen.findByText(/Email with no matching contact is never read into Savvy CRM/i),
     ).toBeInTheDocument();
     expect(screen.getByText("9")).toBeInTheDocument();
     await expectNoA11yViolations(container);
@@ -271,7 +383,7 @@ describe("IntegrationsPage", () => {
   it("translates a sync failure reason and never prints an unknown one", async () => {
     crm.getGoogleConnection.mockResolvedValue(connectedWithSync({ lastError: "token_unavailable" }));
     const { unmount } = renderRoutes(routes, ["/settings/integrations"]);
-    expect(await screen.findByText(/Google would not renew the CRM's access/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Google would not renew Savvy CRM's access/i)).toBeInTheDocument();
     unmount();
 
     crm.getGoogleConnection.mockResolvedValue(
@@ -293,7 +405,7 @@ describe("IntegrationsPage", () => {
     const { container } = renderRoutes(routes, ["/settings/integrations"]);
 
     expect(
-      await screen.findByText(/Meetings with no matching contact are never read into the CRM/i),
+      await screen.findByText(/Meetings with no matching contact are never read into Savvy CRM/i),
     ).toBeInTheDocument();
     // And it says what sync does when a meeting changes, which is the part
     // that distinguishes calendar sync from email sync.

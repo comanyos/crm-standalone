@@ -13,6 +13,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { mutationErrorMessage, renderQueryError } from "../../lib/connectErrors";
 import { useToast } from "../../components/ui/Toast";
+import { MetaLeadAdsCard } from "./MetaLeadAdsCard";
 
 /** Where the OAuth callback sends the browser back to. It is sent to the
  * server at Start and stored with the pending authorization, rather than
@@ -45,7 +46,7 @@ const CALLBACK_REASON: Record<string, string> = {
     "That sign-in link had already been used or had expired. Start the connection again from this page.",
   exchange_failed: "Google rejected the authorization. Please try connecting again.",
   storage_failed: "The connection could not be saved. Please try again, or contact your administrator.",
-  not_configured: "Google is not configured for this CRM. Ask your administrator to enable it.",
+  not_configured: "Google is not configured for Savvy CRM. Ask your administrator to enable it.",
 };
 
 /** Renders a scope URL as the permission it actually grants. Showing the raw
@@ -71,26 +72,26 @@ function formatMoment(value: GoogleConnection["connectedAt"]): string {
 const SYNC_REASON: Record<string, string> = {
   not_connected:
     "Gmail access is not available for this account. Reconnect and make sure you grant permission to read your email.",
-  token_unavailable: "Google would not renew the CRM's access. Reconnect your account.",
+  token_unavailable: "Google would not renew Savvy CRM's access. Reconnect your account.",
   history_expired:
-    "The CRM was out of sync for long enough that Google no longer has the change history. A fresh pass over recent mail is running.",
-  provider_error: "Google could not be reached on the last attempt. The CRM will try again shortly.",
+    "Savvy CRM was out of sync for long enough that Google no longer has the change history. A fresh pass over recent mail is running.",
+  provider_error: "Google could not be reached on the last attempt. Savvy CRM will try again shortly.",
   storage_failed: "The last pass could not be saved. If this persists, contact your administrator.",
 };
 
 const CALENDAR_SYNC_REASON: Record<string, string> = {
   not_connected:
     "Calendar access is not available for this account. Reconnect and make sure you grant permission to your calendar.",
-  token_unavailable: "Google would not renew the CRM's access. Reconnect your account.",
+  token_unavailable: "Google would not renew Savvy CRM's access. Reconnect your account.",
   sync_token_expired:
-    "The CRM was out of sync long enough that Google reset the cursor. A fresh pass over your recent and upcoming meetings is running.",
-  provider_error: "Google could not be reached on the last attempt. The CRM will try again shortly.",
+    "Savvy CRM was out of sync long enough that Google reset the cursor. A fresh pass over your recent and upcoming meetings is running.",
+  provider_error: "Google could not be reached on the last attempt. Savvy CRM will try again shortly.",
   storage_failed: "The last pass could not be saved. If this persists, contact your administrator.",
 };
 
-/** Connected accounts. Today that means Google; Microsoft is deliberately not
- * here yet rather than present and disabled, because a greyed-out button is a
- * promise this CRM has not made.
+/** Connected accounts. Today that means Google plus Meta Lead Ads; Microsoft
+ * is deliberately not here yet because a greyed-out button is still a promise
+ * this CRM has not made.
  *
  * Nothing on this page ever holds a credential. The Connect button asks the
  * server for a consent URL and navigates to it; the token exchange, the
@@ -213,7 +214,7 @@ export default function IntegrationsPage() {
         <PageHeader title="Connected accounts" />
         <EmptyState
           title="You don't have access to connected accounts"
-          description="Ask an administrator to grant you permission to connect a Google account."
+          description="Ask an administrator to grant you permission to manage connected accounts."
         />
       </div>
     );
@@ -223,9 +224,9 @@ export default function IntegrationsPage() {
     <div>
       <PageHeader title="Connected accounts" />
       <p className="mb-5 max-w-3xl text-sm text-slate-600">
-        Connect your own Google account to bring email and calendar activity into the CRM. The
-        connection is yours alone: colleagues cannot see your mailbox, and disconnecting revokes
-        the CRM's access at Google immediately.
+        Connect Google for your email and calendar activity, or connect a Meta Business, Page and
+        Instant Form to capture Facebook and Instagram leads. Credentials remain server-side;
+        each connection can be revoked from here.
       </p>
 
       {query.isPending && <SkeletonRows rows={3} />}
@@ -252,7 +253,7 @@ export default function IntegrationsPage() {
 
           {!configured && (
             <p className="mt-4 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
-              Google is not configured for this CRM. An administrator needs to set the Google
+              Google is not configured for Savvy CRM. An administrator needs to set the Google
               OAuth credentials before anyone can connect an account.
             </p>
           )}
@@ -288,9 +289,9 @@ export default function IntegrationsPage() {
             <div className="mt-5 border-t border-slate-200 pt-4">
               <h3 className="text-sm font-semibold text-slate-900">Email sync</h3>
               <p className="mt-1 max-w-prose text-sm text-slate-600">
-                The CRM checks your mailbox for messages involving people already in your
+                Savvy CRM checks your mailbox for messages involving people already in your
                 contacts, and adds those to the contact's timeline. Email with no matching
-                contact is never read into the CRM.
+                contact is never read into Savvy CRM.
               </p>
 
               {sync ? (
@@ -348,7 +349,7 @@ export default function IntegrationsPage() {
               <p className="mt-1 max-w-prose text-sm text-slate-600">
                 Meetings with people already in your contacts are added to the contact's
                 timeline, and the timeline is updated when one is moved or cancelled. Meetings
-                with no matching contact are never read into the CRM.
+                with no matching contact are never read into Savvy CRM.
               </p>
 
               {calendarSync ? (
@@ -404,7 +405,7 @@ export default function IntegrationsPage() {
 
           {configured && status === "reauthorization_required" && (
             <p className="mt-4 rounded-md bg-warning-50 p-3 text-sm text-warning-700">
-              Google has stopped accepting the CRM's stored permission for this account — usually
+              Google has stopped accepting Savvy CRM's stored permission for this account — usually
               because access was withdrawn from your Google account settings. Reconnect to resume
               syncing.
             </p>
@@ -453,10 +454,12 @@ export default function IntegrationsPage() {
         </section>
       )}
 
+      <MetaLeadAdsCard />
+
       <ConfirmDialog
         open={confirmingDisconnect}
         title="Disconnect your Google account?"
-        description="The CRM's access is revoked at Google straight away and the stored credentials are erased. Email and calendar records already brought into the CRM stay where they are. You can reconnect at any time."
+        description="Savvy CRM's access is revoked at Google straight away and the stored credentials are erased. Email and calendar records already brought into Savvy CRM stay where they are. You can reconnect at any time."
         confirmLabel="Disconnect Google"
         loading={disconnect.isPending}
         onConfirm={() => disconnect.mutate(false)}

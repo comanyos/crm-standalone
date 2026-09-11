@@ -27,9 +27,9 @@ var (
 		Name: "crm_outbox_processed_total",
 		Help: "CRM transactional outbox delivery outcomes.",
 	}, []string{"outcome"})
-	JWKSValidationFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "crm_jwks_validation_failures_total",
-		Help: "JWT/JWKS validation failures partitioned by safe reason.",
+	AuthValidationFailuresTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "crm_auth_validation_failures_total",
+		Help: "Opaque session validation failures partitioned by safe reason.",
 	}, []string{"reason"})
 	// GoogleOAuthFlowsTotal counts Google connection lifecycle outcomes. The
 	// only label is the bounded set of reason codes in

@@ -21,7 +21,7 @@ import (
 func TestErasureIsServableWithoutAConfiguredIntegration(t *testing.T) {
 	store := domain.NewMemStore()
 	// Deliberately nil for every integration, including privacy.
-	s := NewCRMService(config.Config{}, store, nil, nil, nil, nil, nil, nil)
+	s := NewCRMService(config.Config{}, store, nil, nil, nil, nil, nil, nil, nil)
 	ctx := ctxAs("tenant-1", "org-1")
 	scope := domain.Scope{TenantID: "tenant-1", OrgID: "org-1"}
 

@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	"net/http/httptest"
 	"strings"
@@ -11,25 +9,23 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
 	"github.com/santoshguru/crm/gen/crm/v1/crmv1connect"
-	"github.com/santoshguru/crm/internal/auth"
 	"github.com/santoshguru/crm/internal/config"
 	"github.com/santoshguru/crm/internal/domain"
 	"github.com/santoshguru/crm/internal/pgtest"
 )
 
-// M3's revenue workflows end to end: a real HTTP server, real RS256 tokens
-// verified against a real JWKS, the real scope interceptor, and — unlike
+// M3's revenue workflows end to end: a real HTTP server, opaque test
+// sessions, the real scope interceptor, and — unlike
 // policy_enforcement_test.go, which runs the same server over MemStore — a
 // real PostgreSQL store connected as crm_app, the role row-level security
 // binds (migrations/0003_rls_enforce.sql).
 //
 // That combination is the point. Scope enforcement over MemStore proves the
 // interceptor is wired; tenant isolation in the store proves the policies
-// filter. Only running both together proves that the thing a signed token
+// filter. Only running both together proves that the authenticated session
 // actually reaches is the thing RLS actually constrains — which is what
 // docs/ROADMAP.md M3 asks for and what the earlier tiers each half-answer.
 
@@ -117,8 +113,8 @@ func requireSchema(t *testing.T) {
 	}
 }
 
-// livePgServer is liveServer's PostgreSQL twin: the same real server, real
-// JWKS and real interceptor, over a store that is subject to RLS.
+// livePgServer is liveServer's PostgreSQL twin: the same real server and
+// interceptor over a store that is subject to RLS.
 func livePgServer(t *testing.T) (crmv1connect.CRMServiceClient, func(org string, scopes []string) string) {
 	t.Helper()
 	holdSchemaLock(t)
@@ -130,14 +126,7 @@ func livePgServer(t *testing.T) (crmv1connect.CRMServiceClient, func(org string,
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
-	authn, err := auth.FromConfig(context.Background(), jwksFor(t, &key.PublicKey), "authincore", "")
-	if err != nil {
-		t.Fatalf("build authenticator: %v", err)
-	}
+	authn, mint := testSessions(t)
 
 	srv, err := New(config.Config{}, store, authn)
 	if err != nil {
@@ -148,32 +137,13 @@ func livePgServer(t *testing.T) (crmv1connect.CRMServiceClient, func(org string,
 	http := httptest.NewServer(srv.Handler())
 	t.Cleanup(http.Close)
 
-	mint := func(org string, scopes []string) string {
-		t.Helper()
-		claims := jwt.MapClaims{
-			"sub": "user-" + org, "iss": "authincore", "org_id": org,
-			"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
-		}
-		raw := make([]any, 0, len(scopes))
-		for _, s := range scopes {
-			raw = append(raw, s)
-		}
-		claims["scopes"] = raw
-		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-		tok.Header["kid"] = enforcementKID
-		signed, err := tok.SignedString(key)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return signed
-	}
-
 	return crmv1connect.NewCRMServiceClient(http.Client(), http.URL), mint
 }
 
 // revenueOrg returns an organization identifier no other test shares. The
-// org_id claim *is* the tenant (internal/auth/jwks.go), and the test database
-// is reused across runs, so a fixed name would inherit previous runs' rows.
+// authenticated membership's organization is the tenant, and the test
+// database is reused across runs, so a fixed name would inherit previous
+// runs' rows.
 func revenueOrg(label string) string {
 	return fmt.Sprintf("org-rev-%s-%d", label, time.Now().UnixNano())
 }

@@ -12,6 +12,7 @@ import { EmptyState } from "../../components/ui/StatePanel";
 import { renderQueryError } from "../../lib/connectErrors";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { useAuth } from "../../auth/AuthProvider";
+import { leadDisplayName } from "../../lib/leadIdentity";
 
 const PAGE_SIZE = 20;
 
@@ -37,11 +38,13 @@ export default function LeadsListPage() {
 
   const columns: Column<Lead>[] = [
     {
-      key: "company",
-      header: "Company",
-      render: (lead) => <span className="font-medium text-slate-900">{lead.company}</span>,
+      key: "person",
+      header: "Lead",
+      render: (lead) => <span className="font-medium text-slate-900">{leadDisplayName(lead)}</span>,
     },
+    { key: "company", header: "Company", render: (lead) => lead.company || <span className="text-slate-400">—</span> },
     { key: "email", header: "Contact email", render: (lead) => lead.contactEmail || <span className="text-slate-400">—</span> },
+    { key: "phone", header: "Phone", render: (lead) => lead.phone || <span className="text-slate-400">—</span> },
     { key: "source", header: "Source", render: (lead) => lead.source || <span className="text-slate-400">—</span> },
     {
       key: "status",

@@ -11,20 +11,30 @@ complete only after its stated acceptance criteria and verification have passed.
 `docs/ROADMAP.md` remains the concise stakeholder progress view; this file is
 the engineering source of truth for work remaining.
 
+> **Authentication architecture update (10 September 2026):** AuthinCore was
+> removed in full. Current identity lives inside `services/crm-api` and uses
+> passwordless email OTP, Google account sign-in, hashed opaque sessions, and
+> local user/organization/membership roles. Web uses an HttpOnly cookie; the
+> planned native issuance flow will return the same opaque-session form as a
+> Bearer token for OS secure storage. Sections explicitly labelled historical
+> preserve completed audit history only and must not be used as operational
+> instructions.
+
 ## Non-negotiable boundaries
 
-- Work only in `/Users/santoshguru/Desktop/crm`.
+- Work only in `/Users/santoshguru/Desktop/savvy/crm`.
 - Do not copy further CompanyOS files without explaining the exact need and
   obtaining approval.
-- Preserve the current service boundary: `services/authincore` owns identity,
-  organizations, authentication, authorization, and FGA; `services/crm-api`
-  owns CRM data and workflows; `apps/web` owns the browser application.
-- AuthinCore `org_id` is the CRM `tenant_id`. No request may choose a tenant
-  from browser-supplied body data or query data.
+- Preserve the current service boundary: `services/crm-api` owns native
+  identity, organizations/memberships, authentication, authorization, CRM
+  data, and workflows; `apps/web` owns the browser application.
+- The organization on the verified, active session is the CRM `tenant_id`.
+  No request may choose a tenant or role from client-supplied body/query data.
 - Every new CRM table must include `tenant_id`, use a tenant-aware key/index,
   have RLS enabled and forced, and be accessed with the scoped database helper.
-- Browser authentication uses OIDC Authorization Code with PKCE. Never place a
-  client secret in the web application.
+- Browser authentication uses a Secure, HttpOnly, host-only opaque-session
+  cookie. Google account login is server-side and its client secret never
+  enters the web application. Email login is passwordless six-digit OTP.
 - Do not commit passwords, OAuth secrets, private keys, tokens, certificates,
   database dumps, provider exports, or generated build output.
 - Existing user changes are preserved. Do not use destructive Git commands.
@@ -48,24 +58,22 @@ The CRM is 100% complete only when all of the following are true:
 
 ## Current verified baseline
 
-Latest verified update (2026-08-22): two-organization isolation (§1.3) is now
-proven by an automated suite at the RPC, application, database and
-asynchronous-worker layers, run against live PostgreSQL with row-level
-security applied to the non-bypassing `crm_app` role. Earlier the same day:
-the standalone CRM web application completes its local PKCE callback on
-`http://localhost:3002` when the default port is occupied, and AuthinCore
-filters browser-requested resource wildcards from human tokens, so CRM
-authority can only come from server-side role grants.
+Latest architecture update (2026-09-10): the separate AuthinCore service,
+database, Redis dependency, UIs, JWT/JWKS verifier, and SPA OIDC client were
+removed. `crm-api` now owns the compact login/session data model and public
+`/auth/*` routes. Existing CRM RLS and deny-by-default scope enforcement remain
+the tenant-data boundary; native-auth production/provider acceptance is still
+in progress.
 
 | Area | Status | Evidence / limitation |
 | --- | --- | --- |
 | Standalone extraction | Complete | Architecture and source live entirely in this repository. |
-| Compose stack | Running locally | PostgreSQL ×2, Redis, NATS, AuthinCore, Auth Admin, CRM API. |
-| Auth bootstrap | Implemented | `make bootstrap` reconciles an org, admin, roles, scopes, and public SPA client. |
-| OIDC/JWT integration | Live-verified via an automated browser test | `apps/web/tests-e2e/auth.spec.ts` (Playwright) exercises PKCE login, consent, live dashboard, reload, and logout end to end against the real stack. JWKS refresh/rotation and negative-path cases still need coverage. |
-| Tenant isolation | Proven by automated tests at four layers | every CRM RPC that touches tenant data (84 of the 85; DescribeWorkflowCatalog is exempt in writing because it reads no store), the store against live PostgreSQL, a catalog-driven RLS check covering every table carrying `tenant_id`, and the outbox dispatcher's `crm_app`/`crm_drain` split. Audit-event and metric tenant labelling stays open because neither surface exists yet (§10.2). A token already issued outlives organization deactivation until it expires — see §1.3. |
+| Compose stack | Being migrated | One PostgreSQL database, NATS, CRM API, and web application; no separate identity service/cache/admin UI. |
+| Native auth | Implemented; production acceptance pending | Email request/verify, Google start/callback, session read/logout, hashed challenges/state/sessions, SMTP adapter, bootstrap, and local memberships live inside `crm-api`. |
+| Session model | Web implemented; mobile issuance pending | Web uses `savvy_session` as an HttpOnly cookie and receives no readable token. Bearer validation exists; mobile still needs dedicated one-time issuance/exchange before Keychain/Keystore storage. No access/refresh JWT pair. |
+| Tenant isolation | Existing automated foundation; native-session rerun required | Tenant comes from the active local membership and CRM records remain protected by RLS and deny-by-default scopes. Rerun full two-organization HTTP/database/outbox tests using native sessions before release. |
 | Backend domain | Partially implemented | Accounts, contacts, leads, conversion, opportunities, activities, RLS, and tests exist. Production/contract coverage is incomplete. |
-| Web app | Partially implemented | `apps/web` has a working design system, app shell, OIDC session boundary, live dashboard (now including pipeline/task/conversion/forecast reporting, §7.2), and live CRUD workflows for accounts, contacts, leads, opportunities, and tasks, plus pipeline administration, an opportunity Kanban board, and an activity timeline with notes on four detail views, a Connected accounts page, an Automation rule editor with its execution history, an in-app notification bell, tags, saved views and bulk operations (accounts/tasks), account merge, and CSV import/export (accounts). Quick search has an RPC (`SearchRecords`) but no dedicated results screen yet, and saved-view/bulk-operation UI does not yet cover every entity list. |
+| Web app | Partially implemented | `apps/web` has a working design system, app shell, native HttpOnly-cookie session boundary, live dashboard (including pipeline/task/conversion/forecast reporting, §7.2), live CRUD workflows, pipeline administration, opportunity board, timelines/notes, connected accounts, automation history, notifications, tags, saved views, bulk operations, account merge, and account CSV import/export. |
 | Production operations | Not started | Local keys/credentials and Compose are development-only. |
 
 Approximate total product completion: **62%** of the scoped product, and
@@ -200,15 +208,16 @@ originally scoped product.
 - [ ] Make desktop workflows efficient and mobile/tablet layouts usable.
 - [ ] Use typed live API clients. Mock service workers may be used only for
   isolated component tests, never as the sole feature implementation.
-- [ ] Do not persist access tokens in localStorage. Prefer in-memory tokens
-  with refresh strategy appropriate to the final auth architecture.
+- [x] Do not persist credentials in localStorage/sessionStorage. Web session
+  material is an HttpOnly cookie; the browser loads only the safe session
+  projection from `GET /auth/session`.
 
 ### Quality gates
 
 - [ ] Unit tests cover domain invariants, authorization decisions, parsing,
   validation, and error conditions.
 - [ ] Integration tests run against real PostgreSQL and exercise migrations,
-  RLS, OIDC, and Connect endpoints.
+  RLS, email/Google/session auth, and Connect endpoints.
 - [ ] Browser tests cover each critical user journey.
 - [ ] CI runs formatting, linting, type checks, unit tests, integration tests,
   browser tests, migration checks, dependency/security scans, and image builds.
@@ -225,14 +234,10 @@ originally scoped product.
   ([CONTRIBUTING.md](CONTRIBUTING.md))
 - [x] Add `.editorconfig`, Go formatting/lint policy, web lint/format policy,
   and pre-commit or CI equivalents. ([.editorconfig](.editorconfig),
-  `services/crm-api/.golangci.yml` added, `services/authincore/.golangci.yml`
-  fixed — its `issues.exclude-rules` key was silently ignored under
-  `version: "2"`, moved to `linters.exclusions.rules` — and
+  `services/crm-api/.golangci.yml` added, and
   [.github/workflows/ci.yml](.github/workflows/ci.yml) runs fmt/vet/lint/
-  build/test for both services plus `docker compose config --quiet`. Web
-  lint/format policy is documented in CONTRIBUTING.md; enforcement is added
-  to CI once `apps/web` has source to lint. AuthinCore's lint step runs
-  informationally (`continue-on-error`) — see limitation below.)
+  build/test for the Go service plus web checks and
+  `docker compose config --quiet`.)
 - [x] Verify every module/package uses an independent project identifier;
   replace accidental CompanyOS source/import/provenance references only after
   determining compatibility impact. `services/crm-api`'s module path
@@ -240,27 +245,14 @@ originally scoped product.
   subject convention (`companyos.crm.<entity>.<tenant>` →
   `crm.<entity>.<tenant>`) are renamed and independent; `go build`,
   `golangci-lint run ./...` (0 issues), and `go test ./...` pass in
-  `services/crm-api` after the rename. **Still open**:
-  `services/authincore/third_party/platform-contract` remains an unlicensed
-  vendored CompanyOS snapshot (larger decision — its content, not just its
-  name, originates from CompanyOS) — see
+  `services/crm-api` after the rename. The former unlicensed
+  `platform-contract` snapshot left the current distribution when AuthinCore
+  was deleted; its provenance remains in the historical notice.
+- [~] Inventory all licenses and third-party notices. The project now has an
+  Apache-2.0 license and corrected project copyright; AuthinCore and both
+  commercial license-gating paths were removed. A final automated SBOM and
+  product/legal confirmation are still required. See
   [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
-- [ ] Inventory all licenses and third-party notices. Resolve the AuthinCore
-  licensing provenance before public distribution. Inventory done:
-  [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md). At the user's
-  direction, the commercial license/tier-gating subsystems in both services
-  (`internal/license/` in each, plus AuthinCore's `/api/v1/license` endpoints,
-  admin-ui License page, and `migrations/018_license.sql`) have been removed
-  — both `go build ./...` and `go build -tags enterprise ./...` pass for
-  AuthinCore afterward, and crm-api lints at 0 issues. Provenance is **still
-  not fully resolved**: `services/crm-api/LICENSE` is actually the Connect
-  project's Apache-2.0 notice (not this project's own license), AuthinCore
-  still has no `LICENSE` file for its claimed MIT terms, the
-  `platform-contract` snapshot above is still unlicensed, and a newly found
-  `services/authincore/migrations/025_dbcore_role_scopes.sql` seeds role/scope
-  data for an unrelated "DBCore" product by default — see
-  [docs/THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) for all open
-  items.
 - [x] Add a security reporting policy and supported-version policy.
   ([SECURITY.md](SECURITY.md))
 
@@ -281,44 +273,75 @@ Verification:
 - [x] Define `development`, `test`, `staging`, and `production` configuration
   matrices and required environment variables.
   ([docs/CONFIGURATION.md](docs/CONFIGURATION.md))
-- [x] Add startup validation that rejects development passwords, missing TLS
-  URLs, ephemeral signing keys, and weak CORS in staging/production.
-  `services/crm-api/internal/config` and `services/authincore/internal/config`
-  (new) run `APP_ENV`-gated checks before any database connection opens;
-  `development`/`test` are unaffected (verified live via `make up` — logs
-  `"startup","environment":"development"` and boots normally). Unit tests:
-  `go test ./internal/config/...` in each service. **Cookies**: AuthinCore
-  already computes the `Secure` flag per-request from `requestIsHTTPS`
-  (`r.TLS != nil || X-Forwarded-Proto: https`) rather than a static flag, and
-  the new `ISSUER` https requirement in staging/production reinforces that a
-  TLS-terminating deployment is expected — not separately re-validated here.
-  **Related finding, not fixed**: `requestIsHTTPS` trusts `X-Forwarded-Proto`
-  from any client, not just a known reverse-proxy hop; that header-spoofing
-  gap is a Phase 10 hardening item, not a startup-config one.
+- [x] Add startup validation that rejects development passwords, weak auth
+  secrets, insecure production cookies/origins, and partial SMTP/Google login
+  configuration. `services/crm-api/internal/config` runs `APP_ENV`-gated
+  checks before serving requests; development/test remain explicit modes.
 - [x] Document secret ownership, rotation, and injection for database
-  passwords, AuthinCore signing keys, and `ADMIN_TOKEN`/bootstrap admin
-  password. ([docs/CONFIGURATION.md](docs/CONFIGURATION.md)) SMTP, OAuth
-  providers, webhooks, and object storage are marked not-yet-applicable —
-  blocked on Phase 8 provider decisions, per the "Required external
-  decisions" table.
-- [x] Create separate disposable integration-test database/Compose profiles.
-  `auth-postgres-test` / `crm-postgres-test` behind the `--profile test`
-  Compose profile: separate ports, `tmpfs` storage (no named volume), never
-  started by `make up`. `make test-db-up` / `make test-db-down`. Verified:
-  brought up, confirmed healthy, confirmed crm-api's migrations auto-applied
-  (8 tables), torn down cleanly.
+  passwords, OTP pepper, SMTP, Google account-login credentials, integration
+  encryption keys, provider/webhook credentials, and object storage.
+  ([docs/CONFIGURATION.md](docs/CONFIGURATION.md))
+- [x] Create a disposable integration-test database/Compose profile for the
+  single CRM database, using temporary storage and local-only credentials.
 
 Acceptance criteria:
 
-- Production cannot start with local default passwords or an ephemeral signer.
-  Verified by `internal/config` unit tests in both services.
+- Production cannot start with local default passwords, a weak/missing OTP
+  pepper, insecure auth cookies, or incomplete auth-provider configuration.
 - Test tooling never requires or writes production credentials. The test-DB
   profile uses its own fixed local-only passwords, unrelated to any
   staging/production secret.
 
 ---
 
-## Phase 1 — Complete authentication, tenancy, RBAC, and FGA
+## Phase 1 — Complete native authentication, tenancy, and RBAC
+
+### 1.1 Current native-auth lifecycle
+
+- [x] Remove `services/authincore`, its container/UIs, separate database,
+  Redis dependency, JWT/JWKS validation, legacy SDK/client, and SPA OIDC flow.
+- [x] Add a compact authentication package to `services/crm-api` with
+  `POST /auth/email/request`, `POST /auth/email/verify`,
+  `GET /auth/google/start`, `GET /auth/google/callback`,
+  `GET /auth/session`, and `POST /auth/logout`.
+- [x] Keep users, organizations, memberships, email challenges, Google
+  identities/state, and opaque sessions in the CRM database. Hash OTP
+  verifiers with the environment pepper and store only digests of OAuth state
+  and session tokens.
+- [x] Email challenges expire, are single-use, retire older resends, allow at
+  most five verification attempts, and enforce a per-address request window.
+- [x] Login requires an existing active membership. Signup creates the verified
+  user, organization, initial `crm_admin` membership, and onboarding profile
+  transactionally without accepting a client role key.
+- [~] Web uses a host-only HttpOnly SameSite cookie and receives no readable
+  session token. Bearer validation exists for native clients, but dedicated
+  email/Google mobile issuance is still open. Logout revokes the database
+  session before clearing client state.
+- [~] Complete production-shaped tests for generic account-discovery-safe
+  responses, distributed rate limiting, SMTP deliverability, Google
+  state/nonce/PKCE and account-linking failures, strict Origin handling,
+  membership deactivation, cleanup, and simultaneous session use/revocation.
+- [ ] Add dedicated native completion/exchange for email and a one-time
+  app-link exchange for Google mobile login; never place a long-lived session
+  token in a URL.
+- [ ] Define multi-membership organization selection and record-level sharing.
+
+Acceptance criteria:
+
+- A clean CRM database can bootstrap the first active administrator without a
+  password or source edit.
+- OTPs/state/session values are never stored or logged in reusable plaintext.
+- An expired/revoked session fails immediately; an active session resolves its
+  tenant, role, and scopes exclusively from local membership data.
+- Two-organization RPC, PostgreSQL/RLS, and worker isolation suites pass using
+  native sessions.
+
+## Historical Phase 1 — removed AuthinCore implementation
+
+Everything until Phase 2 below records the former AuthinCore/JWT/OIDC design.
+It is preserved for audit history only. Its commands, paths, ports, bootstrap
+steps, token model, acceptance criteria, and residual limitations are
+superseded and must not be used for the current application.
 
 ### 1.1 Bootstrap lifecycle
 
@@ -708,17 +731,16 @@ other; this is the file that would not.
 - [x] Initialize `apps/web` with strict TypeScript, environment validation,
   production build, dev server on `http://localhost:3000`, and test scripts.
   `src/env.ts` (zod) validates `VITE_*` at load, enforcing `https://` in a
-  production build; `vite.config.ts` sets `strictPort: true` since the OIDC
-  redirect_uri and both backends' CORS allowlists are pinned to `:3000`.
+  production build; `vite.config.ts` sets `strictPort: true` because the CRM
+  API CORS/credential origin and Google login success URL are exact origins.
   Verified: `npm run build`, `npm run test`, `npm run lint` all pass.
 - [x] Typed Connect client package: `packages/contracts`, generated via
   `@bufbuild/protoc-gen-es` v2 (`buf generate`) from `services/crm-api/proto`
   — no hand-duplicated request/response shapes in UI code.
 - [x] CORS configured (no dev proxy — see apps/web/README.md for why):
   added `CORSOrigins`/`CORS_ALLOWED_ORIGINS` + production-safety validation
-  to `services/crm-api` (previously had none at all), reused AuthinCore's
-  existing support. Production API/issuer URLs are explicit env vars,
-  validated `https://` in a production build.
+  to `services/crm-api`. Production web/API URLs are explicit environment
+  values and credentialed requests accept only exact allowed origins.
 - [x] Error boundary (`ErrorBoundary.tsx`), route-level loading boundary
   (`RequireAuth`'s loading state), not-found screen (`NotFoundPage`), and
   unavailable-service state (`UnavailableState`, shown on
@@ -745,6 +767,34 @@ other; this is the file that would not.
 - [ ] Visual regression / screenshot coverage — not implemented.
 
 ### 2.3 Web authentication boundary
+
+- [x] `AuthProvider` restores the safe session projection from
+  `GET /auth/session` using `credentials: include`; JavaScript cannot read the
+  opaque HttpOnly cookie.
+- [x] Login requests a passwordless email challenge and verifies the six-digit
+  code through the CRM API. Signup carries the validated onboarding profile.
+- [x] Google login starts at the CRM API, whose callback validates state,
+  nonce, server-held PKCE, and verified email before issuing the same session
+  cookie.
+- [x] `RequireAuth` gates protected routes and derives `hasRole`/`hasScope`
+  from the server session response, never decoded client token claims.
+- [x] Logout waits for `POST /auth/logout` to revoke the database session and
+  then clears local user/session projections. No session credential is stored
+  in `localStorage` or `sessionStorage`.
+- [~] Update live browser suites to exercise real email OTP, optional Google
+  provider flow, reload, cookie expiry/revocation, two-tab sign-out behavior,
+  forbidden scopes, and provider/API outages against the native service.
+
+Current acceptance criteria: the browser can authenticate and restore through
+an HttpOnly cookie, JavaScript never receives a reusable credential, logout
+revokes server state, and authentication failures render a recoverable safe
+message without exposing account existence or provider details.
+
+### Historical 2.3 — former OIDC/JWT browser boundary
+
+The remainder of this subsection is retained only as a record of defects and
+tests in the removed AuthinCore implementation. None of its routes, storage,
+token-renewal instructions, or commands apply to the current app.
 
 - [x] Login route (`LoginPage` + `beginLogin`) creates `state` and a PKCE
   verifier, stored in `sessionStorage` with a 10-minute expiry
@@ -933,7 +983,10 @@ Verification: `npm run typecheck` and `npm run build` clean, `npm run lint`
 `vitest run` 66/66, and `playwright test` 14/14 against the live Compose
 stack across five consecutive runs.
 
-Three real defects were found and fixed while verifying this:
+Three real defects were found and fixed while verifying this. Authentication
+mechanics named in items 3–4 describe the removed AuthinCore flow; retain the
+test lessons (wait for UI/network completion and await revocation), but retest
+them against native OTP/cookie sessions rather than following those old routes:
 
 1. **Saving prompted to discard the changes it had just saved.** The forms
    navigate to the detail page in the mutation's `onSuccess` while the form
@@ -1189,9 +1242,9 @@ Acceptance criteria:
   *recurrence* need a scheduler and a per-user timezone policy that does not
   exist yet — they belong with §9 workflow automation, not here, and a
   half-built reminder that silently does not fire is worse than none.
-  *Mentions* and *participants* need a user directory the CRM does not have
-  (AuthinCore owns identities and the CRM currently sees only opaque subject
-  ids), so they wait on the same user-administration work as §1.4's UI.
+  *Mentions* and *participants* need a tenant-scoped user-directory API and UI.
+  Native auth now owns local users and memberships, but that safe directory
+  surface is not yet exposed, so they wait on the same administration work.
 - [x] Add first-class task and note entities rather than overloading generic
   activity data where reporting/permissions need distinct models.
   `internal/domain/task.go`, `note.go`, `migrations/0014_tasks_and_notes.sql`,
@@ -1336,7 +1389,7 @@ Acceptance criteria:
   lead, opportunity, task), idempotent assign/remove for safe bulk-action
   retries, MemStore/PgStore parity tests, cross-tenant isolation probes for
   all eight new RPCs, a deny-by-default `crm:tag:read`/`crm:tag:write` scope
-  pair wired into the role matrix and AuthinCore's bootstrap seeding, a Tags
+  pair wired into the role matrix and native CRM bootstrap, a Tags
   settings page (create/rename/recolor/delete), and a reusable tag
   assign/remove panel on account/contact/lead/opportunity/task pages —
   verified live end to end against the running stack (create → assign →
@@ -1614,24 +1667,23 @@ Acceptance criteria:
 ### 10.2 Observability and reliability
 
 - [~] Add service metrics for HTTP/RPC, DB pools/query latency, NATS/outbox,
-  AuthinCore/OIDC, jobs, integrations, and user-visible errors. CRM and
-  AuthinCore now export Prometheus HTTP/Connect request counters and latency,
-  pool statistics, CRM outbox success/retry/failure, JWT/OIDC validation
-  failures, NATS connection state, and bounded database query latency.
+  native OTP/Google/session auth, jobs, integrations, and user-visible errors.
+  CRM exports Prometheus HTTP/Connect request counters and latency, pool
+  statistics, outbox success/retry/failure, NATS connection state, and bounded
+  database query latency. Dedicated native-auth counters remain open.
   Integration-specific metrics remain open because those integrations do not
   yet exist. See `docs/OBSERVABILITY.md`.
 - [~] Add distributed tracing and request/correlation IDs across web, CRM,
-  AuthinCore, workers, and webhooks. Safe request IDs and W3C `traceparent`
-  now enter CRM and AuthinCore HTTP/Connect ingress; optional OTLP export is
-  wired for both services. The CRM web client creates opaque trace context and
-  the implemented CRM path persists/restores it through outbox delivery to
-  NATS. AuthinCore outbound flows plus future webhooks/integrations still need
-  explicit propagation when those features exist, so the cross-product item
-  remains open.
+  workers, and webhooks. Safe request IDs and W3C `traceparent` enter CRM
+  HTTP/Connect ingress; optional OTLP export is wired. The web client creates
+  opaque trace context and the CRM persists/restores it through outbox
+  delivery to NATS. Future webhooks/integrations still need explicit
+  propagation, so the cross-product item remains open.
 - [~] Add structured logs with secret/PII redaction and retention controls.
-  CRM and AuthinCore use allowlist-based JSON access logs that omit headers,
-  bodies, query values, cookies, tokens, passwords, redirect locations, and
-  PII. Retention, shipping, and access controls remain deployment work.
+  CRM uses allowlist-based JSON access logs that omit headers, bodies, query
+  values, cookies, session tokens, OTPs, Google codes, passwords, redirect
+  locations, and PII. Retention, shipping, and access controls remain
+  deployment work.
 - [ ] Define SLOs, alert thresholds, dashboards, on-call ownership, runbooks,
   and synthetic checks for login and core CRM workflows.
 - [ ] Run load, soak, failure, restart, key rotation, database failover, and

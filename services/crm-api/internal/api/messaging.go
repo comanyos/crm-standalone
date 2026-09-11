@@ -52,7 +52,36 @@ func (s *CRMService) ListContactChannels(
 		return nil, connectErr(err)
 	}
 
-	channels := domain.ContactChannels(contact)
+	out, err := s.messageChannels(ctx, scope, domain.ContactChannels(contact))
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.ListContactChannelsResponse{Channels: out}), nil
+}
+
+// ListLeadChannels returns every channel a lead can be reached on before it
+// is converted. The consent policy is intentionally identical to Contacts.
+func (s *CRMService) ListLeadChannels(
+	ctx context.Context, req *connect.Request[crmv1.ListLeadChannelsRequest],
+) (*connect.Response[crmv1.ListLeadChannelsResponse], error) {
+	scope, err := scopeFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lead, err := s.store.GetLead(ctx, scope, req.Msg.GetLeadId())
+	if err != nil {
+		return nil, connectErr(err)
+	}
+	out, err := s.messageChannels(ctx, scope, domain.LeadChannels(lead))
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&crmv1.ListLeadChannelsResponse{Channels: out}), nil
+}
+
+func (s *CRMService) messageChannels(
+	ctx context.Context, scope domain.Scope, channels []domain.MessagingChannel,
+) ([]*crmv1.MessagingChannel, error) {
 	out := make([]*crmv1.MessagingChannel, 0, len(channels))
 	for _, ch := range channels {
 		entry := &crmv1.MessagingChannel{
@@ -88,7 +117,7 @@ func (s *CRMService) ListContactChannels(
 
 		out = append(out, entry)
 	}
-	return connect.NewResponse(&crmv1.ListContactChannelsResponse{Channels: out}), nil
+	return out, nil
 }
 
 // RecordMessagingConsent appends one decision to the ledger.

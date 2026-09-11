@@ -9,16 +9,15 @@ import (
 // .env.example and compose.yaml. A production/staging boot must never see
 // one of these unchanged.
 var knownDevPasswords = map[string]struct{}{
-	"authincore_dev": {},
-	"crm_admin_dev":  {},
-	"crm_app":        {},
-	"crm_drain":      {},
-	"postgres":       {},
-	"password":       {},
-	"changeme":       {},
-	"change-me":      {},
-	"dev":            {},
-	"test":           {},
+	"crm_admin_dev": {},
+	"crm_app":       {},
+	"crm_drain":     {},
+	"postgres":      {},
+	"password":      {},
+	"changeme":      {},
+	"change-me":     {},
+	"dev":           {},
+	"test":          {},
 }
 
 // weakPassword reports whether pw is an obvious placeholder: empty, a known

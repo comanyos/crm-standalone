@@ -172,6 +172,14 @@ func (s *MemStore) RecordCaptureDelivery(
 	}
 	for _, existing := range all {
 		if existing.EndpointID == record.EndpointID && existing.DedupKey == record.DedupKey {
+			if existing.Outcome == DeliveryFailed {
+				existing.Outcome = record.Outcome
+				existing.Reason = ""
+				existing.LeadID = ""
+				existing.RawPayload = record.RawPayload
+				reclaimed, updateErr := s.captureDelivery.update(scope, existing)
+				return reclaimed, updateErr == nil, updateErr
+			}
 			return cloneLeadCaptureDelivery(existing), false, nil
 		}
 	}
@@ -181,6 +189,42 @@ func (s *MemStore) RecordCaptureDelivery(
 		return nil, false, err
 	}
 	return stored, true, nil
+}
+
+// CreateCapturedLead is the in-memory equivalent of PgStore's transaction.
+// compound serializes the multi-table operation; the production guarantee is
+// provided by PgStore's real database transaction.
+func (s *MemStore) CreateCapturedLead(
+	ctx context.Context, scope Scope, endpointID, dedupKey, rawPayload string, lead *Lead,
+) (*LeadCaptureDelivery, *Lead, bool, error) {
+	if !scope.Valid() {
+		return nil, nil, false, ErrNoTenant
+	}
+	s.compound.Lock()
+	defer s.compound.Unlock()
+
+	delivery, created, err := s.RecordCaptureDelivery(ctx, scope, &LeadCaptureDelivery{
+		EndpointID: endpointID, DedupKey: dedupKey,
+		Outcome: DeliveryCreated, RawPayload: rawPayload,
+	})
+	if err != nil || !created {
+		return delivery, nil, created, err
+	}
+	stored, err := s.CreateLead(ctx, scope, lead)
+	if err != nil {
+		_ = s.FailCaptureDelivery(ctx, scope, delivery.ID, CaptureReasonStoreFailed)
+		return nil, nil, false, err
+	}
+	if err := s.LinkCaptureDeliveryLead(ctx, scope, delivery.ID, stored.ID); err != nil {
+		_ = s.lead.delete(scope, stored.ID)
+		_ = s.FailCaptureDelivery(ctx, scope, delivery.ID, CaptureReasonStoreFailed)
+		return nil, nil, false, err
+	}
+	if err := s.TouchCaptureEndpoint(ctx, scope, endpointID, CaptureReasonNone); err != nil {
+		return nil, nil, false, err
+	}
+	delivery.LeadID = stored.ID
+	return delivery, stored, true, nil
 }
 
 // LinkCaptureDeliveryLead records which lead a delivery became.
@@ -193,6 +237,22 @@ func (s *MemStore) LinkCaptureDeliveryLead(_ context.Context, scope Scope, deliv
 		return err
 	}
 	delivery.LeadID = leadID
+	_, err = s.captureDelivery.update(scope, delivery)
+	return err
+}
+
+func (s *MemStore) FailCaptureDelivery(_ context.Context, scope Scope, deliveryID, reason string) error {
+	s.capture.mu.Lock()
+	defer s.capture.mu.Unlock()
+	delivery, err := s.captureDelivery.get(scope, deliveryID)
+	if err != nil {
+		return err
+	}
+	if delivery.LeadID != "" {
+		return ErrConflict
+	}
+	delivery.Outcome = DeliveryFailed
+	delivery.Reason = reason
 	_, err = s.captureDelivery.update(scope, delivery)
 	return err
 }

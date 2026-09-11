@@ -1,37 +1,42 @@
 import { createBrowserRouter, createRoutesFromElements, Route, Outlet } from "react-router-dom";
+import { lazy } from "react";
 import { AppShell } from "./components/shell/AppShell";
 import { RequireAuth } from "./auth/RequireAuth";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import LoginPage from "./pages/LoginPage";
-import CallbackPage from "./pages/CallbackPage";
 import SignedOutPage from "./pages/SignedOutPage";
-import DashboardPage from "./pages/DashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
-import AccountsListPage from "./features/accounts/AccountsListPage";
-import AccountDetailPage from "./features/accounts/AccountDetailPage";
-import AccountFormPage from "./features/accounts/AccountFormPage";
-import ImportAccountsPage from "./features/accounts/ImportAccountsPage";
-import ContactsListPage from "./features/contacts/ContactsListPage";
-import ContactDetailPage from "./features/contacts/ContactDetailPage";
-import ContactFormPage from "./features/contacts/ContactFormPage";
-import LeadsListPage from "./features/leads/LeadsListPage";
-import LeadDetailPage from "./features/leads/LeadDetailPage";
-import LeadFormPage from "./features/leads/LeadFormPage";
-import OpportunitiesListPage from "./features/opportunities/OpportunitiesListPage";
-import OpportunityDetailPage from "./features/opportunities/OpportunityDetailPage";
-import OpportunityFormPage from "./features/opportunities/OpportunityFormPage";
-import OpportunityBoardPage from "./features/opportunities/OpportunityBoardPage";
-import PipelinesPage from "./features/pipelines/PipelinesPage";
-import TasksListPage from "./features/tasks/TasksListPage";
-import TaskFormPage from "./features/tasks/TaskFormPage";
-import CalendarPage from "./features/calendar/CalendarPage";
-import CustomFieldsPage from "./features/settings/CustomFieldsPage";
-import CustomObjectsPage from "./features/settings/CustomObjectsPage";
-import TagsPage from "./features/settings/TagsPage";
-import MessageTemplatesPage from "./features/settings/MessageTemplatesPage";
-import LeadCapturePage from "./features/settings/LeadCapturePage";
-import IntegrationsPage from "./features/integrations/IntegrationsPage";
-import AutomationPage from "./features/automation/AutomationPage";
+
+// Operational screens are route-split so a rep opening the dashboard does
+// not download every form, board, integration and administration workflow.
+// AppShell supplies one consistent loading state while a route chunk arrives.
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const HomePage = lazy(() => import("./pages/HomePage"));
+const AccountsListPage = lazy(() => import("./features/accounts/AccountsListPage"));
+const AccountDetailPage = lazy(() => import("./features/accounts/AccountDetailPage"));
+const AccountFormPage = lazy(() => import("./features/accounts/AccountFormPage"));
+const ImportAccountsPage = lazy(() => import("./features/accounts/ImportAccountsPage"));
+const ContactsListPage = lazy(() => import("./features/contacts/ContactsListPage"));
+const ContactDetailPage = lazy(() => import("./features/contacts/ContactDetailPage"));
+const ContactFormPage = lazy(() => import("./features/contacts/ContactFormPage"));
+const LeadsListPage = lazy(() => import("./features/leads/LeadsListPage"));
+const LeadDetailPage = lazy(() => import("./features/leads/LeadDetailPage"));
+const LeadFormPage = lazy(() => import("./features/leads/LeadFormPage"));
+const OpportunitiesListPage = lazy(() => import("./features/opportunities/OpportunitiesListPage"));
+const OpportunityDetailPage = lazy(() => import("./features/opportunities/OpportunityDetailPage"));
+const OpportunityFormPage = lazy(() => import("./features/opportunities/OpportunityFormPage"));
+const OpportunityBoardPage = lazy(() => import("./features/opportunities/OpportunityBoardPage"));
+const PipelinesPage = lazy(() => import("./features/pipelines/PipelinesPage"));
+const TasksListPage = lazy(() => import("./features/tasks/TasksListPage"));
+const TaskFormPage = lazy(() => import("./features/tasks/TaskFormPage"));
+const CalendarPage = lazy(() => import("./features/calendar/CalendarPage"));
+const CustomFieldsPage = lazy(() => import("./features/settings/CustomFieldsPage"));
+const CustomObjectsPage = lazy(() => import("./features/settings/CustomObjectsPage"));
+const TagsPage = lazy(() => import("./features/settings/TagsPage"));
+const MessageTemplatesPage = lazy(() => import("./features/settings/MessageTemplatesPage"));
+const LeadCapturePage = lazy(() => import("./features/settings/LeadCapturePage"));
+const IntegrationsPage = lazy(() => import("./features/integrations/IntegrationsPage"));
+const AutomationPage = lazy(() => import("./features/automation/AutomationPage"));
 
 /** A data router (rather than plain <BrowserRouter>) is required for
  * useBlocker, which the account/contact forms use for unsaved-change
@@ -49,7 +54,6 @@ export const router = createBrowserRouter(
       }
     >
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/auth/callback" element={<CallbackPage />} />
       <Route path="/signed-out" element={<SignedOutPage />} />
 
       <Route
@@ -59,7 +63,8 @@ export const router = createBrowserRouter(
           </RequireAuth>
         }
       >
-        <Route index element={<DashboardPage />} />
+        <Route index element={<HomePage />} />
+        <Route path="/admin" element={<AdminPage />} />
 
         <Route path="/accounts" element={<AccountsListPage />} />
         <Route path="/accounts/new" element={<AccountFormPage mode="create" />} />

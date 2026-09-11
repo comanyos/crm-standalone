@@ -22,10 +22,8 @@ function schemaFor(isProd: boolean) {
       });
 
   return z.object({
-    VITE_AUTH_ISSUER_URL: httpsInProd("VITE_AUTH_ISSUER_URL"),
-    VITE_AUTH_ORG_ID: z.string().min(1, "VITE_AUTH_ORG_ID is required — see apps/web/.env.example"),
-    VITE_AUTH_CLIENT_ID: z.string().min(1).default("crm-web"),
     VITE_CRM_API_URL: httpsInProd("VITE_CRM_API_URL"),
+    VITE_CRM_AUTH_PORTAL_URL: httpsInProd("VITE_CRM_AUTH_PORTAL_URL"),
   });
 }
 
@@ -37,10 +35,8 @@ export class EnvValidationError extends Error {
 }
 
 export interface AppEnv {
-  authIssuerUrl: string;
-  authOrgId: string;
-  authClientId: string;
   crmApiUrl: string;
+  authPortalUrl: string;
 }
 
 /** Validates the Vite env (defaulting to import.meta.env) at module load. A
@@ -57,9 +53,7 @@ export function loadEnv(
   }
   const v = result.data;
   return {
-    authIssuerUrl: v.VITE_AUTH_ISSUER_URL,
-    authOrgId: v.VITE_AUTH_ORG_ID,
-    authClientId: v.VITE_AUTH_CLIENT_ID,
     crmApiUrl: v.VITE_CRM_API_URL,
+    authPortalUrl: v.VITE_CRM_AUTH_PORTAL_URL,
   };
 }

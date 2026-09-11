@@ -1,6 +1,5 @@
-// Package auth verifies AuthinCore JWTs (via JWKS) and enforces per-RPC scopes through
-// a connect-go interceptor. Modules never run their own login — they verify the
-// platform's tokens (see ../ideas/PLATFORM-MODULE-CONTRACT.md §3).
+// Package auth provides Savvy CRM's first-party passwordless sessions and
+// enforces per-RPC scopes through a connect-go interceptor.
 package auth
 
 import (
@@ -8,15 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"sort"
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/MicahParks/jwkset"
 	"github.com/santoshguru/crm/internal/metrics"
 )
 
-// Principal is the authenticated caller, derived from JWT claims.
+// Principal is the authenticated caller, derived from a live server-side
+// session and membership.
 type Principal struct {
 	Subject  string
 	TenantID string
@@ -57,11 +57,7 @@ type verifier interface {
 type Authenticator struct {
 	v        verifier
 	disabled bool
-
-	// storage and jwksURL back Ready (jwks.go). They are nil for a disabled
-	// authenticator, which has no key set to report on.
-	storage jwkset.Storage
-	jwksURL string
+	service  *service
 }
 
 // devPrincipal is injected when auth is disabled (local dev).
@@ -73,13 +69,43 @@ var devPrincipal = &Principal{
 // Disabled returns an Authenticator that allows all requests (dev only).
 func Disabled() *Authenticator { return &Authenticator{disabled: true} }
 
-// FromConfig builds an Authenticator: JWKS-backed if jwksURL is set, else disabled.
-func FromConfig(ctx context.Context, jwksURL, issuer, audience string) (*Authenticator, error) {
-	if jwksURL == "" {
-		slog.Warn("AUTH_JWKS_URL not set — auth DISABLED; all requests run as a dev super-admin")
-		return Disabled(), nil
+type testingVerifier struct {
+	verifyFunc func(context.Context, string) (*Principal, error)
+	readyFunc  func(context.Context) error
+}
+
+func (v testingVerifier) verify(ctx context.Context, token string) (*Principal, error) {
+	return v.verifyFunc(ctx, token)
+}
+func (v testingVerifier) ready(ctx context.Context) error {
+	if v.readyFunc == nil {
+		return nil
 	}
-	return newFromJWKS(ctx, jwksURL, issuer, audience)
+	return v.readyFunc(ctx)
+}
+
+// NewTestingAuthenticator is test support for server packages that need to
+// exercise the real interceptor with precisely scoped principals. Production
+// startup never calls it; NewPostgres is the only configured runtime path.
+func NewTestingAuthenticator(
+	verify func(context.Context, string) (*Principal, error),
+	ready func(context.Context) error,
+) *Authenticator {
+	if verify == nil {
+		verify = func(context.Context, string) (*Principal, error) { return nil, ErrInvalidSession }
+	}
+	return &Authenticator{v: testingVerifier{verifyFunc: verify, readyFunc: ready}}
+}
+
+// Ready reports whether the backing session repository is available.
+func (a *Authenticator) Ready(ctx context.Context) error {
+	if a.disabled {
+		return nil
+	}
+	if ready, ok := a.v.(interface{ ready(context.Context) error }); ok {
+		return ready.ready(ctx)
+	}
+	return errors.New("auth: authenticator has no readiness check")
 }
 
 // Authenticate verifies an Authorization header and returns a context carrying the
@@ -92,6 +118,27 @@ func (a *Authenticator) Authenticate(ctx context.Context, authHeader string) (co
 	tok := bearer(authHeader)
 	if tok == "" {
 		return ctx, errors.New("missing bearer token")
+	}
+	p, err := a.v.verify(ctx, tok)
+	if err != nil {
+		return ctx, err
+	}
+	return WithPrincipal(ctx, p), nil
+}
+
+// AuthenticateRequest authenticates a raw HTTP route from the same opaque
+// Bearer token or HttpOnly browser cookie used by Connect RPCs.
+func (a *Authenticator) AuthenticateRequest(ctx context.Context, r *http.Request) (context.Context, error) {
+	if a.disabled {
+		return WithPrincipal(ctx, devPrincipal), nil
+	}
+	cookieName := defaultCookieName
+	if a.service != nil {
+		cookieName = a.service.cookieName
+	}
+	tok := tokenFromRequest(r, cookieName)
+	if tok == "" {
+		return ctx, errors.New("missing session")
 	}
 	p, err := a.v.verify(ctx, tok)
 	if err != nil {
@@ -155,14 +202,18 @@ func (a *Authenticator) Interceptor(policy ScopePolicy) connect.UnaryInterceptor
 			if a.disabled {
 				return next(WithPrincipal(ctx, devPrincipal), req)
 			}
-			tok := bearer(req.Header().Get("Authorization"))
+			cookieName := defaultCookieName
+			if a.service != nil {
+				cookieName = a.service.cookieName
+			}
+			tok := tokenFromHeader(req.Header(), cookieName)
 			if tok == "" {
-				metrics.JWKSValidationFailuresTotal.WithLabelValues("missing_bearer_token").Inc()
-				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("missing bearer token"))
+				metrics.AuthValidationFailuresTotal.WithLabelValues("missing_session").Inc()
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("missing session"))
 			}
 			p, err := a.v.verify(ctx, tok)
 			if err != nil {
-				metrics.JWKSValidationFailuresTotal.WithLabelValues("invalid_token").Inc()
+				metrics.AuthValidationFailuresTotal.WithLabelValues("invalid_session").Inc()
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
 

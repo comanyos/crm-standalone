@@ -354,17 +354,21 @@ func (e *Engine) messagingTarget(
 		if err != nil {
 			return domain.MessagingChannel{}, nil, gone(err), err
 		}
-		if channelKind != domain.ChannelEmail {
-			// A Lead has an email and no phone in this schema, so SMS and
-			// WhatsApp have nothing to address. Terminal.
+		var rawAddress string
+		switch channelKind {
+		case domain.ChannelEmail:
+			rawAddress = lead.ContactEmail
+		case domain.ChannelSMS, domain.ChannelWhatsApp:
+			rawAddress = lead.Phone
+		default:
 			return domain.MessagingChannel{}, nil, ReasonInvalidAction,
-				errors.New("a lead can only be messaged by email")
+				fmt.Errorf("%s is not a draftable lead channel", channelKind)
 		}
-		address, err := domain.NormalizeChannelAddress(domain.ChannelEmail, lead.ContactEmail)
+		address, err := domain.NormalizeChannelAddress(channelKind, rawAddress)
 		if err != nil {
 			return domain.MessagingChannel{}, nil, ReasonNoAddress, err
 		}
-		return domain.MessagingChannel{Kind: domain.ChannelEmail, Address: address, Reachable: true},
+		return domain.MessagingChannel{Kind: channelKind, Address: address, Reachable: true},
 			domain.MergeValuesForLead(lead, ""), "", nil
 	default:
 		return domain.MessagingChannel{}, nil, ReasonInvalidAction,

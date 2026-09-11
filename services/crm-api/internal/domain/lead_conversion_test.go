@@ -75,9 +75,10 @@ func TestConvertLeadRejectsIllegalSourceStatus(t *testing.T) {
 	}
 }
 
-// TestConvertLeadRequiresContactEmail covers that a lead with no email
-// cannot be converted (there is nothing to build a Contact from).
-func TestConvertLeadRequiresContactEmail(t *testing.T) {
+// TestConvertLeadRequiresAContactAddress covers that a lead with neither
+// email nor phone cannot be converted (there is nothing to address the
+// Contact by).
+func TestConvertLeadRequiresAContactAddress(t *testing.T) {
 	s := NewMemStore()
 	lead, err := s.CreateLead(ctx, tenantA, &Lead{Company: "Acme"})
 	if err != nil {
@@ -94,7 +95,35 @@ func TestConvertLeadRequiresContactEmail(t *testing.T) {
 		t.Fatalf("advance: %v", err)
 	}
 	if _, err := s.ConvertLead(ctx, tenantA, ConvertLeadInput{LeadID: lead.ID}); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("convert with no contact_email: got %v, want ErrInvalid", err)
+		t.Fatalf("convert with no email or phone: got %v, want ErrInvalid", err)
+	}
+}
+
+func TestConvertPhoneOnlyPersonFirstLead(t *testing.T) {
+	s := NewMemStore()
+	lead, err := s.CreateLead(ctx, tenantA, &Lead{
+		FirstName: " Alex ", LastName: " Rivera ", Phone: "+1 (555) 010-0000",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []string{LeadStatusWorking, LeadStatusQualified} {
+		lead.Status = status
+		lead, err = s.UpdateLead(ctx, tenantA, lead)
+		if err != nil {
+			t.Fatalf("advance to %s: %v", status, err)
+		}
+	}
+	result, err := s.ConvertLead(ctx, tenantA, ConvertLeadInput{LeadID: lead.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Contact.FirstName != "Alex" || result.Contact.LastName != "Rivera" ||
+		result.Contact.Phone != "+15550100000" || result.Contact.Email != "" {
+		t.Fatalf("converted contact = %+v", result.Contact)
+	}
+	if result.Account.Name != "Alex Rivera" {
+		t.Fatalf("person-first fallback account = %+v", result.Account)
 	}
 }
 

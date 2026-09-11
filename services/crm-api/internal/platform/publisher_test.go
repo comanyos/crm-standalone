@@ -8,13 +8,13 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	oteltrace "go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestPublishMessageCarriesOnlyTraceContextAndDeduplicationID(t *testing.T) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(sdktrace.NewTracerProvider())
-	t.Cleanup(func() { otel.SetTracerProvider(oteltrace.NewNoopTracerProvider()) })
+	t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
 
 	ctx := tracing.ContextWithTraceParent(context.Background(), "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01")
 	msg := newPublishMessage(ctx, "crm.opportunity.tenant-a", []byte(`{"email":"person@example.test"}`), "event-1")

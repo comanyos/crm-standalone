@@ -6,7 +6,8 @@ import { createAccount, deleteFromDetailPage, openApp, uniqueName } from "./help
  * an account, so each test creates its own account first and removes both
  * records at the end.
  */
-const contactsNavLink = (page: Page) => page.getByLabel("Primary").getByRole("link", { name: "Contacts" });
+const contactsNavLink = (page: Page) =>
+  page.getByLabel("Primary").getByRole("link", { name: "Contacts", exact: true });
 
 test.beforeEach(async ({ page }) => {
   await openApp(page);
@@ -45,7 +46,11 @@ test("create a contact via the account picker, edit it, then delete it", async (
   // Find it again through the server-side email filter.
   await contactsNavLink(page).click();
   await page.getByLabel("Search by email").fill(email);
-  await expect(page.getByRole("cell", { name: "Grace Hopper" })).toBeVisible();
+  // The first/naming column is a semantic row header, not a data cell. Scope
+  // it to this run's unique email so fixtures stranded by an interrupted old
+  // run cannot make the name alone ambiguous.
+  const savedRow = page.getByRole("row").filter({ hasText: email });
+  await expect(savedRow.getByRole("rowheader", { name: "Grace Hopper" })).toBeVisible();
 
   // Edit.
   await page.goto(contactUrl);

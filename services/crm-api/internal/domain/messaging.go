@@ -149,6 +149,24 @@ func NormalizeChannelAddress(kind, raw string) (string, error) {
 	return normalized, nil
 }
 
+// NormalizeE164Phone returns the canonical international representation used
+// by lead identity, deduplication and every phone messaging channel. It is
+// intentionally stricter than NormalizeChannelAddress: identity cannot store
+// an ambiguous local number and guess a country later.
+func NormalizeE164Phone(raw string) (string, error) {
+	normalized, err := NormalizeChannelAddress(ChannelWhatsApp, raw)
+	if err != nil {
+		return "", err
+	}
+	if reachable, reason := channelReachable(ChannelWhatsApp, normalized); !reachable {
+		return "", fmt.Errorf("must be E.164 international format: %s", reason)
+	}
+	if len(normalized) > 16 { // '+' plus E.164's maximum 15 digits.
+		return "", fmt.Errorf("must contain at most 15 digits")
+	}
+	return normalized, nil
+}
+
 // channelReachable reports whether a normalised address can actually be used
 // on its channel, and why not when it cannot.
 //
@@ -226,6 +244,16 @@ func ContactChannels(c *Contact) []MessagingChannel {
 	add(ChannelVoice, c.Phone)
 	add(ChannelWhatsApp, c.Phone)
 	return out
+}
+
+// LeadChannels mirrors ContactChannels for the person who has not converted
+// yet. Keeping it server-side means consent and reachability have the same
+// single source of truth before and after conversion.
+func LeadChannels(lead *Lead) []MessagingChannel {
+	if lead == nil {
+		return nil
+	}
+	return ContactChannels(&Contact{Email: lead.ContactEmail, Phone: lead.Phone})
 }
 
 // MessagingConsent is one immutable decision about one address on one

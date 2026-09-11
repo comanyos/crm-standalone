@@ -192,9 +192,10 @@ A sandboxed, **non-Turing-complete** expression language: literals, field
 references, arithmetic, comparison, boolean logic, and an allowlisted function
 set. No loops, no recursion, no user-defined functions, no I/O.
 
-AuthinCore runs goja (real JavaScript) for actions and policy. This
-deliberately does **not** follow that precedent. Formulas are authored by
-ordinary tenant administrators rather than instance operators, they run on
+The former AuthinCore component ran goja (real JavaScript) for actions and
+policy; that source has been removed from this repository. The metadata layer
+deliberately does **not** follow that historical precedent. Formulas are
+authored by ordinary tenant administrators rather than instance operators, they run on
 every record read or write rather than at a few control points, and a JS engine
 brings an attack surface — prototype pollution, engine CVEs, timing and memory
 exhaustion — that a 300-line expression evaluator does not have. The narrower

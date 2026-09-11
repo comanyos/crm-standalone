@@ -44,3 +44,20 @@ for migration in /migrations/[0-9]*.sql; do
   psql_base -f "$migration"
   psql_base -c "INSERT INTO schema_migrations (version) VALUES ('$version')"
 done
+
+# The original RLS migration creates login roles with development-only
+# passwords so local databases can boot without extra configuration. A real
+# deployment must rotate both roles after every migration run. Requiring the
+# pair together prevents a partially secured database, and psql variables keep
+# the generated values out of SQL string construction and command output.
+if [ -n "${CRM_DB_APP_PASSWORD:-}" ] || [ -n "${CRM_DB_DRAIN_PASSWORD:-}" ]; then
+  : "${CRM_DB_APP_PASSWORD:?CRM_DB_APP_PASSWORD is required when rotating database roles}"
+  : "${CRM_DB_DRAIN_PASSWORD:?CRM_DB_DRAIN_PASSWORD is required when rotating database roles}"
+
+  psql_base \
+    -v app_password="$CRM_DB_APP_PASSWORD" \
+    -v drain_password="$CRM_DB_DRAIN_PASSWORD" <<'SQL'
+ALTER ROLE crm_app PASSWORD :'app_password';
+ALTER ROLE crm_drain PASSWORD :'drain_password';
+SQL
+fi

@@ -332,7 +332,7 @@ func (c *Client) get(ctx context.Context, accessToken, path string, params url.V
 	if err != nil {
 		return fmt.Errorf("gmail: request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // body close is best-effort after a bounded read
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))

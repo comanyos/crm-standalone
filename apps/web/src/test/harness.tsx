@@ -118,6 +118,9 @@ export function makeLead(overrides: Partial<Lead> = {}): Lead {
   return {
     $typeName: "crm.v1.Lead",
     id: "lead-1",
+    firstName: "Grace",
+    lastName: "Hopper",
+    phone: "+15550100000",
     company: "Northwind",
     contactEmail: "buyer@northwind.example",
     source: "Webinar",

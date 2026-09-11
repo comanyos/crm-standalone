@@ -81,31 +81,31 @@ func pipelineReportToProto(r domain.PipelineReport) *crmv1.PipelineReport {
 	for _, st := range r.Stages {
 		stages = append(stages, &crmv1.PipelineStageSummary{
 			StageId: st.StageID, StageName: st.StageName, TerminalType: st.TerminalType,
-			Count: int32(st.Count), Amount: st.Amount,
+			Count: boundedInt32(st.Count), Amount: st.Amount,
 		})
 	}
 	return &crmv1.PipelineReport{
 		PipelineId: r.PipelineID, PipelineName: r.PipelineName, Stages: stages,
-		WonCount: int32(r.WonCount), WonAmount: r.WonAmount,
-		LostCount: int32(r.LostCount), LostAmount: r.LostAmount,
+		WonCount: boundedInt32(r.WonCount), WonAmount: r.WonAmount,
+		LostCount: boundedInt32(r.LostCount), LostAmount: r.LostAmount,
 	}
 }
 
 func taskReportToProto(r domain.TaskReport) *crmv1.TaskSummary {
 	return &crmv1.TaskSummary{
-		OpenCount: int32(r.OpenCount), InProgressCount: int32(r.InProgressCount),
-		CompletedCount: int32(r.CompletedCount), CancelledCount: int32(r.CancelledCount),
-		OverdueCount: int32(r.OverdueCount),
+		OpenCount: boundedInt32(r.OpenCount), InProgressCount: boundedInt32(r.InProgressCount),
+		CompletedCount: boundedInt32(r.CompletedCount), CancelledCount: boundedInt32(r.CancelledCount),
+		OverdueCount: boundedInt32(r.OverdueCount),
 	}
 }
 
 func conversionReportToProto(r domain.ConversionReport) *crmv1.ConversionFunnel {
 	funnel := make([]*crmv1.LeadFunnelStage, 0, len(r.Funnel))
 	for _, stage := range r.Funnel {
-		funnel = append(funnel, &crmv1.LeadFunnelStage{Status: stage.Status, Count: int32(stage.Count)})
+		funnel = append(funnel, &crmv1.LeadFunnelStage{Status: stage.Status, Count: boundedInt32(stage.Count)})
 	}
 	return &crmv1.ConversionFunnel{
-		Funnel: funnel, TotalLeads: int32(r.TotalLeads), ConvertedLeads: int32(r.ConvertedLeads),
+		Funnel: funnel, TotalLeads: boundedInt32(r.TotalLeads), ConvertedLeads: boundedInt32(r.ConvertedLeads),
 		ConversionRate: r.ConversionRate(),
 	}
 }
@@ -114,7 +114,7 @@ func forecastToProto(f *domain.Forecast) *crmv1.ForecastSummary {
 	buckets := make([]*crmv1.ForecastBucket, 0, len(f.Buckets))
 	for _, b := range f.Buckets {
 		buckets = append(buckets, &crmv1.ForecastBucket{
-			OwnerId: b.OwnerID, Stage: b.Stage, Count: int32(b.Count), Amount: b.Amount, Weighted: b.Weighted,
+			OwnerId: b.OwnerID, Stage: b.Stage, Count: boundedInt32(b.Count), Amount: b.Amount, Weighted: b.Weighted,
 		})
 	}
 	return &crmv1.ForecastSummary{ByOwner: f.ByOwner, ByStage: f.ByStage, Total: f.Total, Buckets: buckets}

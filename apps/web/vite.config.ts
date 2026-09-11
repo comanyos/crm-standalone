@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => {
       host: env.VITE_WEB_HOST ?? "127.0.0.1",
       port,
       // Fail loudly if the configured port is taken rather than silently
-      // drifting to a different origin: the OAuth redirect URI and both
-      // backends' CORS allowlists must match this value.
+      // drifting to a different origin: the API's credentialed CORS
+      // allowlist must match this value.
       strictPort: true,
     },
   };

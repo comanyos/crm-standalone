@@ -1,8 +1,9 @@
 <!-- Maskable: the glyph sits inside the safe zone (the middle 80%), so a
      launcher cropping this to a circle or a squircle does not clip it. The
      background bleeds to the edges for the same reason. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CRM">
-  <rect width="512" height="512" fill="#2563eb"/>
-  <text x="256" y="310" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-        font-size="150" font-weight="700" fill="#ffffff" text-anchor="middle">CRM</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Savvy CRM">
+  <rect width="512" height="512" fill="#fafaf8"/>
+  <text x="72" y="384" fill="#20211f" font-family="Arial, sans-serif"
+        font-size="432" font-weight="800" letter-spacing="-56">s</text>
+  <circle cx="408" cy="376" r="48" fill="#bb431d"/>
 </svg>

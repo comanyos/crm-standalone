@@ -54,7 +54,7 @@ const (
 // can carry a provider message.
 const (
 	ReasonNotConnected     = "not_connected"
-	ReasonTokenUnavailable = "token_unavailable"
+	ReasonTokenUnavailable = "token_unavailable" // #nosec G101 -- bounded status code, not a credential
 	ReasonHistoryExpired   = "history_expired"
 	ReasonProviderError    = "provider_error"
 	ReasonStorageFailed    = "storage_failed"

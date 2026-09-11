@@ -148,7 +148,7 @@ type FieldConfig struct {
 	// would be storing an unvalidated program.
 	Expression string `json:"expression,omitempty"`
 
-	// VisibleToRoles and EditableToRoles are allowlists of AuthinCore role
+	// VisibleToRoles and EditableToRoles are allowlists of CRM membership role
 	// keys. Empty means all roles. They are intentionally metadata rather than
 	// browser state: API handlers apply them to every read and write.
 	VisibleToRoles       []string `json:"visible_to_roles,omitempty"`

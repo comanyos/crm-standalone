@@ -30,7 +30,7 @@ export function taskToIcs(task: Task): string | null {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Independent CRM//Tasks//EN",
+    "PRODID:-//Savvy CRM//Tasks//EN",
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
     `UID:task-${task.id}@crm.local`,

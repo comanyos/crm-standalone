@@ -70,6 +70,14 @@ func TestMergeValuesForContactBuildsAFullName(t *testing.T) {
 	}
 }
 
+func TestMergeValuesForLeadUsesPersonFirstName(t *testing.T) {
+	v := MergeValuesForLead(&Lead{FirstName: " Alex ", LastName: " Rivera "}, "rep@example.com")
+	if v[MergeContactFirstName] != "Alex" || v[MergeContactLastName] != "Rivera" ||
+		v[MergeContactFullName] != "Alex Rivera" {
+		t.Fatalf("person-first lead merge values = %#v", v)
+	}
+}
+
 func TestDraftOutboundMessageIsIdempotentPerExecution(t *testing.T) {
 	ctx := context.Background()
 	s := NewMemStore()

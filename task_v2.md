@@ -16,6 +16,13 @@ The same evidence rule applies: a checkbox may be marked complete only after
 its stated acceptance criteria and verification have passed. Presence of a
 migration, screen, endpoint, or test file is not completion.
 
+> **Authentication architecture update (10 September 2026):** the AuthinCore
+> source and runtime were removed. Savvy CRM now uses minimal native Go auth in
+> `services/crm-api`: email OTP, Google account sign-in, hashed opaque
+> sessions, and local organizations/membership roles. Any AuthinCore detail
+> explicitly retained below describes the dated 2026-08-22 audit snapshot,
+> not the current architecture or an implementation instruction.
+
 ## Verified baseline (2026-08-22)
 
 Measured from the working tree, not estimated:
@@ -24,7 +31,7 @@ Measured from the working tree, not estimated:
 | --- | --- |
 | `services/crm-api` Go (non-test) | 20,113 lines |
 | `services/crm-api` Go tests | 9,666 lines |
-| `services/authincore` Go (non-test) | 20,067 lines |
+| Removed AuthinCore Go (non-test) | 20,067 lines in this historical snapshot; 0 in the current tree |
 | `apps/web` + `packages/*` TS/TSX | 7,353 lines |
 | CRM tables | 12 |
 | CRM RPCs implemented | 47 (48 procedures under total scope policy) |
@@ -41,8 +48,9 @@ proceeds:
   asynchronous hand-off to NATS.
 - An observability posture with bounded metric labels and allowlist-based
   logging.
-- A first-party identity service (OIDC, SAML, SCIM, FGA, MFA) rather than a
-  dependency on someone else's.
+- A deliberately small first-party identity boundary in `crm-api` rather than
+  another runtime service: passwordless email, Google sign-in, opaque
+  revocable sessions, and local tenant/role membership.
 
 ## Strategic position — read before planning any phase
 
@@ -105,24 +113,21 @@ Nothing below may start until this phase is green. These are audited,
 reproduced defects in work already marked complete; building parity features
 on top of them multiplies the cost of each one.
 
-- [ ] **0.1 — Repair CI.** Two of four jobs fail on a clean checkout.
-  - `authincore` job: `//go:embed all:dist` in `hosted-ui/embed.go` cannot
-    resolve because `**/dist/` is gitignored and no build step precedes
-    `go build ./cmd/...`. Add a hosted-UI build step to the job.
-  - `compose-config` job: `docker compose config --quiet` exits 1 because
-    `CRM_WEB_AUTH_ORG_ID` uses required-variable syntax and `.env.example`
-    ships it empty. Provide a CI-only placeholder env or relax the
-    interpolation for validation.
-  - Acceptance: a fresh clone with no local state passes every CI job.
+- [~] **0.1 — Verify repaired CI from a clean checkout.** The former
+  AuthinCore embedded-UI job and the obsolete `CRM_WEB_AUTH_ORG_ID` Compose
+  requirement were removed with the identity migration. Do not recreate
+  either. Remaining acceptance: a fresh clone with no local state passes every
+  current CI job.
 
-- [ ] **0.2 — Fix the untrusted metric label.** `internal/api/http/server.go`
-  passes a request-body-supplied `method` string into
-  `metrics.LoginTotal.WithLabelValues(...)` on the failure path. Unknown
-  methods reach it, so an attacker chooses Prometheus label values.
-  Validate against the registered strategy set before incrementing; emit
-  `"unknown"` otherwise.
-  - Acceptance: a test asserts an unregistered method produces the
-    `"unknown"` label and creates no new series.
+- [x] **0.2 — Former untrusted AuthinCore metric label.** The affected login
+  endpoint and metric left the tree with AuthinCore. Native auth metrics must
+  use only bounded flow/reason enums and never email, token, OTP, state, or
+  provider error strings.
+
+  Historical finding: `internal/api/http/server.go` passed a request-body
+  `method` into `metrics.LoginTotal.WithLabelValues(...)`, allowing attacker-
+  chosen series. That implementation is gone; the invariant above replaces
+  its former component-specific acceptance step.
 
 - [ ] **0.3 — Repair the backup and restore scripts.** Both use `-U crm`
   against a database whose roles are `postgres`, `crm_app`, and `crm_drain`;
@@ -142,12 +147,9 @@ on top of them multiplies the cost of each one.
   in `internal/webhook/dispatcher.go`; the `Host` header is logged in
   `internal/tenancy/tenancy.go`. Both contradict the stated policy.
 
-- [ ] **0.5 — Gate AuthinCore `/metrics` on an administrator.**
-  `requireAdminAuth` falls back to `Authn.ResolveHTTP`, which accepts any
-  valid session — any end user in any organization can scrape it. Require an
-  administrative permission, use a constant-time comparison for
-  `ADMIN_TOKEN`, and make the token mandatory in staging/production the way
-  `CRM_METRICS_TOKEN` already is for the CRM.
+- [x] **0.5 — Remove the separate AuthinCore metrics surface.** Its service and
+  `/metrics` route no longer exist. The remaining CRM `/metrics` endpoint uses
+  `CRM_METRICS_TOKEN` and must stay private in staging/production.
 
 - [ ] **0.6 — Restore `ResponseController` support.** `loggingMW`'s
   `statusWriter` has no `Unwrap`, which breaks flush, hijack, and deadline
@@ -225,9 +227,9 @@ the public API; tenant isolation is re-proven at all four layers afterwards.
 # Phase 2 — Record-level and organizational permissions
 
 Today authorization is scope-based (`crm:*`) and tenant-based. Every
-competitor enforces *who inside the tenant* may see *which record*. AuthinCore
-already ships an FGA engine — this phase wires it to CRM records rather than
-building a second system.
+competitor enforces *who inside the tenant* may see *which record*. The removed
+identity platform's FGA engine is no longer available; this phase must add a
+small CRM-owned record-grant model and enforce it in database query paths.
 
 - [ ] **2.1 — Ownership.** An owner on every record, transferable, with
   history. `account_ownership_history` exists as a precedent to follow.
@@ -347,9 +349,10 @@ it. This is what converts a CRM application into a platform.
 - [ ] **6.1 — Versioned public API.** A documented, stable REST surface
   alongside Connect, with OpenAPI generation and an explicit deprecation
   policy.
-- [ ] **6.2 — API authentication for machines.** OAuth client credentials and
-  scoped, revocable, rotatable API keys. AuthinCore's service-account support
-  is the foundation.
+- [ ] **6.2 — API authentication for machines.** Add CRM-owned service
+  accounts and scoped, revocable, rotatable API keys. Keep them distinct from
+  human opaque sessions; store only key digests and resolve tenant/scopes from
+  active local grants.
 - [ ] **6.3 — Rate limiting and quotas.** Per-tenant and per-credential, with
   `429` plus `Retry-After` and headers exposing remaining budget.
 - [ ] **6.4 — Outbound webhooks.** HMAC signing, timestamped replay
@@ -426,9 +429,9 @@ a product gap in evaluations.
 # Phase 9 — Enterprise readiness
 
 - [ ] **9.1 — Audit trail.** Immutable, queryable, exportable, covering data
-  changes, permission changes, logins, exports, and automation runs.
-  AuthinCore's `internal/audit` and `eventstore` are the precedent; the CRM
-  has no equivalent.
+  changes, permission changes, email/Google logins, session revocation,
+  exports, and automation runs. The CRM has no complete equivalent yet; do
+  not depend on the removed identity service's former audit/event store.
 - [ ] **9.2 — Data governance.** Retention policies, legal hold, defensible
   deletion, and GDPR/CCPA subject access and erasure — operable by an
   administrator without engineering escalation.

@@ -2,9 +2,11 @@ package domain
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -157,7 +159,7 @@ func TestImportRejectsOversizedFiles(t *testing.T) {
 		var rows strings.Builder
 		rows.WriteString("Company\n")
 		for i := 0; i < maxImportRows+1; i++ {
-			rows.WriteString(fmt.Sprintf("Acme %d\n", i))
+			fmt.Fprintf(&rows, "Acme %d\n", i)
 		}
 		_, err := s.CreateImportJob(ctx, scope, CreateImportJobInput{
 			ObjectType: "account", FileName: "big.csv", Content: rows.String(),
@@ -242,4 +244,55 @@ func TestExportRoundTripsWhatWasImported(t *testing.T) {
 			t.Fatalf("export history = %d, want 1", len(history))
 		}
 	})
+}
+
+func TestExportNeutralizesSpreadsheetFormulas(t *testing.T) {
+	content, err := AccountsToCSV([]*Account{{Name: "=HYPERLINK(\"https://evil.test\")", OwnerID: " +cmd", Industry: "@SUM(1,1)"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := csv.NewReader(strings.NewReader(content)).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, column := range []int{1, 2, 4} {
+		if !strings.HasPrefix(rows[1][column], "'") {
+			t.Errorf("dangerous cell %q was not escaped", rows[1][column])
+		}
+	}
+}
+
+func TestConcurrentImportCommitCreatesEachRowOnce(t *testing.T) {
+	store := NewMemStore()
+	scope := importScope("concurrent")
+	job, err := store.CreateImportJob(context.Background(), scope, CreateImportJobInput{
+		ObjectType: "account", FileName: "accounts.csv", Content: validCSV, Mapping: validMapping(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, commitErr := store.CommitImportJob(context.Background(), scope, job.ID)
+			errs <- commitErr
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for commitErr := range errs {
+		if commitErr != nil {
+			t.Fatal(commitErr)
+		}
+	}
+	accounts, _, err := store.ListAccounts(context.Background(), scope, Page{Size: 10}, AccountFilter{}, SortAccountName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 2 {
+		t.Fatalf("concurrent commit created %d accounts, want 2", len(accounts))
+	}
 }

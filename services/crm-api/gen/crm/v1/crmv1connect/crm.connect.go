@@ -212,6 +212,33 @@ const (
 	// CRMServiceDisconnectGoogleConnectionProcedure is the fully-qualified name of the CRMService's
 	// DisconnectGoogleConnection RPC.
 	CRMServiceDisconnectGoogleConnectionProcedure = "/crm.v1.CRMService/DisconnectGoogleConnection"
+	// CRMServiceStartMetaConnectionProcedure is the fully-qualified name of the CRMService's
+	// StartMetaConnection RPC.
+	CRMServiceStartMetaConnectionProcedure = "/crm.v1.CRMService/StartMetaConnection"
+	// CRMServiceGetMetaConnectionProcedure is the fully-qualified name of the CRMService's
+	// GetMetaConnection RPC.
+	CRMServiceGetMetaConnectionProcedure = "/crm.v1.CRMService/GetMetaConnection"
+	// CRMServiceListMetaBusinessesProcedure is the fully-qualified name of the CRMService's
+	// ListMetaBusinesses RPC.
+	CRMServiceListMetaBusinessesProcedure = "/crm.v1.CRMService/ListMetaBusinesses"
+	// CRMServiceListMetaPagesProcedure is the fully-qualified name of the CRMService's ListMetaPages
+	// RPC.
+	CRMServiceListMetaPagesProcedure = "/crm.v1.CRMService/ListMetaPages"
+	// CRMServiceListMetaFormsProcedure is the fully-qualified name of the CRMService's ListMetaForms
+	// RPC.
+	CRMServiceListMetaFormsProcedure = "/crm.v1.CRMService/ListMetaForms"
+	// CRMServiceSelectMetaLeadFormProcedure is the fully-qualified name of the CRMService's
+	// SelectMetaLeadForm RPC.
+	CRMServiceSelectMetaLeadFormProcedure = "/crm.v1.CRMService/SelectMetaLeadForm"
+	// CRMServiceImportMetaLeadsProcedure is the fully-qualified name of the CRMService's
+	// ImportMetaLeads RPC.
+	CRMServiceImportMetaLeadsProcedure = "/crm.v1.CRMService/ImportMetaLeads"
+	// CRMServiceDisconnectMetaConnectionProcedure is the fully-qualified name of the CRMService's
+	// DisconnectMetaConnection RPC.
+	CRMServiceDisconnectMetaConnectionProcedure = "/crm.v1.CRMService/DisconnectMetaConnection"
+	// CRMServiceGetLeadMetaAttributionProcedure is the fully-qualified name of the CRMService's
+	// GetLeadMetaAttribution RPC.
+	CRMServiceGetLeadMetaAttributionProcedure = "/crm.v1.CRMService/GetLeadMetaAttribution"
 	// CRMServiceSyncGoogleMailboxProcedure is the fully-qualified name of the CRMService's
 	// SyncGoogleMailbox RPC.
 	CRMServiceSyncGoogleMailboxProcedure = "/crm.v1.CRMService/SyncGoogleMailbox"
@@ -343,6 +370,9 @@ const (
 	// CRMServiceListContactChannelsProcedure is the fully-qualified name of the CRMService's
 	// ListContactChannels RPC.
 	CRMServiceListContactChannelsProcedure = "/crm.v1.CRMService/ListContactChannels"
+	// CRMServiceListLeadChannelsProcedure is the fully-qualified name of the CRMService's
+	// ListLeadChannels RPC.
+	CRMServiceListLeadChannelsProcedure = "/crm.v1.CRMService/ListLeadChannels"
 	// CRMServiceRecordMessagingConsentProcedure is the fully-qualified name of the CRMService's
 	// RecordMessagingConsent RPC.
 	CRMServiceRecordMessagingConsentProcedure = "/crm.v1.CRMService/RecordMessagingConsent"
@@ -513,6 +543,19 @@ type CRMServiceClient interface {
 	GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error)
 	ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error)
 	DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error)
+	// Native Meta Lead Ads connection. One tenant-level authorization is bound
+	// to a Facebook Page and Instant Form; the same webhook carries Facebook
+	// and Instagram leads. Responses expose status and provider names only,
+	// never the user/Page access tokens stored encrypted by the server.
+	StartMetaConnection(context.Context, *connect.Request[v1.StartMetaConnectionRequest]) (*connect.Response[v1.StartMetaConnectionResponse], error)
+	GetMetaConnection(context.Context, *connect.Request[v1.GetMetaConnectionRequest]) (*connect.Response[v1.GetMetaConnectionResponse], error)
+	ListMetaBusinesses(context.Context, *connect.Request[v1.ListMetaBusinessesRequest]) (*connect.Response[v1.ListMetaBusinessesResponse], error)
+	ListMetaPages(context.Context, *connect.Request[v1.ListMetaPagesRequest]) (*connect.Response[v1.ListMetaPagesResponse], error)
+	ListMetaForms(context.Context, *connect.Request[v1.ListMetaFormsRequest]) (*connect.Response[v1.ListMetaFormsResponse], error)
+	SelectMetaLeadForm(context.Context, *connect.Request[v1.SelectMetaLeadFormRequest]) (*connect.Response[v1.SelectMetaLeadFormResponse], error)
+	ImportMetaLeads(context.Context, *connect.Request[v1.ImportMetaLeadsRequest]) (*connect.Response[v1.ImportMetaLeadsResponse], error)
+	DisconnectMetaConnection(context.Context, *connect.Request[v1.DisconnectMetaConnectionRequest]) (*connect.Response[v1.DisconnectMetaConnectionResponse], error)
+	GetLeadMetaAttribution(context.Context, *connect.Request[v1.GetLeadMetaAttributionRequest]) (*connect.Response[v1.GetLeadMetaAttributionResponse], error)
 	// SyncGoogleMailbox runs one Gmail synchronisation pass for the calling
 	// user's own mailbox, now, rather than waiting for the background poller.
 	// It is bounded: one pass examines a fixed number of messages and stores a
@@ -529,7 +572,7 @@ type CRMServiceClient interface {
 	// name a record or an address, because the person exercising a right is
 	// usually not the person holding the CRM login. They carry their own scope
 	// for that reason.
-	EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error)
+	EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentForContactResponse], error)
 	ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error)
 	SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error)
 	ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error)
@@ -663,6 +706,10 @@ type CRMServiceClient interface {
 	// in the consent ledger, and inferring the country code would produce a
 	// different person's number. See internal/domain/messaging.go.
 	ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error)
+	// Leads are person-first acquisition records and may be contacted before
+	// conversion. The same consent gate and normalized addresses used for
+	// Contacts apply here; clients must not make a second policy decision.
+	ListLeadChannels(context.Context, *connect.Request[v1.ListLeadChannelsRequest]) (*connect.Response[v1.ListLeadChannelsResponse], error)
 	// RecordMessagingConsent appends one decision. There is no update and no
 	// delete: withdrawing is a new row saying so, which is what lets the ledger
 	// answer when a decision was made and on what evidence.
@@ -1158,6 +1205,60 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("DisconnectGoogleConnection")),
 			connect.WithClientOptions(opts...),
 		),
+		startMetaConnection: connect.NewClient[v1.StartMetaConnectionRequest, v1.StartMetaConnectionResponse](
+			httpClient,
+			baseURL+CRMServiceStartMetaConnectionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("StartMetaConnection")),
+			connect.WithClientOptions(opts...),
+		),
+		getMetaConnection: connect.NewClient[v1.GetMetaConnectionRequest, v1.GetMetaConnectionResponse](
+			httpClient,
+			baseURL+CRMServiceGetMetaConnectionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetMetaConnection")),
+			connect.WithClientOptions(opts...),
+		),
+		listMetaBusinesses: connect.NewClient[v1.ListMetaBusinessesRequest, v1.ListMetaBusinessesResponse](
+			httpClient,
+			baseURL+CRMServiceListMetaBusinessesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListMetaBusinesses")),
+			connect.WithClientOptions(opts...),
+		),
+		listMetaPages: connect.NewClient[v1.ListMetaPagesRequest, v1.ListMetaPagesResponse](
+			httpClient,
+			baseURL+CRMServiceListMetaPagesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListMetaPages")),
+			connect.WithClientOptions(opts...),
+		),
+		listMetaForms: connect.NewClient[v1.ListMetaFormsRequest, v1.ListMetaFormsResponse](
+			httpClient,
+			baseURL+CRMServiceListMetaFormsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListMetaForms")),
+			connect.WithClientOptions(opts...),
+		),
+		selectMetaLeadForm: connect.NewClient[v1.SelectMetaLeadFormRequest, v1.SelectMetaLeadFormResponse](
+			httpClient,
+			baseURL+CRMServiceSelectMetaLeadFormProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("SelectMetaLeadForm")),
+			connect.WithClientOptions(opts...),
+		),
+		importMetaLeads: connect.NewClient[v1.ImportMetaLeadsRequest, v1.ImportMetaLeadsResponse](
+			httpClient,
+			baseURL+CRMServiceImportMetaLeadsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ImportMetaLeads")),
+			connect.WithClientOptions(opts...),
+		),
+		disconnectMetaConnection: connect.NewClient[v1.DisconnectMetaConnectionRequest, v1.DisconnectMetaConnectionResponse](
+			httpClient,
+			baseURL+CRMServiceDisconnectMetaConnectionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DisconnectMetaConnection")),
+			connect.WithClientOptions(opts...),
+		),
+		getLeadMetaAttribution: connect.NewClient[v1.GetLeadMetaAttributionRequest, v1.GetLeadMetaAttributionResponse](
+			httpClient,
+			baseURL+CRMServiceGetLeadMetaAttributionProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetLeadMetaAttribution")),
+			connect.WithClientOptions(opts...),
+		),
 		syncGoogleMailbox: connect.NewClient[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse](
 			httpClient,
 			baseURL+CRMServiceSyncGoogleMailboxProcedure,
@@ -1170,7 +1271,7 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
 			connect.WithClientOptions(opts...),
 		),
-		eraseSyncedContentForContact: connect.NewClient[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentResponse](
+		eraseSyncedContentForContact: connect.NewClient[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentForContactResponse](
 			httpClient,
 			baseURL+CRMServiceEraseSyncedContentForContactProcedure,
 			connect.WithSchema(cRMServiceMethods.ByName("EraseSyncedContentForContact")),
@@ -1434,6 +1535,12 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("ListContactChannels")),
 			connect.WithClientOptions(opts...),
 		),
+		listLeadChannels: connect.NewClient[v1.ListLeadChannelsRequest, v1.ListLeadChannelsResponse](
+			httpClient,
+			baseURL+CRMServiceListLeadChannelsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListLeadChannels")),
+			connect.WithClientOptions(opts...),
+		),
 		recordMessagingConsent: connect.NewClient[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse](
 			httpClient,
 			baseURL+CRMServiceRecordMessagingConsentProcedure,
@@ -1603,9 +1710,18 @@ type cRMServiceClient struct {
 	getGoogleConnection            *connect.Client[v1.GetGoogleConnectionRequest, v1.GetGoogleConnectionResponse]
 	listGoogleConnections          *connect.Client[v1.ListGoogleConnectionsRequest, v1.ListGoogleConnectionsResponse]
 	disconnectGoogleConnection     *connect.Client[v1.DisconnectGoogleConnectionRequest, v1.DisconnectGoogleConnectionResponse]
+	startMetaConnection            *connect.Client[v1.StartMetaConnectionRequest, v1.StartMetaConnectionResponse]
+	getMetaConnection              *connect.Client[v1.GetMetaConnectionRequest, v1.GetMetaConnectionResponse]
+	listMetaBusinesses             *connect.Client[v1.ListMetaBusinessesRequest, v1.ListMetaBusinessesResponse]
+	listMetaPages                  *connect.Client[v1.ListMetaPagesRequest, v1.ListMetaPagesResponse]
+	listMetaForms                  *connect.Client[v1.ListMetaFormsRequest, v1.ListMetaFormsResponse]
+	selectMetaLeadForm             *connect.Client[v1.SelectMetaLeadFormRequest, v1.SelectMetaLeadFormResponse]
+	importMetaLeads                *connect.Client[v1.ImportMetaLeadsRequest, v1.ImportMetaLeadsResponse]
+	disconnectMetaConnection       *connect.Client[v1.DisconnectMetaConnectionRequest, v1.DisconnectMetaConnectionResponse]
+	getLeadMetaAttribution         *connect.Client[v1.GetLeadMetaAttributionRequest, v1.GetLeadMetaAttributionResponse]
 	syncGoogleMailbox              *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
 	syncGoogleCalendar             *connect.Client[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse]
-	eraseSyncedContentForContact   *connect.Client[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentResponse]
+	eraseSyncedContentForContact   *connect.Client[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentForContactResponse]
 	listSyncSuppressions           *connect.Client[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse]
 	suppressSyncAddress            *connect.Client[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse]
 	releaseSyncAddress             *connect.Client[v1.ReleaseSyncAddressRequest, v1.ReleaseSyncAddressResponse]
@@ -1649,6 +1765,7 @@ type cRMServiceClient struct {
 	listExportJobs                 *connect.Client[v1.ListExportJobsRequest, v1.ListExportJobsResponse]
 	getDashboardReport             *connect.Client[v1.GetDashboardReportRequest, v1.GetDashboardReportResponse]
 	listContactChannels            *connect.Client[v1.ListContactChannelsRequest, v1.ListContactChannelsResponse]
+	listLeadChannels               *connect.Client[v1.ListLeadChannelsRequest, v1.ListLeadChannelsResponse]
 	recordMessagingConsent         *connect.Client[v1.RecordMessagingConsentRequest, v1.RecordMessagingConsentResponse]
 	listMessagingConsent           *connect.Client[v1.ListMessagingConsentRequest, v1.ListMessagingConsentResponse]
 	createMessageTemplate          *connect.Client[v1.CreateMessageTemplateRequest, v1.CreateMessageTemplateResponse]
@@ -2007,6 +2124,51 @@ func (c *cRMServiceClient) DisconnectGoogleConnection(ctx context.Context, req *
 	return c.disconnectGoogleConnection.CallUnary(ctx, req)
 }
 
+// StartMetaConnection calls crm.v1.CRMService.StartMetaConnection.
+func (c *cRMServiceClient) StartMetaConnection(ctx context.Context, req *connect.Request[v1.StartMetaConnectionRequest]) (*connect.Response[v1.StartMetaConnectionResponse], error) {
+	return c.startMetaConnection.CallUnary(ctx, req)
+}
+
+// GetMetaConnection calls crm.v1.CRMService.GetMetaConnection.
+func (c *cRMServiceClient) GetMetaConnection(ctx context.Context, req *connect.Request[v1.GetMetaConnectionRequest]) (*connect.Response[v1.GetMetaConnectionResponse], error) {
+	return c.getMetaConnection.CallUnary(ctx, req)
+}
+
+// ListMetaBusinesses calls crm.v1.CRMService.ListMetaBusinesses.
+func (c *cRMServiceClient) ListMetaBusinesses(ctx context.Context, req *connect.Request[v1.ListMetaBusinessesRequest]) (*connect.Response[v1.ListMetaBusinessesResponse], error) {
+	return c.listMetaBusinesses.CallUnary(ctx, req)
+}
+
+// ListMetaPages calls crm.v1.CRMService.ListMetaPages.
+func (c *cRMServiceClient) ListMetaPages(ctx context.Context, req *connect.Request[v1.ListMetaPagesRequest]) (*connect.Response[v1.ListMetaPagesResponse], error) {
+	return c.listMetaPages.CallUnary(ctx, req)
+}
+
+// ListMetaForms calls crm.v1.CRMService.ListMetaForms.
+func (c *cRMServiceClient) ListMetaForms(ctx context.Context, req *connect.Request[v1.ListMetaFormsRequest]) (*connect.Response[v1.ListMetaFormsResponse], error) {
+	return c.listMetaForms.CallUnary(ctx, req)
+}
+
+// SelectMetaLeadForm calls crm.v1.CRMService.SelectMetaLeadForm.
+func (c *cRMServiceClient) SelectMetaLeadForm(ctx context.Context, req *connect.Request[v1.SelectMetaLeadFormRequest]) (*connect.Response[v1.SelectMetaLeadFormResponse], error) {
+	return c.selectMetaLeadForm.CallUnary(ctx, req)
+}
+
+// ImportMetaLeads calls crm.v1.CRMService.ImportMetaLeads.
+func (c *cRMServiceClient) ImportMetaLeads(ctx context.Context, req *connect.Request[v1.ImportMetaLeadsRequest]) (*connect.Response[v1.ImportMetaLeadsResponse], error) {
+	return c.importMetaLeads.CallUnary(ctx, req)
+}
+
+// DisconnectMetaConnection calls crm.v1.CRMService.DisconnectMetaConnection.
+func (c *cRMServiceClient) DisconnectMetaConnection(ctx context.Context, req *connect.Request[v1.DisconnectMetaConnectionRequest]) (*connect.Response[v1.DisconnectMetaConnectionResponse], error) {
+	return c.disconnectMetaConnection.CallUnary(ctx, req)
+}
+
+// GetLeadMetaAttribution calls crm.v1.CRMService.GetLeadMetaAttribution.
+func (c *cRMServiceClient) GetLeadMetaAttribution(ctx context.Context, req *connect.Request[v1.GetLeadMetaAttributionRequest]) (*connect.Response[v1.GetLeadMetaAttributionResponse], error) {
+	return c.getLeadMetaAttribution.CallUnary(ctx, req)
+}
+
 // SyncGoogleMailbox calls crm.v1.CRMService.SyncGoogleMailbox.
 func (c *cRMServiceClient) SyncGoogleMailbox(ctx context.Context, req *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error) {
 	return c.syncGoogleMailbox.CallUnary(ctx, req)
@@ -2018,7 +2180,7 @@ func (c *cRMServiceClient) SyncGoogleCalendar(ctx context.Context, req *connect.
 }
 
 // EraseSyncedContentForContact calls crm.v1.CRMService.EraseSyncedContentForContact.
-func (c *cRMServiceClient) EraseSyncedContentForContact(ctx context.Context, req *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error) {
+func (c *cRMServiceClient) EraseSyncedContentForContact(ctx context.Context, req *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentForContactResponse], error) {
 	return c.eraseSyncedContentForContact.CallUnary(ctx, req)
 }
 
@@ -2237,6 +2399,11 @@ func (c *cRMServiceClient) ListContactChannels(ctx context.Context, req *connect
 	return c.listContactChannels.CallUnary(ctx, req)
 }
 
+// ListLeadChannels calls crm.v1.CRMService.ListLeadChannels.
+func (c *cRMServiceClient) ListLeadChannels(ctx context.Context, req *connect.Request[v1.ListLeadChannelsRequest]) (*connect.Response[v1.ListLeadChannelsResponse], error) {
+	return c.listLeadChannels.CallUnary(ctx, req)
+}
+
 // RecordMessagingConsent calls crm.v1.CRMService.RecordMessagingConsent.
 func (c *cRMServiceClient) RecordMessagingConsent(ctx context.Context, req *connect.Request[v1.RecordMessagingConsentRequest]) (*connect.Response[v1.RecordMessagingConsentResponse], error) {
 	return c.recordMessagingConsent.CallUnary(ctx, req)
@@ -2437,6 +2604,19 @@ type CRMServiceHandler interface {
 	GetGoogleConnection(context.Context, *connect.Request[v1.GetGoogleConnectionRequest]) (*connect.Response[v1.GetGoogleConnectionResponse], error)
 	ListGoogleConnections(context.Context, *connect.Request[v1.ListGoogleConnectionsRequest]) (*connect.Response[v1.ListGoogleConnectionsResponse], error)
 	DisconnectGoogleConnection(context.Context, *connect.Request[v1.DisconnectGoogleConnectionRequest]) (*connect.Response[v1.DisconnectGoogleConnectionResponse], error)
+	// Native Meta Lead Ads connection. One tenant-level authorization is bound
+	// to a Facebook Page and Instant Form; the same webhook carries Facebook
+	// and Instagram leads. Responses expose status and provider names only,
+	// never the user/Page access tokens stored encrypted by the server.
+	StartMetaConnection(context.Context, *connect.Request[v1.StartMetaConnectionRequest]) (*connect.Response[v1.StartMetaConnectionResponse], error)
+	GetMetaConnection(context.Context, *connect.Request[v1.GetMetaConnectionRequest]) (*connect.Response[v1.GetMetaConnectionResponse], error)
+	ListMetaBusinesses(context.Context, *connect.Request[v1.ListMetaBusinessesRequest]) (*connect.Response[v1.ListMetaBusinessesResponse], error)
+	ListMetaPages(context.Context, *connect.Request[v1.ListMetaPagesRequest]) (*connect.Response[v1.ListMetaPagesResponse], error)
+	ListMetaForms(context.Context, *connect.Request[v1.ListMetaFormsRequest]) (*connect.Response[v1.ListMetaFormsResponse], error)
+	SelectMetaLeadForm(context.Context, *connect.Request[v1.SelectMetaLeadFormRequest]) (*connect.Response[v1.SelectMetaLeadFormResponse], error)
+	ImportMetaLeads(context.Context, *connect.Request[v1.ImportMetaLeadsRequest]) (*connect.Response[v1.ImportMetaLeadsResponse], error)
+	DisconnectMetaConnection(context.Context, *connect.Request[v1.DisconnectMetaConnectionRequest]) (*connect.Response[v1.DisconnectMetaConnectionResponse], error)
+	GetLeadMetaAttribution(context.Context, *connect.Request[v1.GetLeadMetaAttributionRequest]) (*connect.Response[v1.GetLeadMetaAttributionResponse], error)
 	// SyncGoogleMailbox runs one Gmail synchronisation pass for the calling
 	// user's own mailbox, now, rather than waiting for the background poller.
 	// It is bounded: one pass examines a fixed number of messages and stores a
@@ -2453,7 +2633,7 @@ type CRMServiceHandler interface {
 	// name a record or an address, because the person exercising a right is
 	// usually not the person holding the CRM login. They carry their own scope
 	// for that reason.
-	EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error)
+	EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentForContactResponse], error)
 	ListSyncSuppressions(context.Context, *connect.Request[v1.ListSyncSuppressionsRequest]) (*connect.Response[v1.ListSyncSuppressionsResponse], error)
 	SuppressSyncAddress(context.Context, *connect.Request[v1.SuppressSyncAddressRequest]) (*connect.Response[v1.SuppressSyncAddressResponse], error)
 	ReleaseSyncAddress(context.Context, *connect.Request[v1.ReleaseSyncAddressRequest]) (*connect.Response[v1.ReleaseSyncAddressResponse], error)
@@ -2587,6 +2767,10 @@ type CRMServiceHandler interface {
 	// in the consent ledger, and inferring the country code would produce a
 	// different person's number. See internal/domain/messaging.go.
 	ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error)
+	// Leads are person-first acquisition records and may be contacted before
+	// conversion. The same consent gate and normalized addresses used for
+	// Contacts apply here; clients must not make a second policy decision.
+	ListLeadChannels(context.Context, *connect.Request[v1.ListLeadChannelsRequest]) (*connect.Response[v1.ListLeadChannelsResponse], error)
 	// RecordMessagingConsent appends one decision. There is no update and no
 	// delete: withdrawing is a new row saying so, which is what lets the ledger
 	// answer when a decision was made and on what evidence.
@@ -3078,6 +3262,60 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("DisconnectGoogleConnection")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceStartMetaConnectionHandler := connect.NewUnaryHandler(
+		CRMServiceStartMetaConnectionProcedure,
+		svc.StartMetaConnection,
+		connect.WithSchema(cRMServiceMethods.ByName("StartMetaConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetMetaConnectionHandler := connect.NewUnaryHandler(
+		CRMServiceGetMetaConnectionProcedure,
+		svc.GetMetaConnection,
+		connect.WithSchema(cRMServiceMethods.ByName("GetMetaConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListMetaBusinessesHandler := connect.NewUnaryHandler(
+		CRMServiceListMetaBusinessesProcedure,
+		svc.ListMetaBusinesses,
+		connect.WithSchema(cRMServiceMethods.ByName("ListMetaBusinesses")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListMetaPagesHandler := connect.NewUnaryHandler(
+		CRMServiceListMetaPagesProcedure,
+		svc.ListMetaPages,
+		connect.WithSchema(cRMServiceMethods.ByName("ListMetaPages")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListMetaFormsHandler := connect.NewUnaryHandler(
+		CRMServiceListMetaFormsProcedure,
+		svc.ListMetaForms,
+		connect.WithSchema(cRMServiceMethods.ByName("ListMetaForms")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceSelectMetaLeadFormHandler := connect.NewUnaryHandler(
+		CRMServiceSelectMetaLeadFormProcedure,
+		svc.SelectMetaLeadForm,
+		connect.WithSchema(cRMServiceMethods.ByName("SelectMetaLeadForm")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceImportMetaLeadsHandler := connect.NewUnaryHandler(
+		CRMServiceImportMetaLeadsProcedure,
+		svc.ImportMetaLeads,
+		connect.WithSchema(cRMServiceMethods.ByName("ImportMetaLeads")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDisconnectMetaConnectionHandler := connect.NewUnaryHandler(
+		CRMServiceDisconnectMetaConnectionProcedure,
+		svc.DisconnectMetaConnection,
+		connect.WithSchema(cRMServiceMethods.ByName("DisconnectMetaConnection")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetLeadMetaAttributionHandler := connect.NewUnaryHandler(
+		CRMServiceGetLeadMetaAttributionProcedure,
+		svc.GetLeadMetaAttribution,
+		connect.WithSchema(cRMServiceMethods.ByName("GetLeadMetaAttribution")),
+		connect.WithHandlerOptions(opts...),
+	)
 	cRMServiceSyncGoogleMailboxHandler := connect.NewUnaryHandler(
 		CRMServiceSyncGoogleMailboxProcedure,
 		svc.SyncGoogleMailbox,
@@ -3354,6 +3592,12 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("ListContactChannels")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceListLeadChannelsHandler := connect.NewUnaryHandler(
+		CRMServiceListLeadChannelsProcedure,
+		svc.ListLeadChannels,
+		connect.WithSchema(cRMServiceMethods.ByName("ListLeadChannels")),
+		connect.WithHandlerOptions(opts...),
+	)
 	cRMServiceRecordMessagingConsentHandler := connect.NewUnaryHandler(
 		CRMServiceRecordMessagingConsentProcedure,
 		svc.RecordMessagingConsent,
@@ -3588,6 +3832,24 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceListGoogleConnectionsHandler.ServeHTTP(w, r)
 		case CRMServiceDisconnectGoogleConnectionProcedure:
 			cRMServiceDisconnectGoogleConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceStartMetaConnectionProcedure:
+			cRMServiceStartMetaConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceGetMetaConnectionProcedure:
+			cRMServiceGetMetaConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceListMetaBusinessesProcedure:
+			cRMServiceListMetaBusinessesHandler.ServeHTTP(w, r)
+		case CRMServiceListMetaPagesProcedure:
+			cRMServiceListMetaPagesHandler.ServeHTTP(w, r)
+		case CRMServiceListMetaFormsProcedure:
+			cRMServiceListMetaFormsHandler.ServeHTTP(w, r)
+		case CRMServiceSelectMetaLeadFormProcedure:
+			cRMServiceSelectMetaLeadFormHandler.ServeHTTP(w, r)
+		case CRMServiceImportMetaLeadsProcedure:
+			cRMServiceImportMetaLeadsHandler.ServeHTTP(w, r)
+		case CRMServiceDisconnectMetaConnectionProcedure:
+			cRMServiceDisconnectMetaConnectionHandler.ServeHTTP(w, r)
+		case CRMServiceGetLeadMetaAttributionProcedure:
+			cRMServiceGetLeadMetaAttributionHandler.ServeHTTP(w, r)
 		case CRMServiceSyncGoogleMailboxProcedure:
 			cRMServiceSyncGoogleMailboxHandler.ServeHTTP(w, r)
 		case CRMServiceSyncGoogleCalendarProcedure:
@@ -3680,6 +3942,8 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceGetDashboardReportHandler.ServeHTTP(w, r)
 		case CRMServiceListContactChannelsProcedure:
 			cRMServiceListContactChannelsHandler.ServeHTTP(w, r)
+		case CRMServiceListLeadChannelsProcedure:
+			cRMServiceListLeadChannelsHandler.ServeHTTP(w, r)
 		case CRMServiceRecordMessagingConsentProcedure:
 			cRMServiceRecordMessagingConsentHandler.ServeHTTP(w, r)
 		case CRMServiceListMessagingConsentProcedure:
@@ -3993,6 +4257,42 @@ func (UnimplementedCRMServiceHandler) DisconnectGoogleConnection(context.Context
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DisconnectGoogleConnection is not implemented"))
 }
 
+func (UnimplementedCRMServiceHandler) StartMetaConnection(context.Context, *connect.Request[v1.StartMetaConnectionRequest]) (*connect.Response[v1.StartMetaConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.StartMetaConnection is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetMetaConnection(context.Context, *connect.Request[v1.GetMetaConnectionRequest]) (*connect.Response[v1.GetMetaConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetMetaConnection is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListMetaBusinesses(context.Context, *connect.Request[v1.ListMetaBusinessesRequest]) (*connect.Response[v1.ListMetaBusinessesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListMetaBusinesses is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListMetaPages(context.Context, *connect.Request[v1.ListMetaPagesRequest]) (*connect.Response[v1.ListMetaPagesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListMetaPages is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListMetaForms(context.Context, *connect.Request[v1.ListMetaFormsRequest]) (*connect.Response[v1.ListMetaFormsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListMetaForms is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) SelectMetaLeadForm(context.Context, *connect.Request[v1.SelectMetaLeadFormRequest]) (*connect.Response[v1.SelectMetaLeadFormResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SelectMetaLeadForm is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ImportMetaLeads(context.Context, *connect.Request[v1.ImportMetaLeadsRequest]) (*connect.Response[v1.ImportMetaLeadsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ImportMetaLeads is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DisconnectMetaConnection(context.Context, *connect.Request[v1.DisconnectMetaConnectionRequest]) (*connect.Response[v1.DisconnectMetaConnectionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DisconnectMetaConnection is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetLeadMetaAttribution(context.Context, *connect.Request[v1.GetLeadMetaAttributionRequest]) (*connect.Response[v1.GetLeadMetaAttributionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetLeadMetaAttribution is not implemented"))
+}
+
 func (UnimplementedCRMServiceHandler) SyncGoogleMailbox(context.Context, *connect.Request[v1.SyncGoogleMailboxRequest]) (*connect.Response[v1.SyncGoogleMailboxResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleMailbox is not implemented"))
 }
@@ -4001,7 +4301,7 @@ func (UnimplementedCRMServiceHandler) SyncGoogleCalendar(context.Context, *conne
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleCalendar is not implemented"))
 }
 
-func (UnimplementedCRMServiceHandler) EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentResponse], error) {
+func (UnimplementedCRMServiceHandler) EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentForContactResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.EraseSyncedContentForContact is not implemented"))
 }
 
@@ -4175,6 +4475,10 @@ func (UnimplementedCRMServiceHandler) GetDashboardReport(context.Context, *conne
 
 func (UnimplementedCRMServiceHandler) ListContactChannels(context.Context, *connect.Request[v1.ListContactChannelsRequest]) (*connect.Response[v1.ListContactChannelsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListContactChannels is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListLeadChannels(context.Context, *connect.Request[v1.ListLeadChannelsRequest]) (*connect.Response[v1.ListLeadChannelsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListLeadChannels is not implemented"))
 }
 
 func (UnimplementedCRMServiceHandler) RecordMessagingConsent(context.Context, *connect.Request[v1.RecordMessagingConsentRequest]) (*connect.Response[v1.RecordMessagingConsentResponse], error) {

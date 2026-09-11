@@ -25,6 +25,9 @@ export function UserMenu() {
   }, [open]);
 
   const email = session?.claims.email ?? session?.claims.sub ?? "Signed in";
+  const roleSummary = session?.claims.roles?.includes("platform_admin")
+    ? "Super Admin"
+    : session?.claims.roles?.join(", ");
 
   return (
     <div ref={ref} className="relative">
@@ -34,24 +37,24 @@ export function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+        className="flex min-h-10 items-center gap-2 rounded-full px-1.5 py-1 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600 sm:pr-3"
       >
         <span
           aria-hidden="true"
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white"
         >
           {email.charAt(0).toUpperCase()}
         </span>
-        <span className="max-w-[10rem] truncate">{email}</span>
+        <span className="hidden max-w-[10rem] truncate sm:inline">{email}</span>
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-10 mt-1 w-48 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 z-10 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-md"
         >
-          {session?.claims.roles && session.claims.roles.length > 0 && (
+          {roleSummary && (
             <div className="border-b border-slate-100 px-3 py-2 text-xs text-slate-500">
-              {session.claims.roles.join(", ")}
+              {roleSummary}
             </div>
           )}
           <button
@@ -59,13 +62,13 @@ export function UserMenu() {
             role="menuitem"
             onClick={() => {
               setOpen(false);
-              // Navigate immediately — /signed-out renders "Signing out…"
-              // until logout()'s server calls have landed, so the promise
-              // does not need to be awaited here.
+              // Navigate immediately. The destination keeps protected data
+              // hidden, waits for server confirmation, and exposes Retry if
+              // logout fails or times out.
               void logout();
               navigate("/signed-out");
             }}
-            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+            className="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-brand-50/60"
           >
             Sign out
           </button>

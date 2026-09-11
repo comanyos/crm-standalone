@@ -66,11 +66,6 @@ export BACKUP_LOCAL_TOOLS=1
 # 0003_rls_enforce.sql creates and grants to.
 echo "== seeding =="
 psql -q -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE crm"
-# compose.yaml runs auth-postgres as POSTGRES_USER=authincore, so that role
-# owns its database — unlike crm-postgres, which runs as `postgres`. The two
-# differ, which is exactly what the old scripts got wrong.
-psql -q -v ON_ERROR_STOP=1 -d postgres -c "CREATE ROLE authincore LOGIN SUPERUSER"
-psql -q -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE authincore OWNER authincore"
 psql -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 CREATE ROLE crm_app LOGIN PASSWORD 'crm_app';
 CREATE ROLE crm_drain LOGIN PASSWORD 'crm_drain' BYPASSRLS;
@@ -82,9 +77,6 @@ GRANT USAGE ON SCHEMA public TO crm_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO crm_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO crm_drain;
 SQL
-psql -q -v ON_ERROR_STOP=1 -d authincore \
-  -c "CREATE TABLE identities (id text PRIMARY KEY); INSERT INTO identities VALUES ('id-1')"
-
 echo "== generating an age key =="
 age-keygen -o "$work/identity.txt" 2>/dev/null
 recipient=$(age-keygen -y "$work/identity.txt")
@@ -94,14 +86,13 @@ echo "== backup =="
 BACKUP_OUTPUT_DIR="$work/backups" BACKUP_AGE_RECIPIENT="$recipient" \
   "$repo_root/scripts/backup-compose.sh"
 
-auth_archive=$(ls "$work"/backups/authincore-*.sql.gz.age)
 crm_archive=$(ls "$work"/backups/crm-*.sql.gz.age)
 
 echo "== a wrong identity must not destroy anything =="
 age-keygen -o "$work/wrong.txt" 2>/dev/null
 set +e
-RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASES \
-RESTORE_AUTH_ARCHIVE="$auth_archive" RESTORE_CRM_ARCHIVE="$crm_archive" \
+RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASE \
+RESTORE_CRM_ARCHIVE="$crm_archive" \
 BACKUP_AGE_IDENTITY_FILE="$work/wrong.txt" \
   "$repo_root/scripts/restore-compose.sh" >/dev/null 2>&1
 wrong_status=$?
@@ -121,8 +112,8 @@ echo "== destroying the data the restore must bring back =="
 psql -q -v ON_ERROR_STOP=1 -d crm -c "DELETE FROM accounts WHERE tenant_id = 'tenant-b'"
 
 echo "== restore =="
-RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASES \
-RESTORE_AUTH_ARCHIVE="$auth_archive" RESTORE_CRM_ARCHIVE="$crm_archive" \
+RESTORE_CONFIRM=RESTORE_LOCAL_COMPOSE_DATABASE \
+RESTORE_CRM_ARCHIVE="$crm_archive" \
 BACKUP_AGE_IDENTITY_FILE="$work/identity.txt" \
   "$repo_root/scripts/restore-compose.sh"
 
@@ -132,12 +123,6 @@ if [[ "$restored" != "2" ]]; then
   echo "FAIL: expected 2 accounts after restore, got $restored" >&2
   exit 1
 fi
-identities=$(psql -tAX -d authincore -c "SELECT count(*) FROM identities")
-if [[ "$identities" != "1" ]]; then
-  echo "FAIL: expected 1 identity after restore, got $identities" >&2
-  exit 1
-fi
-
 # The regression that --no-privileges caused: the restore succeeds, and the
 # application role cannot read a row.
 app_can_read=$(psql -tAX -U crm_app -d crm -c "SELECT count(*) FROM accounts" 2>&1 || echo DENIED)
@@ -152,4 +137,4 @@ if [[ "$drain_can_read" != "2" ]]; then
   exit 1
 fi
 
-echo "PASS: round trip restored both databases; crm_app and crm_drain kept their grants"
+echo "PASS: round trip restored the CRM database; crm_app and crm_drain kept their grants"

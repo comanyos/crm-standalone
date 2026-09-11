@@ -28,14 +28,37 @@ type scopedDB struct {
 	pool *pgxpool.Pool
 }
 
+type scopedTxKey struct{}
+
+type scopedTx struct {
+	tx       pgx.Tx
+	tenantID string
+}
+
 func newScopedDB(pool *pgxpool.Pool) *scopedDB {
 	return &scopedDB{pool: pool}
+}
+
+func transactionFromContext(ctx context.Context, scope Scope) (pgx.Tx, bool, error) {
+	current, ok := ctx.Value(scopedTxKey{}).(scopedTx)
+	if !ok {
+		return nil, false, nil
+	}
+	if current.tenantID != scope.TenantID {
+		return nil, false, fmt.Errorf("transaction tenant mismatch")
+	}
+	return current.tx, true, nil
 }
 
 // inTx runs fn in a transaction with the RLS settings bound.
 func (d *scopedDB) inTx(
 	ctx context.Context, scope Scope, opts pgx.TxOptions, fn func(pgx.Tx) error,
 ) error {
+	if tx, ok, err := transactionFromContext(ctx, scope); err != nil {
+		return err
+	} else if ok {
+		return fn(tx)
+	}
 	tx, err := d.pool.BeginTx(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
@@ -52,6 +75,15 @@ func (d *scopedDB) inTx(
 		return fmt.Errorf("commit: %w", err)
 	}
 	return nil
+}
+
+// transaction runs every scopedDB operation made with the callback context in
+// one tenant-bound transaction. Nested store methods join it automatically.
+func (d *scopedDB) transaction(ctx context.Context, scope Scope, fn func(context.Context) error) error {
+	return d.inTx(ctx, scope, pgx.TxOptions{}, func(tx pgx.Tx) error {
+		txCtx := context.WithValue(ctx, scopedTxKey{}, scopedTx{tx: tx, tenantID: scope.TenantID})
+		return fn(txCtx)
+	})
 }
 
 // begin starts a transaction with the tenancy already bound, for the callers
@@ -77,6 +109,11 @@ func (d *scopedDB) begin(ctx context.Context, scope Scope) (pgx.Tx, error) {
 func (d *scopedDB) Exec(
 	ctx context.Context, scope Scope, sql string, args ...any,
 ) (pgconn.CommandTag, error) {
+	if tx, ok, err := transactionFromContext(ctx, scope); err != nil {
+		return pgconn.CommandTag{}, err
+	} else if ok {
+		return tx.Exec(ctx, sql, args...)
+	}
 	var tag pgconn.CommandTag
 	err := d.inTx(ctx, scope, pgx.TxOptions{}, func(tx pgx.Tx) error {
 		var e error
@@ -90,6 +127,11 @@ func (d *scopedDB) Exec(
 func (d *scopedDB) Query(
 	ctx context.Context, scope Scope, sql string, args ...any,
 ) (pgx.Rows, error) {
+	if tx, ok, err := transactionFromContext(ctx, scope); err != nil {
+		return nil, err
+	} else if ok {
+		return tx.Query(ctx, sql, args...)
+	}
 	conn, err := d.pool.Acquire(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("acquire: %w", err)
@@ -117,6 +159,11 @@ func (d *scopedDB) Query(
 func (d *scopedDB) QueryRow(
 	ctx context.Context, scope Scope, sql string, args ...any,
 ) pgx.Row {
+	if tx, ok, err := transactionFromContext(ctx, scope); err != nil {
+		return errRow{err}
+	} else if ok {
+		return tx.QueryRow(ctx, sql, args...)
+	}
 	rows, err := d.Query(ctx, scope, sql, args...)
 	if err != nil {
 		return errRow{err}

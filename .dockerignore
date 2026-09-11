@@ -1,0 +1,23 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+**/node_modules
+**/dist
+**/coverage
+**/.cache
+**/.DS_Store
+
+# Runtime credentials and local/generated artifacts must never enter a Docker
+# build context, even when a Dockerfile happens to copy only selected paths.
+deploy/secrets
+backups
+*.log
+*.pem
+
+# AuthinCore was replaced by crm-api's native passwordless authentication.
+# Keep this guard so a local rollback copy can never be sent to a builder.
+services/authincore
+packages/auth-client

@@ -188,20 +188,19 @@ var (
 	repeatedSpace          = regexp.MustCompile(`  +`)
 )
 
-// MergeValuesForLead builds the substitution values for a Lead.
-//
-// A Lead has no name fields, so the name placeholders resolve to nothing and
-// the tidy above turns "Hi {{contact.first_name}}," into "Hi,". That is the
-// honest outcome: inventing a name from an email local part would put a guess
-// in a message to a customer.
+// MergeValuesForLead builds the substitution values for a person-first Lead.
+// Missing name parts stay empty; we never invent a name from an email address
+// or company name.
 func MergeValuesForLead(lead *Lead, senderEmail string) map[string]string {
 	if lead == nil {
 		return map[string]string{}
 	}
+	first := strings.TrimSpace(lead.FirstName)
+	last := strings.TrimSpace(lead.LastName)
 	return map[string]string{
-		MergeContactFirstName: "",
-		MergeContactLastName:  "",
-		MergeContactFullName:  "",
+		MergeContactFirstName: first,
+		MergeContactLastName:  last,
+		MergeContactFullName:  strings.TrimSpace(first + " " + last),
 		MergeContactEmail:     strings.TrimSpace(lead.ContactEmail),
 		MergeContactCompany:   strings.TrimSpace(lead.Company),
 		MergeSenderEmail:      strings.TrimSpace(senderEmail),

@@ -1,4 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+async function openAccounts(page: Page) {
+  await page.goto("/accounts");
+  // Session hydration happens after the document load. Waiting for the page's
+  // own heading ensures layout assertions inspect AppShell, not the temporary
+  // authentication loading screen.
+  await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+}
 
 /** Layout at a phone width (task_crm.md §10.3).
  *
@@ -14,14 +22,14 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("mobile layout", () => {
   test("the navigation is a drawer, not a permanent column", async ({ page }) => {
-    await page.goto("/accounts");
+    await openAccounts(page);
 
     // Closed, the drawer must be out of the tab order rather than translated
     // off-screen — an invisible focus trap is worse than no drawer.
-    const nav = page.getByRole("navigation");
+    const nav = page.locator('nav[aria-label="Primary"]');
     await expect(nav).toBeHidden();
 
-    const opener = page.getByRole("button", { name: /navigation|menu/i });
+    const opener = page.getByRole("button", { name: "Open navigation", exact: true });
     await expect(opener).toBeVisible();
     await opener.click();
     await expect(nav).toBeVisible();
@@ -32,7 +40,7 @@ test.describe("mobile layout", () => {
   });
 
   test("the page does not scroll sideways", async ({ page }) => {
-    await page.goto("/accounts");
+    await openAccounts(page);
 
     // The single most visible mobile regression, and one no unit test can
     // see. Wide content (tables, the board) must scroll inside its own
@@ -44,20 +52,19 @@ test.describe("mobile layout", () => {
   });
 
   test("main content gets the full width", async ({ page }) => {
-    await page.goto("/accounts");
+    await openAccounts(page);
 
     // Before the drawer work a 375px phone gave main 151px, because the
     // sidebar was a permanent 14rem column. That number is why this
     // assertion is a number.
-    const width = await page.evaluate(() => {
-      const main = document.getElementById("main-content");
-      return main ? main.getBoundingClientRect().width : 0;
-    });
-    expect(width).toBeGreaterThan(300);
+    const main = page.locator("#main-content");
+    await expect(main).toBeVisible();
+    const box = await main.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThan(300);
   });
 
   test("tap targets on the primary actions are big enough to hit", async ({ page }) => {
-    await page.goto("/accounts");
+    await openAccounts(page);
 
     // WCAG 2.2 AA asks for 24x24 CSS pixels; 44 is the platform convention.
     // Checked here because contrast and target size are the two rules

@@ -13,6 +13,12 @@ workspace is not a dependency and was not modified.
 
 ## AuthinCore
 
+**Historical record:** this extracted component was later removed in full when
+Savvy CRM replaced the separate identity platform with minimal first-party Go
+authentication inside `services/crm-api`. It is not part of the current source,
+build, runtime, dependency graph, or distribution. The details below are kept
+only to preserve provenance of the earlier repository state.
+
 - Source: companyos-suite/08-trust-os/authincore
 - Base commit: 3716fdc2a1b5eef0f6422cf7d3fd28431fab2f7c
 - Working tree at extraction: modified with newer source and untracked source
@@ -22,8 +28,9 @@ workspace is not a dependency and was not modified.
   local editor settings, screenshots, caches, private keys, and certificates
 
 AuthinCore did not contain a standalone license file at extraction time. Its
-README describes it as MIT-licensed; license provenance must be confirmed before
-external distribution.
+README described it as MIT-licensed. Removing the component resolved that
+license-provenance concern for current distributions; historical snapshots that
+included it still require their own review.
 
 ## Isolation guarantee
 

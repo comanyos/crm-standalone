@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create encrypted logical backups of the local Compose PostgreSQL databases.
+# Create an encrypted logical backup of the local Compose CRM database.
 # This is deliberately an operator command: it never runs from `make up` and
 # it refuses to write an unencrypted database dump to disk.
 set -euo pipefail
@@ -37,11 +37,8 @@ db_run() {
 
 # backup_database <service> <database> <role>
 #
-# The role is a separate argument because it is not the database name:
-# compose.yaml runs auth-postgres as `authincore` but crm-postgres as
-# `postgres`, with the CRM's own crm_app/crm_drain roles created later by
-# migrations/0003_rls_enforce.sql. Deriving the role from the database name
-# addressed a `crm` role that has never existed.
+# The role is a separate argument because crm-postgres runs as `postgres`,
+# while crm_app/crm_drain are restricted runtime roles created by migrations.
 backup_database() {
   local service=$1
   local database=$2
@@ -63,5 +60,4 @@ backup_database() {
   echo "created encrypted backup: $(basename "$archive")"
 }
 
-backup_database auth-postgres authincore authincore
 backup_database crm-postgres crm postgres

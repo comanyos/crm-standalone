@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"connectrpc.com/connect"
@@ -13,6 +14,17 @@ import (
 	"github.com/santoshguru/crm/internal/domain"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func boundedInt32(value int) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	// #nosec G115 -- both int32 bounds are checked above.
+	return int32(value)
+}
 
 // scopeFrom derives the store scope from the verified principal. The tenant is never
 // read from the request body — a caller must not be able to name someone else's
@@ -188,7 +200,7 @@ func customFieldDefinitionToProto(v *domain.CustomFieldDefinition) *crmv1.Custom
 		CreatedAt: timestamppb.New(v.CreatedAt), UpdatedAt: timestamppb.New(v.UpdatedAt),
 		Config: &crmv1.CustomFieldConfig{
 			Options: append([]string(nil), v.Config.Options...), LookupObjectType: v.Config.LookupObjectType,
-			Scale: int32(v.Config.Scale), Expression: v.Config.Expression,
+			Scale: boundedInt32(v.Config.Scale), Expression: v.Config.Expression,
 			VisibleToRoles: append([]string(nil), v.Config.VisibleToRoles...), EditableToRoles: append([]string(nil), v.Config.EditableToRoles...), ValidationExpression: v.Config.ValidationExpression,
 		},
 	}
@@ -286,6 +298,9 @@ func leadToProto(v *domain.Lead) *crmv1.Lead {
 	}
 	return &crmv1.Lead{
 		Id:                     v.ID,
+		FirstName:              v.FirstName,
+		LastName:               v.LastName,
+		Phone:                  v.Phone,
 		Company:                v.Company,
 		Source:                 v.Source,
 		ContactEmail:           v.ContactEmail,
@@ -308,6 +323,9 @@ func leadFromProto(m *crmv1.Lead) *domain.Lead {
 	}
 	return &domain.Lead{
 		ID:                     m.GetId(),
+		FirstName:              m.GetFirstName(),
+		LastName:               m.GetLastName(),
+		Phone:                  m.GetPhone(),
 		Company:                m.GetCompany(),
 		Source:                 m.GetSource(),
 		ContactEmail:           m.GetContactEmail(),
@@ -411,7 +429,7 @@ func pipelineStageToProto(v *domain.PipelineStage) *crmv1.PipelineStage {
 		return nil
 	}
 	return &crmv1.PipelineStage{
-		Id: v.ID, PipelineId: v.PipelineID, Name: v.Name, Position: int32(v.Position), Probability: v.Probability,
+		Id: v.ID, PipelineId: v.PipelineID, Name: v.Name, Position: boundedInt32(v.Position), Probability: v.Probability,
 		TerminalType: v.TerminalType, RequiresCloseReason: v.RequiresCloseReason, ArchivedAt: timestampOrNil(v.ArchivedAt),
 		CreatedAt: timestamppb.New(v.CreatedAt), UpdatedAt: timestamppb.New(v.UpdatedAt),
 	}

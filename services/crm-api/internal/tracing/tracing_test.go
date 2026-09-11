@@ -10,12 +10,13 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestHTTPMiddlewareContinuesInboundTraceparent(t *testing.T) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(sdktrace.NewTracerProvider())
-	t.Cleanup(func() { otel.SetTracerProvider(trace.NewNoopTracerProvider()) })
+	t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
 
 	const traceID = "0af7651916cd43dd8448eb211c80319c"
 	var got string
@@ -33,7 +34,7 @@ func TestHTTPMiddlewareContinuesInboundTraceparent(t *testing.T) {
 func TestTraceParentRoundTripsAcrossDurableContext(t *testing.T) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(sdktrace.NewTracerProvider())
-	t.Cleanup(func() { otel.SetTracerProvider(trace.NewNoopTracerProvider()) })
+	t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
 
 	const traceID = "0af7651916cd43dd8448eb211c80319c"
 	ctx := ContextWithTraceParent(context.Background(), "00-"+traceID+"-b7ad6b7169203331-01")

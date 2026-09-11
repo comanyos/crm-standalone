@@ -18,7 +18,10 @@ import { useCrmClients } from "../../lib/useCrmClients";
 const POLL_INTERVAL_MS = 60_000;
 
 const SUBJECT_PATHS: Record<string, string> = {
-  account: "/accounts", contact: "/contacts", lead: "/leads", opportunity: "/opportunities",
+  account: "/accounts",
+  contact: "/contacts",
+  lead: "/leads",
+  opportunity: "/opportunities",
 };
 
 export function NotificationBell() {
@@ -76,9 +79,19 @@ export function NotificationBell() {
         // "Notifications" alone tells a screen-reader user nothing about
         // whether it is worth opening.
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
-        className="relative rounded p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600"
       >
-        <span aria-hidden="true">🔔</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="h-[18px] w-[18px]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8Z" strokeLinejoin="round" />
+          <path d="M10 20h4" strokeLinecap="round" />
+        </svg>
         {unread > 0 && (
           <span
             aria-hidden="true"
@@ -90,18 +103,19 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 rounded-md border border-slate-200 bg-white shadow-lg">
-          <h2 className="border-b border-slate-100 px-4 py-2 text-sm font-semibold text-slate-900">
+        <div className="absolute right-0 z-40 mt-2 w-[min(20rem,calc(100vw_-_2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-md">
+          <h2 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-950">
             Notifications
           </h2>
-          {notifications.length === 0 && (
-            <p className="px-4 py-6 text-sm text-slate-500">Nothing new.</p>
-          )}
+          {notifications.length === 0 && <p className="px-4 py-6 text-sm text-slate-500">Nothing new.</p>}
           <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
             {notifications.map((notification) => {
               const path = SUBJECT_PATHS[notification.subjectType];
               return (
-                <li key={notification.id} className={notification.readAt ? "px-4 py-3" : "bg-brand-50/50 px-4 py-3"}>
+                <li
+                  key={notification.id}
+                  className={notification.readAt ? "px-4 py-3" : "bg-brand-50/50 px-4 py-3"}
+                >
                   <div className="text-sm font-medium text-slate-900">{notification.title}</div>
                   {notification.body && (
                     <div className="mt-0.5 text-xs text-slate-600">{notification.body}</div>

@@ -108,17 +108,34 @@ type contactByEmailFinder interface {
 	FindContactByEmail(ctx context.Context, scope Scope, email string) (*Contact, error)
 }
 
+type contactIdentityFinder interface {
+	contactByEmailFinder
+	FindContactByPhone(ctx context.Context, scope Scope, phone string) (*Contact, error)
+}
+
 // applyLeadDuplicateFlag recomputes v.DuplicateOfContactID from the current
 // state of the tenant's contacts. It is called on every Create and Update so
 // the flag never goes stale: an email that stops matching (the contact was
 // deleted) clears the flag, and one that starts matching sets it.
-func applyLeadDuplicateFlag(ctx context.Context, r contactByEmailFinder, scope Scope, v *Lead) error {
+func applyLeadDuplicateFlag(ctx context.Context, r contactIdentityFinder, scope Scope, v *Lead) error {
 	v.DuplicateOfContactID = ""
 	email := strings.TrimSpace(v.ContactEmail)
-	if email == "" {
+	if email != "" {
+		c, err := r.FindContactByEmail(ctx, scope, email)
+		if errors.Is(err, ErrNotFound) {
+			// Fall through to the phone key when one exists.
+		} else if err != nil {
+			return err
+		} else {
+			v.DuplicateOfContactID = c.ID
+			return nil
+		}
+	}
+	phone := strings.TrimSpace(v.Phone)
+	if phone == "" {
 		return nil
 	}
-	c, err := r.FindContactByEmail(ctx, scope, email)
+	c, err := r.FindContactByPhone(ctx, scope, phone)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
@@ -126,6 +143,26 @@ func applyLeadDuplicateFlag(ctx context.Context, r contactByEmailFinder, scope S
 		return err
 	}
 	v.DuplicateOfContactID = c.ID
+	return nil
+}
+
+// normalizeLeadIdentity stores one spelling for every external identity key.
+// It is called before validation on every create/update and by capture.
+func normalizeLeadIdentity(v *Lead) error {
+	if v == nil {
+		return ErrInvalid
+	}
+	v.FirstName = strings.TrimSpace(v.FirstName)
+	v.LastName = strings.TrimSpace(v.LastName)
+	v.Company = strings.TrimSpace(v.Company)
+	v.ContactEmail = strings.ToLower(strings.TrimSpace(v.ContactEmail))
+	if strings.TrimSpace(v.Phone) != "" {
+		phone, err := NormalizeE164Phone(v.Phone)
+		if err != nil {
+			return fmt.Errorf("%w: Lead.phone %v", ErrInvalid, err)
+		}
+		v.Phone = phone
+	}
 	return nil
 }
 

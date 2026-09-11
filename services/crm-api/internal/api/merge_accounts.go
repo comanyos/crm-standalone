@@ -17,7 +17,7 @@ func accountMergeToProto(v *domain.AccountMergeRecord) *crmv1.AccountMergeRecord
 	}
 	migrated := make(map[string]int32, len(v.RelationshipsMigrated))
 	for k, n := range v.RelationshipsMigrated {
-		migrated[k] = int32(n)
+		migrated[k] = boundedInt32(n)
 	}
 	return &crmv1.AccountMergeRecord{
 		Id: v.ID, SurvivorAccountId: v.SurvivorAccountID, DuplicateAccountId: v.DuplicateAccountID,

@@ -70,7 +70,7 @@ export default function CustomFieldsPage() {
     onError: (error) => { setArchiving(null); toast.show({ tone: "danger", message: mutationErrorMessage(error) }); },
   });
 
-  if (!canRead) return <div><PageHeader title="Custom fields" /><EmptyState title="Administrator access required" description="Custom-field definitions are managed by CRM administrators." /></div>;
+  if (!canRead) return <div><PageHeader title="Custom fields" /><EmptyState title="Administrator access required" description="Custom-field definitions are managed by Savvy CRM administrators." /></div>;
   const startEdit = (field: (typeof fields)[number]) => {
     setDraft({ id: field.id, label: field.label, fieldKey: field.fieldKey, dataType: field.dataType, required: field.required, options: field.config?.options.join("\n") ?? "", lookupObjectType: field.config?.lookupObjectType || "account", scale: String(field.config?.scale ?? 2), visibleToRoles: field.config?.visibleToRoles.join(", ") ?? "", editableToRoles: field.config?.editableToRoles.join(", ") ?? "" });
     setDialogOpen(true);
@@ -100,7 +100,7 @@ export default function CustomFieldsPage() {
         {needsScale && <Input label="Decimal places" type="number" min={0} max={12} value={draft.scale} onChange={(event) => setDraft({ ...draft, scale: event.target.value })} />}
         <label className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={draft.required} onChange={(event) => setDraft({ ...draft, required: event.target.checked })} /> Required for new and updated records</label>
         <Input label="Visible to roles" value={draft.visibleToRoles} onChange={(event) => setDraft({ ...draft, visibleToRoles: event.target.value })} hint="Comma-separated role keys. Leave empty for all roles." />
-        <Input label="Editable by roles" value={draft.editableToRoles} onChange={(event) => setDraft({ ...draft, editableToRoles: event.target.value })} hint="Comma-separated role keys. Leave empty for all roles; CRM administrators always retain access." />
+        <Input label="Editable by roles" value={draft.editableToRoles} onChange={(event) => setDraft({ ...draft, editableToRoles: event.target.value })} hint="Comma-separated role keys. Leave empty for all roles; Savvy CRM administrators always retain access." />
       </div>
     </Dialog>
     <ConfirmDialog

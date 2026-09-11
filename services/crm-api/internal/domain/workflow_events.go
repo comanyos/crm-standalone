@@ -22,12 +22,14 @@ import (
 // may compare, and nothing else. A snapshot, not a record — actions re-read
 // their target under the execution's own scope before they touch it.
 type LeadCreatedPayload struct {
-	LeadID  string `json:"lead_id"`
-	Company string `json:"company"`
-	Source  string `json:"source"`
-	Status  string `json:"status"`
-	OwnerID string `json:"owner_id"`
-	Score   int64  `json:"score"`
+	LeadID    string `json:"lead_id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Company   string `json:"company"`
+	Source    string `json:"source"`
+	Status    string `json:"status"`
+	OwnerID   string `json:"owner_id"`
+	Score     int64  `json:"score"`
 }
 
 // OpportunityStageChangedPayload is what a stage change carries.
@@ -59,7 +61,8 @@ func enqueueLeadCreated(ctx context.Context, store eventEnqueuer, scope Scope, l
 		OccurredAt:    nowStamp(),
 	}
 	env, err := env.WithPayload(LeadCreatedPayload{
-		LeadID: lead.ID, Company: lead.Company, Source: lead.Source,
+		LeadID: lead.ID, FirstName: lead.FirstName, LastName: lead.LastName,
+		Company: lead.Company, Source: lead.Source,
 		Status: lead.Status, OwnerID: lead.OwnerID, Score: lead.Score,
 	})
 	if err != nil {

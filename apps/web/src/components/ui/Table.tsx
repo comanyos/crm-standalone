@@ -41,16 +41,16 @@ export function Table<T>({ caption, columns, rows, getRowKey, onRowActivate }: T
   const headerIndex = marked === -1 ? 0 : marked;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200">
+    <div className="relative max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="bg-slate-50">
+        <thead className="bg-slate-100/70">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
                 scope="col"
-                className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 ${
+                className={`px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 ${
                   col.align === "right" ? "text-right" : "text-left"
                 }`}
               >
@@ -78,11 +78,11 @@ export function Table<T>({ caption, columns, rows, getRowKey, onRowActivate }: T
               <tr
                 key={key}
                 onClick={interactive ? () => onRowActivate(row) : undefined}
-                className={interactive ? "cursor-pointer hover:bg-slate-50" : undefined}
+                className={interactive ? "cursor-pointer transition-colors hover:bg-brand-50/45" : undefined}
               >
                 {columns.map((col, index) => {
                   const content = col.render(row);
-                  const className = `px-4 py-2 text-slate-800 ${col.align === "right" ? "text-right" : ""}`;
+                  const className = `px-4 py-3 text-slate-800 ${col.align === "right" ? "text-right" : ""}`;
                   if (index === headerIndex) {
                     return (
                       <th key={col.key} scope="row" className={`${className} font-normal`}>

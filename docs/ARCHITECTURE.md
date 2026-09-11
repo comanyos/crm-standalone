@@ -1,186 +1,81 @@
 # Architecture
 
-AuthinCore and CRM remain separate services.
+Savvy CRM is one Go application service plus its browser client and supporting
+workers. Authentication is a small product-specific module inside
+`services/crm-api`; there is no separate identity platform.
 
-1. The browser signs in through AuthinCore using OIDC Authorization Code + PKCE.
-2. AuthinCore issues a JWT whose issuer and audience are its public URL.
-3. CRM validates the token locally using AuthinCore's JWKS endpoint.
-4. AuthinCore org_id is the CRM tenant boundary.
-5. CRM enforces RPC scopes and Postgres row-level security.
-6. Record-level owner/editor/viewer authorization will use AuthinCore FGA.
+1. A user requests a six-digit email code or begins Google sign-in.
+2. The CRM API verifies the challenge and creates an opaque random session.
+3. Only a SHA-256 digest of the session token is stored in CRM Postgres.
+4. Browsers receive the token as a Secure, HttpOnly, SameSite cookie. Native
+   clients may present the same opaque token as a Bearer credential from OS
+   secure storage.
+5. On every protected request the server resolves the active user,
+   organization membership, role, and scopes. Tenant and role values are never
+   accepted from a browser form or provider-editable metadata.
+6. The existing fail-closed RPC scope policy and PostgreSQL row-level security
+   continue to enforce each tenant boundary.
 
-## Bootstrap and authorization
+## Native authentication boundary
 
-`authinctl bootstrap` is the repeatable first-tenant provisioning boundary. It
-creates or reconciles one organization (matched by canonical domain), a first
-administrator (matched by email), an OIDC public SPA client, and the CRM role
-model. It is opt-in through the Compose `tools` profile and reads only runtime
-environment variables, so passwords and client secrets are never committed.
+The minimal auth schema owns users, organizations, memberships, passwordless
+login challenges, OAuth state, and sessions. Business tables keep their
+existing text `tenant_id`; an organization's UUID is used as that value.
 
-The initial administrator receives the AuthinCore `owner` role and `crm_admin`.
-The CRM role model is `crm_admin`, `crm_manager`, `crm_member`, and
-`crm_viewer`; all grants are tenant-local AuthinCore permissions which become
-JWT scopes at token issuance. The CRM API accepts only the exact CRM scopes
-(or `crm:*`) and maps the authenticated `org_id` claim to its tenant scope.
+`AUTH_BOOTSTRAP_ORG_NAME`, `AUTH_BOOTSTRAP_EMAIL`, and the optional stable
+`AUTH_BOOTSTRAP_ORG_ID` create the first owner membership idempotently at
+startup. Signup creates a new organization and its first owner only after the
+email address or Google identity has been verified.
 
-CRM and AuthinCore use separate Postgres databases. Redis belongs to AuthinCore;
-NATS is shared only as transport, with service-specific subjects.
+The role model remains `owner`, `crm_admin`, `crm_manager`,
+`crm_member`, and `crm_viewer`. The server maps those roles to the fixed
+CRM scope contract. A signup request cannot choose an authorization role;
+profile fields such as job title and team size are descriptive onboarding
+data only.
 
-## Token verification, key rotation, and readiness
+### Email OTP
 
-The CRM API verifies AuthinCore's tokens **offline**, against a JWK Set it
-fetches and caches. It does not call AuthinCore per request. That single
-decision explains most of the behaviour below, including the parts that are
-trade-offs rather than wins.
+`POST /auth/email/request` creates a short-lived challenge. Codes are random,
+single-use, attempt-limited, and persisted only as an HMAC digest bound to the
+challenge, email, and purpose. Login requests return a generic response so an
+attacker cannot discover registered addresses. SMTP failure never produces a
+false "sent" response.
 
-### Health versus readiness
+`POST /auth/email/verify` consumes the challenge atomically. A login
+challenge requires an active membership; a signup challenge transactionally
+creates the user, organization, owner membership, onboarding profile, and
+session.
 
-| Endpoint | Question | Behaviour |
-| --- | --- | --- |
-| `GET /healthz` | Is the process up? | Always `200` while serving. Never consults AuthinCore. |
-| `GET /readyz` | Can this instance do its job? | `200` when the JWK Set cache holds at least one key; `503` otherwise. |
+### Google identity
 
-An orchestrator should use `/healthz` for liveness and `/readyz` for
-readiness, and the split matters. A liveness probe that failed when AuthinCore
-was briefly unreachable would restart the CRM, turning a recoverable upstream
-blip into a crash loop. A readiness probe that stayed green in the same
-situation would keep routing traffic to an instance where **every**
-authenticated request fails — which users experience as their own credentials
-being wrong, not as an outage.
+Google account sign-in has a dedicated OAuth client and identity-only scopes.
+It must not reuse the Gmail/Calendar integration client or request mailbox
+permissions. State, PKCE, callback address, verified email, and account
+linking are validated server-side before a session is issued.
 
-Start-up is deliberately tolerant: if the first JWKS fetch fails, the service
-still starts, and `/readyz` reports `503` until keys arrive. `Ready` does more
-than read the cache — an empty cache triggers a fetch — so an instance
-recovers on its own, without a restart, within
-`jwksUnknownKIDInterval` (10s) of the provider coming back.
+### Sessions and CSRF
 
-### Key rotation
+Session tokens are never written to localStorage or sessionStorage. Browser
+requests use `credentials: include`; JavaScript receives only the safe
+session profile. Logout deletes the server-side session before expiring the
+cookie. Expiry and deactivation are immediate on the next request because
+membership is loaded from the database rather than copied into a long-lived
+JWT.
 
-A token whose key id is not in the cache triggers an out-of-band refresh, so a
-rotation takes effect without restarting the CRM: publish the new key
-alongside the old one, start signing with it, and tokens signed by either
-verify for as long as both are published. That refresh is rate-limited to once
-per 10 seconds, because the key id comes from the token and would otherwise let
-any caller drive one upstream fetch per request.
+Cookie-authenticated unsafe requests must carry an allowed `Origin`. The
+authenticated app allowlist can reach CRM RPCs; the separate marketing-site
+allowlist can reach only capabilities, Google start, and email request/verify.
+CORS is
+an exact allowlist and production entries must be HTTPS. Bearer sessions are
+reserved for native/mobile clients and are not exposed to the marketing site.
 
-The wait for that limiter is capped at one second. The library's default is a
-full minute, which is exploitable: a handful of tokens carrying unknown key ids
-would each occupy a server goroutine for a minute before returning the
-rejection they were always going to return.
+## Health and readiness
 
-### Two windows that are not instant
-
-Both follow from offline verification, and both are bounded rather than closed:
-
-- **Revoking a signing key** is not immediate. Withdrawing a key from the JWK
-  Set does not invalidate cached copies of it, and nothing triggers a refresh
-  for a key id that is still cached — so tokens signed by a withdrawn key keep
-  verifying until the next scheduled refresh, up to `jwksRefreshInterval`
-  (15 minutes).
-- **Deactivating an organization or user** does not invalidate access tokens
-  already issued. They stay valid until they expire; AuthinCore's refusal to
-  refresh them is what ends the session. The window is the access-token
-  lifetime. Tokens with no `exp` claim are rejected outright, so the window
-  cannot be unbounded.
-
-Closing either window entirely means giving up offline verification for token
-introspection, or maintaining a revocation list. That is a security-hardening
-decision (task.md §10.1), not an oversight — but nobody should assume
-revocation is instant in the meantime.
-
-Both windows are pinned by tests
-(`internal/auth/jwks_rotation_test.go`, `internal/auth/tenant_resolution_test.go`).
-
-## The web session model
-
-What the browser application holds, where it holds it, and what ends a
-session. Implemented in `packages/auth-client` and
-`apps/web/src/auth/`.
-
-### What is stored, and where
-
-| Item | Location | Lifetime |
-| --- | --- | --- |
-| Access token | React state only | The tab's memory. Never written to any storage. |
-| Refresh token | `sessionStorage` | Cleared when the tab closes; survives a reload. |
-| PKCE verifier + `state` | `sessionStorage`, keyed by `state` | Consumed on callback, and expired after 10 minutes regardless. |
-| Cross-tab sign-out signal | `BroadcastChannel`, nothing persisted | The message itself. |
-
-`localStorage` holds nothing. `sessionStorage` is the deliberate middle
-ground: per-tab and cleared on close, unlike `localStorage`, while still
-surviving the reload that makes "still signed in after F5" work.
-
-Storing a refresh token at all is a trade-off, and it is forced. AuthinCore's
-authorization endpoints send `X-Frame-Options: DENY` — correct clickjacking
-hardening for an identity provider, not something to weaken for client
-convenience — which rules out the hidden-iframe silent-renew pattern. A plain
-background `grant_type=refresh_token` exchange is what remains, and it needs a
-refresh token to present.
-
-### Renewal
-
-The access token is renewed about 60 seconds before its own `exp`, so a
-request already in flight never races an expiry the backend would reject.
-Concurrent renewals are de-duplicated into one exchange: AuthinCore rotates
-the refresh token on every use, so two overlapping renewals would have the
-second present a token the first already consumed. React's development-mode
-double-invocation of effects surfaces this immediately, but it is not a
-development-only concern.
-
-A failed renewal is treated as "the user must sign in again": the session is
-dropped and a toast explains why. There is no retry, because the failures that
-reach this point — a revoked or expired refresh token — do not improve on
-retry.
-
-### What ends a session
-
-| Trigger | Local session | AuthinCore session | Refresh token |
-| --- | --- | --- | --- |
-| Explicit sign-out | Cleared | Ended (`DELETE /api/v1/sessions/me`) | Revoked |
-| Idle timeout (30 min) | Cleared | Left alone | Revoked |
-| Another tab signs out | Cleared | Already ended by that tab | Revoked |
-| Failed renewal | Cleared | Left alone | Already gone |
-
-Explicit sign-out waits up to 3 seconds for the server calls to land before
-showing the confirmation. Ending AuthinCore's own session is what stops a
-subsequent `/authorize` from silently re-authenticating the same user with no
-password, so showing "You're signed out" before that request lands would be a
-claim the system had not yet made true.
-
-The two rows that do **not** end the AuthinCore session are deliberate. An
-idle background tab must not be able to sign the user out of the tab they are
-actively working in, and a tab reacting to another tab's sign-out would only
-be repeating a call that tab already made.
-
-Every one of them revokes this tab's refresh token, because `sessionStorage`
-is per-tab: leaving it in place would let a reload silently restore a session
-the user was just told had ended.
-
-### Idle timeout
-
-Thirty minutes without deliberate interaction. Deliberate excludes
-`mousemove`: a trackpad under a resting palm, or a page animating beneath the
-pointer, would otherwise keep a session alive indefinitely and make the
-timeout decorative. Keyboard, pointer-down, wheel, touch and returning to a
-backgrounded tab all count.
-
-### Multi-tab behaviour
-
-Each tab has its own `sessionStorage`, so each holds its own refresh token and
-renews independently. Signing out in one tab ends every other tab of the same
-origin, over a `BroadcastChannel` carrying a bare `{type, at}` message — an
-event, never anything session-derived, since any same-origin script can join a
-named channel.
-
-One case is worth knowing: duplicating a tab copies `sessionStorage`, so both
-copies briefly hold the *same* refresh token. Because refresh tokens are
-single-use, whichever renews second is rejected and that tab asks the user to
-sign in again. This is rotation working as intended — the alternative is
-accepting a replayed refresh token — but it looks like an unexplained sign-out
-to a user who duplicated a tab and left both open past the renewal window.
-
-Browsers without `BroadcastChannel` (Safari before 15.4) lose cross-tab
-propagation only; sign-out, renewal and the idle timeout are unaffected.
+| Endpoint | Meaning |
+| --- | --- |
+| `GET /healthz` | The process is serving HTTP. |
+| `GET /readyz` | CRM Postgres and the native session store are reachable. |
+| `GET /metrics` | Internal metrics; token-protected in staging/production. |
 
 ## Write concurrency
 

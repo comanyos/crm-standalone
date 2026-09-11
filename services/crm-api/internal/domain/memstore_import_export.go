@@ -62,6 +62,8 @@ func (s *MemStore) CommitImportJob(ctx context.Context, scope Scope, id string) 
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
+	s.compound.Lock()
+	defer s.compound.Unlock()
 	job, err := s.importJob.get(scope, id)
 	if err != nil {
 		return nil, err

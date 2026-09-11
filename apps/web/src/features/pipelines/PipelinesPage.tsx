@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../components/shell/PageHeader";
 import { Button } from "../../components/ui/Button";
@@ -43,7 +43,7 @@ export default function PipelinesPage() {
   const canWrite = hasScope("crm:pipeline:write");
 
   const pipelinesQuery = useQuery({ queryKey: ["crm.listPipelines"], queryFn: () => crm.listPipelines({}) });
-  const pipelines = pipelinesQuery.data?.pipelines ?? [];
+  const pipelines = useMemo(() => pipelinesQuery.data?.pipelines ?? [], [pipelinesQuery.data?.pipelines]);
   const selectedPipeline = pipelines.find((pipeline) => pipeline.id === selectedID);
   useEffect(() => {
     if (!selectedID && pipelines[0]) setSelectedID(pipelines[0].id);

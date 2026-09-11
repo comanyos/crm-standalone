@@ -1,129 +1,132 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthProvider";
 import { ToastProvider } from "../components/ui/Toast";
 import { IDLE_TIMEOUT_MS } from "./session-policy";
-import type { OidcConfig } from "@crm/auth-client";
+import type { AuthSession } from "./api";
 
-const { renewMock, revokeMock, endSessionMock } = vi.hoisted(() => ({
-  renewMock: vi.fn(),
-  revokeMock: vi.fn(),
+const { loadSessionMock, loadAuthCapabilitiesMock, endSessionMock } = vi.hoisted(() => ({
+  loadSessionMock: vi.fn(),
+  loadAuthCapabilitiesMock: vi.fn(),
   endSessionMock: vi.fn(),
 }));
 
-vi.mock("@crm/auth-client", () => ({
-  beginLogin: vi.fn(),
-  completeCallback: vi.fn(),
-  endServerSession: endSessionMock,
-  isExpiringSoon: () => false,
-  renewFromStoredRefreshToken: renewMock,
-  revokeStoredRefreshToken: revokeMock,
-}));
+vi.mock("./api", async () => {
+  const actual = await vi.importActual<typeof import("./api")>("./api");
+  return {
+    ...actual,
+    loadSession: loadSessionMock,
+    loadAuthCapabilities: loadAuthCapabilitiesMock,
+    endSession: endSessionMock,
+  };
+});
 
-const config = {
-  issuer: "https://auth.example.com",
-  orgId: "org-1",
-  clientId: "crm-web",
-  redirectUri: "https://app.example.com/auth/callback",
-  scope: "openid",
-} as OidcConfig;
-
-const session = {
-  accessToken: "at",
-  claims: { sub: "id-1", email: "admin@localhost" },
+const apiUrl = "https://api.example.com";
+const session: AuthSession = {
+  user: { id: "id-1", email: "admin@example.com" },
+  claims: {
+    sub: "id-1",
+    email: "admin@example.com",
+    roles: ["owner"],
+    scopes: ["crm:*"],
+    scope: "crm:*",
+  },
   expiresAt: Date.now() + 3_600_000,
 };
 
 function Harness() {
-  const { status } = useAuth();
-  return <span data-testid="status">{status}</span>;
+  const { status, logoutError } = useAuth();
+  return (
+    <>
+      <span data-testid="status">{status}</span>
+      <span data-testid="logout-error">{logoutError}</span>
+    </>
+  );
 }
 
 function renderApp() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <ToastProvider>
-      <AuthProvider config={config}>
-        <Harness />
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider apiUrl={apiUrl} authPortalUrl="https://crm.example.com/?auth=login">
+          <Harness />
+        </AuthProvider>
+      </QueryClientProvider>
     </ToastProvider>,
   );
+  return queryClient;
 }
 
 describe("session policy in the auth provider", () => {
   beforeEach(() => {
-    renewMock.mockReset();
-    revokeMock.mockReset().mockResolvedValue(undefined);
+    loadSessionMock.mockReset();
+    loadAuthCapabilitiesMock.mockReset().mockResolvedValue({ google: false });
     endSessionMock.mockReset().mockResolvedValue(undefined);
-    // Fake timers must be installed before the provider mounts, or the idle
-    // timer it schedules on mount is a real one that advanceTimersByTime
-    // cannot reach — and every assertion below would pass vacuously.
-    // shouldAdvanceTime keeps promise resolution working so waitFor still
-    // settles.
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
   afterEach(() => vi.useRealTimers());
 
-  it("signs the user out after the idle timeout and says why", async () => {
-    renewMock.mockResolvedValue(session);
-    renderApp();
+  it("revokes the server session after the idle timeout and says why", async () => {
+    loadSessionMock.mockResolvedValue(session);
+    const queryClient = renderApp();
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    queryClient.setQueryData(["accounts", "org-1"], { name: "Private account" });
 
-    act(() => {
-      vi.advanceTimersByTime(IDLE_TIMEOUT_MS);
-    });
+    act(() => vi.advanceTimersByTime(IDLE_TIMEOUT_MS));
+    await act(async () => Promise.resolve());
 
+    expect(endSessionMock).toHaveBeenCalledWith(apiUrl);
     expect(screen.getByTestId("status")).toHaveTextContent("signed-out");
-    expect(screen.getByText(/signed out after a period of inactivity/i)).toBeInTheDocument();
+    expect(queryClient.getQueryData(["accounts", "org-1"])).toBeUndefined();
+    expect(screen.getByText(/signing you out after a period of inactivity/i)).toBeInTheDocument();
   });
 
-  // An idle timeout that leaves the refresh token in place is not a timeout:
-  // reloading the page would restore the session the user was just told had
-  // ended.
-  it("revokes the stored refresh token when the session times out", async () => {
-    renewMock.mockResolvedValue(session);
-    renderApp();
+  it("purges tenant queries when the absolute session expiry is reached", async () => {
+    loadSessionMock.mockResolvedValue({ ...session, expiresAt: Date.now() + 1_000 });
+    const queryClient = renderApp();
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    queryClient.setQueryData(["accounts", "org-1"], { name: "Private account" });
 
-    act(() => {
-      vi.advanceTimersByTime(IDLE_TIMEOUT_MS);
-    });
+    act(() => vi.advanceTimersByTime(1_000));
 
-    expect(revokeMock).toHaveBeenCalled();
-  });
-
-  // The idle timeout must not end a session on this tab's behalf elsewhere:
-  // an unattended background tab timing out cannot be allowed to sign the
-  // user out of the tab they are actively working in.
-  it("does not end the AuthinCore session on an idle timeout", async () => {
-    renewMock.mockResolvedValue(session);
-    renderApp();
-    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
-
-    act(() => {
-      vi.advanceTimersByTime(IDLE_TIMEOUT_MS);
-    });
-
+    expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+    expect(queryClient.getQueryData(["accounts", "org-1"])).toBeUndefined();
     expect(endSessionMock).not.toHaveBeenCalled();
   });
 
+  it("does not claim idle sign-out succeeded when revocation fails", async () => {
+    loadSessionMock.mockResolvedValue(session);
+    endSessionMock.mockRejectedValue(new Error("network down"));
+    const queryClient = renderApp();
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    queryClient.setQueryData(["accounts", "org-1"], { name: "Private account" });
+
+    act(() => vi.advanceTimersByTime(IDLE_TIMEOUT_MS));
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByTestId("status")).toHaveTextContent("sign-out-error");
+    expect(screen.getByTestId("status")).not.toHaveTextContent(/^signed-out$/);
+    expect(queryClient.getQueryData(["accounts", "org-1"])).toBeUndefined();
+  });
+
   it("does not time out a tab that was never signed in", async () => {
-    renewMock.mockRejectedValue(new Error("no refresh token"));
+    loadSessionMock.mockResolvedValue(null);
     renderApp();
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated"));
 
-    act(() => {
-      vi.advanceTimersByTime(IDLE_TIMEOUT_MS * 2);
-    });
+    act(() => vi.advanceTimersByTime(IDLE_TIMEOUT_MS * 2));
 
-    // Still "unauthenticated" — flipping it to "signed-out" would show a
-    // sign-out confirmation to somebody who never signed in.
     expect(screen.getByTestId("status")).toHaveTextContent("unauthenticated");
+    expect(endSessionMock).not.toHaveBeenCalled();
   });
 
   it("signs this tab out when another tab signs out", async () => {
-    renewMock.mockResolvedValue(session);
-    renderApp();
+    loadSessionMock.mockResolvedValue(session);
+    const queryClient = renderApp();
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    queryClient.setQueryData(["accounts", "org-1"], { name: "Private account" });
 
     const otherTab = new BroadcastChannel("crm_auth_sign_out");
     await act(async () => {
@@ -133,5 +136,30 @@ describe("session policy in the auth provider", () => {
     otherTab.close();
 
     expect(screen.getByTestId("status")).toHaveTextContent("signed-out");
+    expect(queryClient.getQueryData(["accounts", "org-1"])).toBeUndefined();
+  });
+
+  it("mirrors another tab's pending and failed logout without claiming success", async () => {
+    loadSessionMock.mockResolvedValue(session);
+    const queryClient = renderApp();
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    queryClient.setQueryData(["accounts", "org-1"], { name: "Private account" });
+
+    const otherTab = new BroadcastChannel("crm_auth_sign_out");
+    await act(async () => {
+      otherTab.postMessage({ type: "signing-out", at: Date.now() });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.getByTestId("status")).toHaveTextContent("signing-out");
+    expect(queryClient.getQueryData(["accounts", "org-1"])).toBeUndefined();
+
+    await act(async () => {
+      otherTab.postMessage({ type: "sign-out-error", at: Date.now() });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    otherTab.close();
+
+    expect(screen.getByTestId("status")).toHaveTextContent("sign-out-error");
+    expect(screen.getByTestId("logout-error")).toHaveTextContent(/may still be active/i);
   });
 });

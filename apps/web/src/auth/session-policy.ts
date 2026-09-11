@@ -1,111 +1,32 @@
-/** Session policy: idle timeout and cross-tab sign-out (task.md §1.2).
+/** Browser session policy: inactivity and cross-tab coordination.
  *
- * Both exist because of how this app holds a session, and neither is
- * cosmetic.
- *
- * The access token lives only in memory and the refresh token lives in
- * sessionStorage, which is per-tab and cleared when the tab closes. That is a
- * deliberately conservative choice, but it leaves two gaps that a shared or
- * unattended machine makes real: a tab left open renews itself indefinitely,
- * and signing out in one tab leaves every other tab of the same app still
- * signed in, each holding a live access token.
+ * The authoritative session is an HttpOnly cookie. Tabs coordinate only
+ * non-sensitive events: deliberate activity and the progress of a logout.
+ * No cookie, token, email, user ID, or organization data enters the channel.
  */
 
-/** How long without user interaction before the session is ended.
- *
- * Thirty minutes is the common default for an internal business application:
- * long enough not to interrupt someone reading a long record or on a call,
- * short enough to matter on an unlocked laptop. It bounds only this app's
- * local session — AuthinCore's own session lifetime is separate, and signing
- * out ends both. */
 export const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
-/** Interaction that counts as the user still being here.
- *
- * Deliberately not `mousemove`: a stray cursor nudge, a trackpad resting
- * under a palm, or a page animating under the pointer would all keep a
- * session alive forever, which turns the timeout into decoration. These are
- * events that require intent. `visibilitychange` is included so returning to
- * a backgrounded tab counts — the user is demonstrably back. */
-const ACTIVITY_EVENTS = ["keydown", "pointerdown", "wheel", "touchstart", "visibilitychange"] as const;
+/** One heartbeat per interval is ample to keep another tab's 30-minute idle
+ * timer alive without broadcasting every keystroke or scroll. */
+export const ACTIVITY_BROADCAST_THROTTLE_MS = 15 * 1000;
 
-/** Calls `onIdle` once, after IDLE_TIMEOUT_MS with no qualifying activity.
- * Returns a function that stops watching and cancels any pending timer. */
-export function watchForIdleness(onIdle: () => void, timeoutMs: number = IDLE_TIMEOUT_MS): () => void {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let stopped = false;
+const WINDOW_ACTIVITY_EVENTS = ["keydown", "pointerdown", "wheel", "touchstart"] as const;
+const AUTH_CHANNEL = "crm_auth_sign_out";
 
-  const fire = () => {
-    if (stopped) return;
-    stopped = true;
-    stop();
-    onIdle();
-  };
+export type SignOutPhase = "signing-out" | "signed-out" | "sign-out-error";
 
-  const reset = () => {
-    if (stopped) return;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(fire, timeoutMs);
-  };
+type AuthChannelMessage =
+  | { type: "activity"; at: number }
+  | { type: SignOutPhase; at: number };
 
-  const stop = () => {
-    if (timer) clearTimeout(timer);
-    timer = null;
-    for (const event of ACTIVITY_EVENTS) {
-      window.removeEventListener(event, reset);
-    }
-  };
-
-  for (const event of ACTIVITY_EVENTS) {
-    // Passive: these listeners only observe, and must never delay a scroll
-    // or a tap to do it.
-    window.addEventListener(event, reset, { passive: true });
-  }
-  reset();
-
-  return () => {
-    stopped = true;
-    stop();
-  };
-}
-
-/** Channel this app's tabs use to tell each other about a sign-out.
- *
- * BroadcastChannel rather than a localStorage key and its `storage` event.
- * Both work, but the storage trick means writing session-related state into
- * localStorage — the one storage this app has deliberately kept every token
- * out of — and then relying on other tabs to interpret a write as a message.
- * BroadcastChannel is the API for the thing actually being done: a message,
- * to same-origin tabs, that nothing persists.
- *
- * A channel only ever delivers to *other* BroadcastChannel instances, never
- * back to the sender, which is exactly the semantics wanted here. */
-const SIGN_OUT_CHANNEL = "crm_auth_sign_out";
-
-/** The message body. It is an event, not a payload: other tabs need to know
- * that a sign-out happened, and a message carrying anything session-derived
- * would put it on a channel any same-origin script can subscribe to. */
-interface SignOutMessage {
-  type: "signed-out";
-  at: number;
-}
-
-/** The tab's single channel instance, and the callbacks listening on it.
- *
- * One shared instance per tab, not one per call, and that is load-bearing: a
- * BroadcastChannel does not deliver a message back to the instance that
- * posted it, but it does deliver to every *other* instance — including
- * another one in the same document. Posting from a throwaway channel
- * therefore signs out the very tab that just called logout, racing its own
- * sign-out and clobbering the "signing-out" state the user is looking at.
- *
- * `undefined` means "not attempted yet"; `null` means "attempted and
- * unavailable", so an unsupported browser is not retried on every call.
- * Older Safari has no BroadcastChannel: losing cross-tab propagation there
- * degrades the experience, and must not break the sign-out the user asked
- * for. */
 let channel: BroadcastChannel | null | undefined;
-const listeners = new Set<() => void>();
+const signOutListeners = new Set<(phase: SignOutPhase) => void>();
+const activityListeners = new Set<() => void>();
+
+function isSignOutPhase(value: unknown): value is SignOutPhase {
+  return value === "signing-out" || value === "signed-out" || value === "sign-out-error";
+}
 
 function sharedChannel(): BroadcastChannel | null {
   if (channel !== undefined) return channel;
@@ -114,15 +35,17 @@ function sharedChannel(): BroadcastChannel | null {
     return channel;
   }
   try {
-    const opened = new BroadcastChannel(SIGN_OUT_CHANNEL);
+    const opened = new BroadcastChannel(AUTH_CHANNEL);
     opened.addEventListener("message", (event: MessageEvent) => {
-      // Anything on this origin can post to a named channel, so the shape is
-      // checked rather than assumed. The message carries no authority — it
-      // ends this tab's local session only — but an unrecognised message
-      // should be ignored rather than acted on.
-      const data = event.data as Partial<SignOutMessage> | null;
-      if (!data || data.type !== "signed-out") return;
-      for (const listener of listeners) listener();
+      const data = event.data as Partial<AuthChannelMessage> | null;
+      if (!data || typeof data.at !== "number" || !Number.isFinite(data.at)) return;
+      if (data.type === "activity") {
+        for (const listener of activityListeners) listener();
+        return;
+      }
+      if (isSignOutPhase(data.type)) {
+        for (const listener of signOutListeners) listener(data.type);
+      }
     });
     channel = opened;
   } catch {
@@ -131,23 +54,76 @@ function sharedChannel(): BroadcastChannel | null {
   return channel;
 }
 
-/** Tells this app's other tabs that the user signed out. */
-export function broadcastSignOut(): void {
-  const message: SignOutMessage = { type: "signed-out", at: Date.now() };
+function post(message: AuthChannelMessage): void {
   sharedChannel()?.postMessage(message);
 }
 
-/** Runs `onSignOut` when another tab of this app signs out. Returns an
- * unsubscribe function.
- *
- * The channel itself is never closed. It is one object for the lifetime of
- * the document, and closing it when a single subscriber unsubscribes would
- * silently deafen every other one — including, in React's development
- * double-invocation of effects, the subscriber that immediately replaces it. */
-export function watchForSignOutElsewhere(onSignOut: () => void): () => void {
+/** Tells other tabs to hide protected data while logout is pending, then to
+ * show either confirmed success or the retryable failure state. */
+export function broadcastSignOut(phase: SignOutPhase = "signed-out"): void {
+  post({ type: phase, at: Date.now() });
+}
+
+export function watchForSignOutElsewhere(
+  onSignOut: (phase: SignOutPhase) => void,
+): () => void {
   if (!sharedChannel()) return () => {};
-  listeners.add(onSignOut);
+  signOutListeners.add(onSignOut);
+  return () => signOutListeners.delete(onSignOut);
+}
+
+/** Calls `onIdle` once after `timeoutMs` without deliberate activity in any
+ * same-origin CRM tab. Local activity resets immediately and emits at most
+ * one heartbeat per throttle interval; remote heartbeats reset without being
+ * rebroadcast, so they cannot create a message loop. */
+export function watchForIdleness(onIdle: () => void, timeoutMs: number = IDLE_TIMEOUT_MS): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+  let lastHeartbeatAt = Number.NEGATIVE_INFINITY;
+
+  const reset = () => {
+    if (stopped) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(fire, timeoutMs);
+  };
+
+  const noteLocalActivity = (event: Event) => {
+    // Hiding a tab is not activity. Returning to it is.
+    if (event.type === "visibilitychange" && document.visibilityState !== "visible") return;
+    reset();
+    const now = Date.now();
+    if (now >= lastHeartbeatAt && now - lastHeartbeatAt < ACTIVITY_BROADCAST_THROTTLE_MS) return;
+    lastHeartbeatAt = now;
+    post({ type: "activity", at: now });
+  };
+
+  const stop = () => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    activityListeners.delete(reset);
+    for (const event of WINDOW_ACTIVITY_EVENTS) window.removeEventListener(event, noteLocalActivity);
+    document.removeEventListener("visibilitychange", noteLocalActivity);
+  };
+
+  function fire() {
+    if (stopped) return;
+    stopped = true;
+    stop();
+    onIdle();
+  }
+
+  activityListeners.add(reset);
+  // Opens the shared channel before activity can occur. If unsupported, the
+  // local idle policy continues to work; only cross-tab coordination degrades.
+  sharedChannel();
+  for (const event of WINDOW_ACTIVITY_EVENTS) {
+    window.addEventListener(event, noteLocalActivity, { passive: true });
+  }
+  document.addEventListener("visibilitychange", noteLocalActivity, { passive: true });
+  reset();
+
   return () => {
-    listeners.delete(onSignOut);
+    stopped = true;
+    stop();
   };
 }

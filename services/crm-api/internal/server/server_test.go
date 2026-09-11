@@ -203,6 +203,10 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // and precisely the operation that must not be reachable without the
 // authority to issue endpoints in the first place.
 //
+// "Select" and "Import" joined for the Meta connector: selecting a form
+// persists the binding and subscribes the Page webhook, while importing
+// creates Leads. Neither is a read despite its product-facing verb.
+//
 // "Record" joined it for RecordMessagingConsent, which appends a row to the
 // consent ledger. The verb is deliberate there rather than "Create": the
 // ledger has no update and no delete, so "record" says what the operation is.
@@ -210,7 +214,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // asserting that a third party consented to be contacted is a claim the
 // organization may later have to defend.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate", "Discard", "Send"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate", "Discard", "Send", "Select", "Import"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

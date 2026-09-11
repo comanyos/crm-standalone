@@ -10,6 +10,7 @@ import (
 	"connectrpc.com/connect"
 	crmv1 "github.com/santoshguru/crm/gen/crm/v1"
 	"github.com/santoshguru/crm/internal/domain"
+	metaintegration "github.com/santoshguru/crm/internal/integration/meta"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -92,7 +93,9 @@ type apiFixture struct {
 	// probes share one service: another probe legitimately records
 	// organization B's own decision for the same address, and a count would
 	// then fail on its own side effect rather than on a leak.
-	consentID string
+	consentID        string
+	metaConnectionID string
+	metaLeadID       string
 }
 
 func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiFixture {
@@ -115,6 +118,22 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 			ConnectedAt:        time.Now().UTC(),
 		}); err != nil {
 		t.Fatalf("[%s] seed google connection: %v", label, err)
+	}
+
+	f.metaConnectionID = "meta-" + label
+	if _, err := s.store.SaveMetaConnection(f.ctx, domain.Scope{TenantID: tenantID, OrgID: orgID},
+		&domain.MetaConnection{
+			ID: f.metaConnectionID, MetaUserID: "user-" + label,
+			MetaUserName: label + " Meta Admin", Status: domain.MetaStatusConnected,
+			GrantedPermissions:  metaintegration.Permissions(),
+			UserTokenCiphertext: sealMetaTestToken(t, tenantID, f.metaConnectionID, "user", "meta-user-"+label),
+			PageTokenCiphertext: sealMetaTestToken(t, tenantID, f.metaConnectionID, "page", "meta-page-"+label),
+			BusinessID:          "business-" + label, BusinessName: label + " Business",
+			PageID: "page-" + label, PageName: label + " Meta Page",
+			FormID: "form-" + label, FormName: label + " Lead Form",
+			ConnectedBy: f.googleOwner, ConnectedAt: time.Now().UTC(),
+		}); err != nil {
+		t.Fatalf("[%s] seed Meta connection: %v", label, err)
 	}
 
 	account, err := s.CreateAccount(f.ctx, connect.NewRequest(&crmv1.CreateAccountRequest{
@@ -180,6 +199,17 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] create lead: %v", label, err)
 	}
 	f.leadID = lead.Msg.GetLead().GetId()
+	metaLead, _, err := s.store.CreateMetaCapturedLead(f.ctx,
+		domain.Scope{TenantID: tenantID, OrgID: orgID},
+		&domain.Lead{FirstName: label, LastName: "Meta Buyer", Phone: "+15550100001", Source: "Facebook Lead Ads"},
+		&domain.MetaLeadAttribution{ConnectionID: f.metaConnectionID,
+			ProviderLeadID: "provider-" + label, Platform: "Facebook",
+			PageID: "page-" + label, FormID: "form-" + label,
+			CampaignID: "campaign-" + label, CampaignName: label + " confidential campaign"})
+	if err != nil {
+		t.Fatalf("[%s] seed Meta-attributed lead: %v", label, err)
+	}
+	f.metaLeadID = metaLead.ID
 
 	// A drafted message, seeded through the store: drafting is something the
 	// workflow engine does, and there is no RPC that writes one.
@@ -435,6 +465,84 @@ func wantNotFound(t *testing.T, rpc string, err error) {
 // crossTenantProbes is keyed by CRMService method name so the coverage test
 // below can compare it against the real method set.
 var crossTenantProbes = map[string]isolationProbe{
+	"GetMetaConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.GetMetaConnection(ctxB, connect.NewRequest(&crmv1.GetMetaConnectionRequest{}))
+		if err != nil {
+			t.Fatalf("GetMetaConnection: %v", err)
+		}
+		if res.Msg.GetConnection().GetId() == a.metaConnectionID {
+			t.Error("GetMetaConnection returned organization A's Meta connection")
+		}
+	},
+	"StartMetaConnection": func(t *testing.T, s *CRMService, ctxB context.Context, _ apiFixture) {
+		res, err := s.StartMetaConnection(ctxB, connect.NewRequest(&crmv1.StartMetaConnectionRequest{ReturnPath: "/settings/integrations"}))
+		if err != nil {
+			t.Fatalf("StartMetaConnection: %v", err)
+		}
+		if !strings.Contains(res.Msg.GetAuthorizationUrl(), "state=") {
+			t.Error("StartMetaConnection returned no one-time state")
+		}
+	},
+	"ListMetaBusinesses": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListMetaBusinesses(ctxB, connect.NewRequest(&crmv1.ListMetaBusinessesRequest{}))
+		if err != nil {
+			return
+		}
+		for _, business := range res.Msg.GetBusinesses() {
+			if business.GetId() == "business-"+strings.TrimPrefix(a.metaConnectionID, "meta-") {
+				t.Error("ListMetaBusinesses returned A's Business")
+			}
+		}
+	},
+	"ListMetaPages": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListMetaPages(ctxB, connect.NewRequest(&crmv1.ListMetaPagesRequest{BusinessId: "business-attacker"}))
+		if err != nil {
+			return
+		} // B may have been disconnected by an earlier probe.
+		for _, page := range res.Msg.GetPages() {
+			if page.GetId() == "page-"+strings.TrimPrefix(a.metaConnectionID, "meta-") {
+				t.Error("ListMetaPages returned A's Page")
+			}
+		}
+	},
+	"ListMetaForms": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.ListMetaForms(ctxB, connect.NewRequest(&crmv1.ListMetaFormsRequest{
+			BusinessId: "business-" + strings.TrimPrefix(a.metaConnectionID, "meta-"),
+			PageId:     "page-" + strings.TrimPrefix(a.metaConnectionID, "meta-"),
+		}))
+		if err == nil {
+			t.Error("ListMetaForms let B enumerate A's Page")
+		}
+	},
+	"SelectMetaLeadForm": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.SelectMetaLeadForm(ctxB, connect.NewRequest(&crmv1.SelectMetaLeadFormRequest{
+			BusinessId: "business-" + strings.TrimPrefix(a.metaConnectionID, "meta-"),
+			PageId:     "page-" + strings.TrimPrefix(a.metaConnectionID, "meta-"),
+			FormId:     "form-" + strings.TrimPrefix(a.metaConnectionID, "meta-"),
+		}))
+		if err == nil {
+			t.Error("SelectMetaLeadForm let B bind A's Page/Form")
+		}
+	},
+	"ImportMetaLeads": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, _ = s.ImportMetaLeads(ctxB, connect.NewRequest(&crmv1.ImportMetaLeadsRequest{Limit: 10}))
+		scopeA, _ := scopeFrom(a.ctx)
+		if _, err := s.store.GetLead(a.ctx, scopeA, a.metaLeadID); err != nil {
+			t.Errorf("B's import disturbed A's Meta lead: %v", err)
+		}
+	},
+	"DisconnectMetaConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, _ = s.DisconnectMetaConnection(ctxB, connect.NewRequest(&crmv1.DisconnectMetaConnectionRequest{}))
+		scopeA, _ := scopeFrom(a.ctx)
+		connection, err := s.store.GetMetaConnection(a.ctx, scopeA)
+		if err != nil || connection.ID != a.metaConnectionID || connection.Status != domain.MetaStatusConnected {
+			t.Error("B's disconnect altered A's Meta connection")
+		}
+	},
+	"GetLeadMetaAttribution": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetLeadMetaAttribution(ctxB, connect.NewRequest(&crmv1.GetLeadMetaAttributionRequest{LeadId: a.metaLeadID}))
+		wantNotFound(t, "GetLeadMetaAttribution", err)
+	},
 	// The Google connection RPCs. Every fixture seeds a connection, so each
 	// of these runs against a tenant that really does have one to leak.
 	//
@@ -1632,6 +1740,14 @@ var crossTenantProbes = map[string]isolationProbe{
 			ContactId: a.contactID,
 		}))
 		wantNotFound(t, "ListContactChannels", err)
+	},
+	"ListLeadChannels": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		// Leads can contain the same private addresses as Contacts and must
+		// preserve the identical not-found tenant boundary.
+		_, err := s.ListLeadChannels(ctxB, connect.NewRequest(&crmv1.ListLeadChannelsRequest{
+			LeadId: a.leadID,
+		}))
+		wantNotFound(t, "ListLeadChannels", err)
 	},
 	"ListMessagingConsent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		// Consent is keyed on an address rather than on a record id, so

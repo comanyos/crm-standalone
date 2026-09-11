@@ -1,9 +1,10 @@
 // Package domain holds this module's entities and the tenant-scoped store that
 // persists them.
 //
-// Every operation takes a Scope. The tenant in that Scope comes from the caller's
-// verified JWT, and every lookup is keyed by it first — there is no code path that
-// reaches a record without naming its tenant. See ../../.claude/rules/.
+// Every operation takes a Scope. The tenant in that Scope comes from the
+// caller's live authenticated membership, and every lookup is keyed by it
+// first — there is no code path that reaches a record without naming its
+// tenant. See ../../.claude/rules/.
 package domain
 
 import (
@@ -200,14 +201,25 @@ func (e *Contact) SetTimestamps(created, updated time.Time) {
 
 // Validate rejects records that cannot be stored.
 func (e *Contact) Validate() error {
-	if strings.TrimSpace(e.Email) == "" {
-		return fmt.Errorf("%w: Contact.email is required", ErrInvalid)
+	email := strings.TrimSpace(e.Email)
+	phone := strings.TrimSpace(e.Phone)
+	if email == "" && phone == "" {
+		return fmt.Errorf("%w: Contact.email or Contact.phone is required", ErrInvalid)
 	}
 	if len(e.Email) > maxEmailLen {
 		return fmt.Errorf("%w: Contact.email exceeds %d characters", ErrInvalid, maxEmailLen)
 	}
-	if !looksLikeEmail(e.Email) {
+	if email != "" && !looksLikeEmail(email) {
 		return fmt.Errorf("%w: Contact.email is not a valid email address", ErrInvalid)
+	}
+	// A phone-only contact has no second identity key to fall back to, so its
+	// number must be globally unambiguous. Existing email-addressed contacts
+	// may retain a local-format phone and the messaging UI will explain why it
+	// cannot be used until corrected.
+	if email == "" {
+		if _, err := NormalizeE164Phone(phone); err != nil {
+			return fmt.Errorf("%w: Contact.phone %v", ErrInvalid, err)
+		}
 	}
 	if len(e.FirstName) > maxNameLen {
 		return fmt.Errorf("%w: Contact.first_name exceeds %d characters", ErrInvalid, maxNameLen)
@@ -252,6 +264,9 @@ func cloneContact(v *Contact) *Contact {
 // Lead is a lead record.
 type Lead struct {
 	ID           string    `json:"id"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	Phone        string    `json:"phone"`
 	Company      string    `json:"company"`
 	Source       string    `json:"source"`
 	ContactEmail string    `json:"contact_email"`
@@ -294,8 +309,36 @@ func (e *Lead) SetTimestamps(created, updated time.Time) {
 
 // Validate rejects records that cannot be stored.
 func (e *Lead) Validate() error {
-	if strings.TrimSpace(e.Company) == "" {
-		return fmt.Errorf("%w: Lead.company is required", ErrInvalid)
+	if e == nil {
+		return fmt.Errorf("%w: no Lead", ErrInvalid)
+	}
+	if strings.TrimSpace(e.FirstName) == "" && strings.TrimSpace(e.LastName) == "" &&
+		strings.TrimSpace(e.Company) == "" && strings.TrimSpace(e.ContactEmail) == "" &&
+		strings.TrimSpace(e.Phone) == "" {
+		return fmt.Errorf("%w: Lead needs a name, company, email, or phone", ErrInvalid)
+	}
+	if len(e.FirstName) > maxNameLen {
+		return fmt.Errorf("%w: Lead.first_name exceeds %d characters", ErrInvalid, maxNameLen)
+	}
+	if len(e.LastName) > maxNameLen {
+		return fmt.Errorf("%w: Lead.last_name exceeds %d characters", ErrInvalid, maxNameLen)
+	}
+	if len(e.Company) > maxNameLen {
+		return fmt.Errorf("%w: Lead.company exceeds %d characters", ErrInvalid, maxNameLen)
+	}
+	if len(e.ContactEmail) > maxEmailLen {
+		return fmt.Errorf("%w: Lead.contact_email exceeds %d characters", ErrInvalid, maxEmailLen)
+	}
+	if strings.TrimSpace(e.ContactEmail) != "" && !looksLikeEmail(e.ContactEmail) {
+		return fmt.Errorf("%w: Lead.contact_email is not a valid email address", ErrInvalid)
+	}
+	if len(e.Phone) > maxPhoneLen {
+		return fmt.Errorf("%w: Lead.phone exceeds %d characters", ErrInvalid, maxPhoneLen)
+	}
+	if strings.TrimSpace(e.Phone) != "" {
+		if _, err := NormalizeE164Phone(e.Phone); err != nil {
+			return fmt.Errorf("%w: Lead.phone %v", ErrInvalid, err)
+		}
 	}
 	return nil
 }

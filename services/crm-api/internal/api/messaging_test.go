@@ -106,6 +106,57 @@ func TestListContactChannelsCarriesTheGatesVerdict(t *testing.T) {
 	}
 }
 
+func TestListLeadChannelsCarriesTheSamePerChannelConsentVerdict(t *testing.T) {
+	s := newTestService()
+	ctx := ctxAs("tenant-lead-msg", "org-lead-msg")
+
+	created, err := s.CreateLead(ctx, connect.NewRequest(&crmv1.CreateLeadRequest{
+		Lead: &crmv1.Lead{
+			FirstName: "Maya", LastName: "Prospect",
+			ContactEmail: "maya@example.com", Phone: "+919876543210",
+		},
+	}))
+	if err != nil {
+		t.Fatalf("create person-first lead: %v", err)
+	}
+
+	if _, err := s.RecordMessagingConsent(ctx, connect.NewRequest(&crmv1.RecordMessagingConsentRequest{
+		ChannelKind: "whatsapp", Address: "+91 98765 43210", State: "withdrawn",
+		Source: "capture", Evidence: "provider form opt-out",
+	})); err != nil {
+		t.Fatalf("record WhatsApp withdrawal: %v", err)
+	}
+
+	res, err := s.ListLeadChannels(ctx, connect.NewRequest(&crmv1.ListLeadChannelsRequest{
+		LeadId: created.Msg.GetLead().GetId(),
+	}))
+	if err != nil {
+		t.Fatalf("list lead channels: %v", err)
+	}
+	byKind := make(map[string]*crmv1.MessagingChannel, len(res.Msg.GetChannels()))
+	for _, channel := range res.Msg.GetChannels() {
+		byKind[channel.GetKind()] = channel
+	}
+
+	whatsApp := byKind["whatsapp"]
+	if whatsApp == nil {
+		t.Fatal("WhatsApp channel is absent from a phone-first Lead")
+	}
+	if !whatsApp.GetReachable() || whatsApp.GetMayMessage() {
+		t.Errorf("WhatsApp = %+v, want reachable but refused", whatsApp)
+	}
+	if whatsApp.GetConsentState() != "withdrawn" || whatsApp.GetRefusalReason() != "consent_withdrawn" {
+		t.Errorf("WhatsApp consent = %q / %q, want withdrawn / consent_withdrawn",
+			whatsApp.GetConsentState(), whatsApp.GetRefusalReason())
+	}
+	if sms := byKind["sms"]; sms == nil || !sms.GetMayMessage() {
+		t.Error("withdrawing WhatsApp also refused SMS; Lead consent must be per channel")
+	}
+	if email := byKind["email"]; email == nil || !email.GetMayMessage() {
+		t.Error("withdrawing WhatsApp also refused email; Lead consent must be per channel")
+	}
+}
+
 // TestListContactChannelsRefusesALocalNumber pins the country-code rule at the
 // RPC boundary: the channel comes back with a reason the UI can show, rather
 // than being silently absent or silently sendable.

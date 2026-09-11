@@ -88,7 +88,7 @@ func validTraceParent(v string) bool {
 		if i == 2 || i == 35 || i == 52 {
 			continue
 		}
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}

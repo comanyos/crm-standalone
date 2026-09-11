@@ -29,6 +29,7 @@ const routes = [
     children: [
       { index: true, element: <p>Dashboard body</p> },
       { path: "accounts", element: <p>Accounts body</p> },
+      { path: "admin", element: <p>Super admin body</p> },
     ],
   },
 ];
@@ -36,7 +37,7 @@ const routes = [
 beforeEach(() => {
   vi.clearAllMocks();
   auth.hasScope.mockReturnValue(true);
-  auth.hasRole.mockReturnValue(true);
+  auth.hasRole.mockReturnValue(false);
   crm.listNotifications.mockResolvedValue({ notifications: [], unreadCount: 0 });
 });
 
@@ -132,5 +133,19 @@ describe("AppShell navigation drawer", () => {
 
     expect(screen.getAllByRole("navigation", { name: "Primary" })).toHaveLength(1);
     expect(within(nav()).getAllByRole("link", { name: "Accounts" })).toHaveLength(1);
+  });
+
+  it("keeps the super administrator in a platform-only shell", async () => {
+    auth.hasRole.mockImplementation((role: string) => role === "platform_admin");
+    renderRoutes(routes, ["/accounts"]);
+
+    await screen.findByText("Super admin body");
+    expect(screen.getByText("Platform control center")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Search or jump to" })).not.toBeInTheDocument();
+    expect(crm.listNotifications).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(within(nav()).getByRole("link", { name: "Super Admin" })).toBeInTheDocument();
+    expect(within(nav()).queryByRole("link", { name: "Accounts" })).not.toBeInTheDocument();
   });
 });

@@ -1,17 +1,27 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+)
 
 func validConfig() Config {
 	return Config{
-		Mode:           ModeStandalone,
-		Edition:        "OSS",
-		Environment:    EnvDevelopment,
-		AuthIssuer:     "https://auth.example.com",
-		AuthJWKSURL:    "https://auth.example.com/.well-known/jwks.json",
-		DatabaseURL:    "postgres://crm_app:a-sufficiently-long-generated-password@db.internal:5432/crm?sslmode=verify-full",
-		OutboxDrainURL: "postgres://crm_drain:another-long-generated-password@db.internal:5432/crm?sslmode=verify-full",
-		MetricsToken:   "a-sufficiently-long-metrics-token",
+		Mode:             ModeStandalone,
+		Edition:          "OSS",
+		Environment:      EnvDevelopment,
+		DatabaseURL:      "postgres://crm_app:a-sufficiently-long-generated-password@db.internal:5432/crm?sslmode=verify-full",
+		OutboxDrainURL:   "postgres://crm_drain:another-long-generated-password@db.internal:5432/crm?sslmode=verify-full",
+		MetricsToken:     "a-sufficiently-long-metrics-token",
+		OTPPepper:        strings.Repeat("p", 32),
+		AuthCookieSecure: true,
+		SMTPHost:         "smtp.example.com",
+		SMTPPort:         465,
+		SMTPUsername:     "mailer",
+		SMTPPassword:     "provider-secret",
+		SMTPFrom:         "Savvy CRM <support@savvyadvi.com>",
+		SMTPTLS:          true,
 	}
 }
 
@@ -30,21 +40,57 @@ func TestValidate_UnknownEnvironmentRejected(t *testing.T) {
 	}
 }
 
-func TestValidate_ProductionRequiresHTTPSIssuer(t *testing.T) {
+func TestValidate_ProductionRequiresOTPPepper(t *testing.T) {
 	c := validConfig()
 	c.Environment = EnvProduction
-	c.AuthIssuer = "http://auth.example.com"
+	c.OTPPepper = "short"
 	if err := c.Validate(); err == nil {
-		t.Fatal("expected error for non-https AUTH_ISSUER in production")
+		t.Fatal("expected error for weak OTP_PEPPER in production")
 	}
 }
 
-func TestValidate_ProductionRequiresJWKSURL(t *testing.T) {
+func TestValidate_DevOTPIsTestOnly(t *testing.T) {
+	for _, environment := range []Environment{EnvDevelopment, EnvStaging, EnvProduction} {
+		c := validConfig()
+		c.Environment = environment
+		c.AuthDevOTP = "123456"
+		if err := c.Validate(); err == nil {
+			t.Errorf("expected AUTH_DEV_OTP to be rejected in %s", environment)
+		}
+	}
 	c := validConfig()
-	c.Environment = EnvProduction
-	c.AuthJWKSURL = ""
-	if err := c.Validate(); err == nil {
-		t.Fatal("expected error for missing AUTH_JWKS_URL in production")
+	c.Environment = EnvTest
+	c.AuthDevOTP = "123456"
+	if err := c.Validate(); err != nil {
+		t.Fatalf("test environment rejected AUTH_DEV_OTP: %v", err)
+	}
+}
+
+func TestValidate_BoundsAuthenticationTTLs(t *testing.T) {
+	for name, mutate := range map[string]func(*Config){
+		"short OTP":     func(c *Config) { c.AuthOTPTTL = 30 * time.Second },
+		"long OTP":      func(c *Config) { c.AuthOTPTTL = 31 * time.Minute },
+		"short session": func(c *Config) { c.AuthSessionTTL = 4 * time.Minute },
+		"long session":  func(c *Config) { c.AuthSessionTTL = 91 * 24 * time.Hour },
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := validConfig()
+			mutate(&c)
+			if err := c.Validate(); err == nil {
+				t.Fatal("out-of-bounds authentication TTL was accepted")
+			}
+		})
+	}
+}
+
+func TestValidate_ProdLikeEnvironmentsRequireSecureCookie(t *testing.T) {
+	for _, environment := range []Environment{EnvStaging, EnvProduction} {
+		c := validConfig()
+		c.Environment = environment
+		c.AuthCookieSecure = false
+		if err := c.Validate(); err == nil {
+			t.Errorf("expected error for insecure session cookie in %s", environment)
+		}
 	}
 }
 
@@ -93,9 +139,9 @@ func TestValidate_ProductionRequiresOutboxDrainURL(t *testing.T) {
 func TestValidate_StagingAppliesSameRulesAsProduction(t *testing.T) {
 	c := validConfig()
 	c.Environment = EnvStaging
-	c.AuthIssuer = "http://auth.example.com"
+	c.SMTPRequireSTARTTLS = true
 	if err := c.Validate(); err == nil {
-		t.Fatal("expected staging to enforce the same https requirement as production")
+		t.Fatal("expected staging to reject two SMTP TLS modes")
 	}
 }
 
@@ -125,6 +171,43 @@ func TestValidate_ProductionAcceptsHTTPSCORSOrigin(t *testing.T) {
 	}
 }
 
+func TestValidate_ProductionRequiresHTTPSAuthCORSOrigin(t *testing.T) {
+	c := validConfig()
+	c.Environment = EnvProduction
+	c.AuthCORSOrigins = []string{"http://www.example.com"}
+	if err := c.Validate(); err == nil {
+		t.Fatal("expected error for non-https auth CORS origin in production")
+	}
+	c.AuthCORSOrigins = []string{"https://www.example.com"}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("expected https auth CORS origin to validate, got: %v", err)
+	}
+}
+
+func TestValidate_ProductionRequiresHTTPSAuthDestinations(t *testing.T) {
+	for name, mutate := range map[string]func(*Config){
+		"login success": func(c *Config) { c.AuthLoginSuccessURL = "http://crmapp.example.com" },
+		"join result":   func(c *Config) { c.AuthJoinResultURL = "http://crm.example.com/?auth=signup" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := validConfig()
+			c.Environment = EnvProduction
+			mutate(&c)
+			if err := c.Validate(); err == nil {
+				t.Fatal("expected insecure authentication destination to be rejected")
+			}
+		})
+	}
+
+	c := validConfig()
+	c.Environment = EnvProduction
+	c.AuthLoginSuccessURL = "https://crmapp.example.com"
+	c.AuthJoinResultURL = "https://crm.example.com/?auth=signup#top"
+	if err := c.Validate(); err != nil {
+		t.Fatalf("expected HTTPS authentication destinations to validate, got: %v", err)
+	}
+}
+
 func TestValidate_ProductionRequiresMetricsToken(t *testing.T) {
 	c := validConfig()
 	c.Environment = EnvProduction
@@ -151,6 +234,43 @@ func TestValidate_ProductionRequiresHTTPSGoogleRedirect(t *testing.T) {
 	c.GoogleOAuthTokenKey = "base64-encoded-32-byte-token-encryption-key"
 	if err := c.Validate(); err == nil {
 		t.Fatal("expected an insecure Google OAuth redirect URL to be rejected in production")
+	}
+}
+
+func TestValidate_MetaRequiresOneCompleteConfigurationGroup(t *testing.T) {
+	c := validConfig()
+	c.MetaAppID = "app-id"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "Meta Lead Ads is partially configured") {
+		t.Fatalf("partial Meta configuration error = %v", err)
+	}
+
+	c.MetaAppSecret = "app-secret"
+	c.MetaOAuthRedirectURL = "http://localhost:19431/integrations/meta/callback"
+	c.MetaWebhookVerifyToken = "long-random-verify-token"
+	c.MetaTokenKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	if err := c.Validate(); err != nil {
+		t.Fatalf("complete development Meta configuration: %v", err)
+	}
+}
+
+func TestValidate_MetaRequiresStrongVerifyTokenAndHTTPSInProduction(t *testing.T) {
+	c := validConfig()
+	c.Environment = EnvProduction
+	c.MetaAppID = "app-id"
+	c.MetaAppSecret = "app-secret"
+	c.MetaOAuthRedirectURL = "http://crm.example/integrations/meta/callback"
+	c.MetaWebhookVerifyToken = "short"
+	c.MetaTokenKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "META_WEBHOOK_VERIFY_TOKEN") {
+		t.Fatalf("weak webhook token error = %v", err)
+	}
+	c.MetaWebhookVerifyToken = "long-random-verify-token"
+	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "META_OAUTH_REDIRECT_URL") {
+		t.Fatalf("insecure Meta redirect error = %v", err)
+	}
+	c.MetaOAuthRedirectURL = "https://crm.example/integrations/meta/callback"
+	if err := c.Validate(); err != nil {
+		t.Fatalf("safe production Meta configuration: %v", err)
 	}
 }
 

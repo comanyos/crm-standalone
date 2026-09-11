@@ -657,13 +657,14 @@ func (s *PgStore) DeleteContact(ctx context.Context, scope Scope, id string) err
 // in this file, including the tx-scoped ones in
 // pgstore_lead_conversion.go — one list so the two paths cannot drift on
 // which columns come back.
-const leadColumns = `id, company, source, contact_email, status, score, owner_id,
+const leadColumns = `id, company, source, contact_email, first_name, last_name, phone, status, score, owner_id,
 	duplicate_of_contact_id, converted_contact_id, converted_account_id, converted_opportunity_id,
 	created_at, updated_at, custom_fields`
 
 func scanLead(row pgx.Row, v *Lead) error {
 	var customFields []byte
-	if err := row.Scan(&v.ID, &v.Company, &v.Source, &v.ContactEmail, &v.Status, &v.Score, &v.OwnerID,
+	if err := row.Scan(&v.ID, &v.Company, &v.Source, &v.ContactEmail, &v.FirstName, &v.LastName, &v.Phone,
+		&v.Status, &v.Score, &v.OwnerID,
 		&v.DuplicateOfContactID, &v.ConvertedContactID, &v.ConvertedAccountID, &v.ConvertedOpportunityID,
 		&v.CreatedAt, &v.UpdatedAt, &customFields); err != nil {
 		return err
@@ -682,6 +683,9 @@ func scanLead(row pgx.Row, v *Lead) error {
 func (s *PgStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, error) {
 	if !scope.Valid() {
 		return nil, ErrNoTenant
+	}
+	if err := normalizeLeadIdentity(v); err != nil {
+		return nil, err
 	}
 	if err := v.Validate(); err != nil {
 		return nil, err
@@ -713,11 +717,12 @@ func (s *PgStore) CreateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	v.CreatedAt, v.UpdatedAt = now, now
 
 	_, err = s.db.Exec(ctx, scope,
-		`INSERT INTO leads (tenant_id, id, company, source, contact_email, status, score, owner_id,
+		`INSERT INTO leads (tenant_id, id, company, source, contact_email, first_name, last_name, phone, status, score, owner_id,
 			duplicate_of_contact_id, converted_contact_id, converted_account_id, converted_opportunity_id,
 			created_at, updated_at, custom_fields)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
-		scope.TenantID, v.ID, v.Company, v.Source, v.ContactEmail, v.Status, v.Score, v.OwnerID,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+		scope.TenantID, v.ID, v.Company, v.Source, v.ContactEmail, v.FirstName, v.LastName, v.Phone,
+		v.Status, v.Score, v.OwnerID,
 		v.DuplicateOfContactID, v.ConvertedContactID, v.ConvertedAccountID, v.ConvertedOpportunityID,
 		v.CreatedAt, v.UpdatedAt, document)
 	if err != nil {
@@ -799,6 +804,9 @@ func (s *PgStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	if !scope.Valid() {
 		return nil, ErrNoTenant
 	}
+	if err := normalizeLeadIdentity(v); err != nil {
+		return nil, err
+	}
 	if v.ID == "" {
 		return nil, ErrNotFound
 	}
@@ -837,12 +845,14 @@ func (s *PgStore) UpdateLead(ctx context.Context, scope Scope, v *Lead) (*Lead, 
 	v.UpdatedAt = nowStamp()
 
 	tag, err := s.db.Exec(ctx, scope,
-		`UPDATE leads SET company = $3, source = $4, contact_email = $5, status = $6, score = $7, owner_id = $8,
-			duplicate_of_contact_id = $9, converted_contact_id = $10, converted_account_id = $11,
-			converted_opportunity_id = $12, updated_at = $13, custom_fields = $14
+		`UPDATE leads SET company = $3, source = $4, contact_email = $5, first_name = $6, last_name = $7,
+			phone = $8, status = $9, score = $10, owner_id = $11,
+			duplicate_of_contact_id = $12, converted_contact_id = $13, converted_account_id = $14,
+			converted_opportunity_id = $15, updated_at = $16, custom_fields = $17
 		 WHERE tenant_id = $1 AND id = $2`,
-		scope.TenantID, v.ID, v.Company, v.Source, v.ContactEmail, v.Status, v.Score, v.OwnerID,
-		v.DuplicateOfContactID, v.ConvertedContactID, v.ConvertedAccountID, v.ConvertedOpportunityID, v.UpdatedAt, document)
+		scope.TenantID, v.ID, v.Company, v.Source, v.ContactEmail, v.FirstName, v.LastName, v.Phone,
+		v.Status, v.Score, v.OwnerID, v.DuplicateOfContactID, v.ConvertedContactID,
+		v.ConvertedAccountID, v.ConvertedOpportunityID, v.UpdatedAt, document)
 	if err != nil {
 		return nil, fmt.Errorf("update lead: %w", err)
 	}
@@ -889,6 +899,34 @@ func (s *PgStore) FindContactByEmail(ctx context.Context, scope Scope, email str
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find contact by email: %w", err)
+	}
+	return v, nil
+}
+
+// FindContactByPhone returns an exact canonical E.164 match in this tenant.
+// Existing punctuation is normalised in the comparison so a pre-migration
+// "+1 (555) ..." contact and a newly captured canonical number remain one
+// identity.
+func (s *PgStore) FindContactByPhone(ctx context.Context, scope Scope, phone string) (*Contact, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	phone, err := NormalizeE164Phone(phone)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	v := &Contact{}
+	err = scanContact(s.db.QueryRow(ctx, scope,
+		`SELECT `+contactColumns+` FROM contacts
+		 WHERE tenant_id = $1
+		   AND regexp_replace(phone, '[^0-9+]', '', 'g') = $2
+		 ORDER BY id LIMIT 1`,
+		scope.TenantID, phone), v)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find contact by phone: %w", err)
 	}
 	return v, nil
 }

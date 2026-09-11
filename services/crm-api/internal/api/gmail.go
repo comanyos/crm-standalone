@@ -47,8 +47,8 @@ func (s *CRMService) SyncGoogleMailbox(
 
 	return connect.NewResponse(&crmv1.SyncGoogleMailboxResponse{
 		GmailSync:        gmailSyncToProto(state),
-		MessagesExamined: int32(result.MessagesExamined),
-		EntriesCreated:   int32(result.EntriesCreated),
+		MessagesExamined: boundedInt32(result.MessagesExamined),
+		EntriesCreated:   boundedInt32(result.EntriesCreated),
 	}), nil
 }
 

@@ -17,11 +17,11 @@ func importJobToProto(v *domain.ImportJob) *crmv1.ImportJob {
 	}
 	errs := make([]*crmv1.ImportRowError, 0, len(v.Errors))
 	for _, e := range v.Errors {
-		errs = append(errs, &crmv1.ImportRowError{RowNumber: int32(e.RowNumber), Message: e.Message})
+		errs = append(errs, &crmv1.ImportRowError{RowNumber: boundedInt32(e.RowNumber), Message: e.Message})
 	}
 	return &crmv1.ImportJob{
 		Id: v.ID, ObjectType: v.ObjectType, Status: v.Status, FileName: v.FileName, Mapping: v.Mapping,
-		RowCount: int32(v.RowCount), CreatedRows: int32(v.CreatedRows), SkippedRows: int32(v.SkippedRows),
+		RowCount: boundedInt32(v.RowCount), CreatedRows: boundedInt32(v.CreatedRows), SkippedRows: boundedInt32(v.SkippedRows),
 		Errors: errs, CreatedBy: v.CreatedBy,
 		CreatedAt: optionalTimestamp(v.CreatedAt), UpdatedAt: optionalTimestamp(v.UpdatedAt),
 	}
@@ -32,7 +32,7 @@ func exportJobToProto(v *domain.ExportJob) *crmv1.ExportJob {
 		return nil
 	}
 	return &crmv1.ExportJob{
-		Id: v.ID, ObjectType: v.ObjectType, RowCount: int32(v.RowCount), RequestedBy: v.RequestedBy,
+		Id: v.ID, ObjectType: v.ObjectType, RowCount: boundedInt32(v.RowCount), RequestedBy: v.RequestedBy,
 		CreatedAt: optionalTimestamp(v.CreatedAt),
 	}
 }

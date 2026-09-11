@@ -27,7 +27,7 @@ func (s *ModuleService) GetManifest(
 ) (*connect.Response[platformv1.GetManifestResponse], error) {
 	manifest := &platformv1.Manifest{
 		Id:      "crm",
-		Name:    "CRM",
+		Name:    "Savvy CRM",
 		Version: "0.1.0",
 		Band:    "experience",
 		Icon:    "users",
@@ -61,7 +61,7 @@ func (s *ModuleService) GetHealth(
 	return connect.NewResponse(&platformv1.GetHealthResponse{
 		Health: &platformv1.Health{
 			Status:    platformv1.Status_STATUS_GREEN,
-			Summary:   "CRM is healthy",
+			Summary:   "Savvy CRM is healthy",
 			CheckedAt: timestamppb.Now(),
 		},
 	}), nil

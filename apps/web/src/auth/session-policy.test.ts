@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { IDLE_TIMEOUT_MS, broadcastSignOut, watchForIdleness, watchForSignOutElsewhere } from "./session-policy";
+import {
+  ACTIVITY_BROADCAST_THROTTLE_MS,
+  IDLE_TIMEOUT_MS,
+  broadcastSignOut,
+  watchForIdleness,
+  watchForSignOutElsewhere,
+} from "./session-policy";
 
 describe("watchForIdleness", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -72,6 +78,7 @@ describe("watchForIdleness", () => {
     // would sign users out mid-task.
     expect(IDLE_TIMEOUT_MS).toBeGreaterThanOrEqual(10 * 60 * 1000);
     expect(IDLE_TIMEOUT_MS).toBeLessThanOrEqual(60 * 60 * 1000);
+    expect(ACTIVITY_BROADCAST_THROTTLE_MS).toBeLessThan(IDLE_TIMEOUT_MS);
   });
 });
 
@@ -124,7 +131,8 @@ describe("cross-tab sign-out", () => {
     other.postMessage({ type: "signed-out", at: Date.now() });
     await settled(other);
 
-    expect(onSignOut).toHaveBeenCalledTimes(1);
+    expect(onSignOut).toHaveBeenCalledOnce();
+    expect(onSignOut).toHaveBeenCalledWith("signed-out");
     other.close();
     stop();
   });
@@ -182,6 +190,25 @@ describe("cross-tab sign-out", () => {
     other.close();
   });
 
+  it("propagates pending, failed, and confirmed logout phases", async () => {
+    const onSignOut = vi.fn();
+    const stop = watchForSignOutElsewhere(onSignOut);
+    const other = otherTab();
+
+    other.postMessage({ type: "signing-out", at: Date.now() });
+    other.postMessage({ type: "sign-out-error", at: Date.now() });
+    other.postMessage({ type: "signed-out", at: Date.now() });
+    await settled(other);
+
+    expect(onSignOut.mock.calls.map(([phase]) => phase)).toEqual([
+      "signing-out",
+      "sign-out-error",
+      "signed-out",
+    ]);
+    other.close();
+    stop();
+  });
+
   it("stops notifying once unsubscribed", async () => {
     const onSignOut = vi.fn();
     watchForSignOutElsewhere(onSignOut)();
@@ -206,6 +233,45 @@ describe("cross-tab sign-out", () => {
 
     expect(seen).toHaveLength(1);
     expect(Object.keys(seen[0] as object).sort()).toEqual(["at", "type"]);
+    other.close();
+  });
+
+  it("a heartbeat from an active tab resets this tab's idle timer", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onIdle = vi.fn();
+    const stop = watchForIdleness(onIdle, 1_000);
+    const other = otherTab();
+    try {
+      vi.advanceTimersByTime(900);
+      other.postMessage({ type: "activity", at: Date.now() });
+      await settled(other);
+
+      vi.advanceTimersByTime(900);
+      expect(onIdle).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(100);
+      expect(onIdle).toHaveBeenCalledOnce();
+    } finally {
+      other.close();
+      stop();
+      vi.useRealTimers();
+    }
+  });
+
+  it("throttles a burst of local activity to one cross-tab heartbeat", async () => {
+    const seen: string[] = [];
+    const other = otherTab();
+    other.addEventListener("message", (event: MessageEvent) => {
+      const type = (event.data as { type?: string } | null)?.type;
+      if (type) seen.push(type);
+    });
+    const stop = watchForIdleness(vi.fn(), 10_000);
+
+    window.dispatchEvent(new Event("keydown"));
+    window.dispatchEvent(new Event("pointerdown"));
+    window.dispatchEvent(new Event("wheel"));
+    await vi.waitFor(() => expect(seen.filter((type) => type === "activity")).toHaveLength(1));
+
+    stop();
     other.close();
   });
 });

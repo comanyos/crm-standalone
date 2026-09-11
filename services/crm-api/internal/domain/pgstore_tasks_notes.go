@@ -148,26 +148,29 @@ func (s *PgStore) ListTasks(ctx context.Context, scope Scope, page Page, filter 
 	// Keyset pagination. The ORDER BY and the cursor predicate have to be the
 	// same shape, or a page boundary silently skips or repeats rows.
 	orderBy := "due_at ASC NULLS LAST, id ASC"
-	if sortBy == SortTaskCreatedDesc {
+	switch sortBy {
+	case SortTaskCreatedDesc:
 		orderBy = "created_at DESC, id DESC"
+	case SortTaskDue:
 	}
 	if page.Token != "" {
 		sortValue, afterID, ok := decodeCursor(page.Token)
 		if !ok {
 			return nil, "", fmt.Errorf("%w: invalid page_token", ErrInvalid)
 		}
-		if sortBy == SortTaskCreatedDesc {
+		switch {
+		case sortBy == SortTaskCreatedDesc:
 			after, err := time.Parse(time.RFC3339Nano, sortValue)
 			if err != nil {
 				return nil, "", fmt.Errorf("%w: invalid page_token", ErrInvalid)
 			}
 			args = append(args, after, afterID)
 			where = append(where, fmt.Sprintf("(created_at, id) < ($%d, $%d)", len(args)-1, len(args)))
-		} else if sortValue == "1" {
+		case sortValue == "1":
 			// Past every dated task: only undated ones remain, ordered by id.
 			args = append(args, afterID)
 			where = append(where, fmt.Sprintf("(due_at IS NULL AND id > $%d)", len(args)))
-		} else {
+		default:
 			after, err := time.Parse(time.RFC3339Nano, strings.TrimPrefix(sortValue, "0"))
 			if err != nil {
 				return nil, "", fmt.Errorf("%w: invalid page_token", ErrInvalid)

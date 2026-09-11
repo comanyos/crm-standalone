@@ -57,6 +57,7 @@ func (s *Server) googleCallbackHandler() http.Handler {
 			renderGoogleResult(w, result)
 			return
 		}
+		// #nosec G710 -- the origin is validated deployment config and the path was validated before being stored server-side.
 		http.Redirect(w, r, target, http.StatusSeeOther)
 	})
 }

@@ -17,6 +17,8 @@ import { TasksPanel } from "../../components/TasksPanel";
 import { NotesPanel } from "../../components/NotesPanel";
 import { TagsPanel } from "../../components/TagsPanel";
 import { DraftedMessagesPanel } from "../../components/DraftedMessagesPanel";
+import { LeadChannelsPanel } from "../../components/ContactChannelsPanel";
+import { leadDisplayName, leadPersonName } from "../../lib/leadIdentity";
 
 function statusTone(status: string): BadgeTone {
   if (status === "qualified" || status === "converted") return "success";
@@ -44,6 +46,11 @@ export default function LeadDetailPage() {
     queryKey: ["crm.getContact", lead?.duplicateOfContactId],
     queryFn: () => crm.getContact({ id: lead!.duplicateOfContactId }),
     enabled: !!lead?.duplicateOfContactId,
+  });
+  const metaAttributionQuery = useQuery({
+    queryKey: ["crm.getLeadMetaAttribution", id],
+    queryFn: () => crm.getLeadMetaAttribution({ leadId: id }),
+    enabled: hasScope("crm:lead:read") && !!id,
   });
 
   const deleteMutation = useMutation({
@@ -108,7 +115,7 @@ export default function LeadDetailPage() {
   return (
     <div>
       <PageHeader
-        title={lead.company}
+        title={leadDisplayName(lead)}
         breadcrumbs={[{ label: "Leads", to: "/leads" }]}
         actions={
           canWrite &&
@@ -128,9 +135,9 @@ export default function LeadDetailPage() {
       />
       {lead.duplicateOfContactId && (
         <div className="mb-4 rounded-md border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
-          This email matches{" "}
+          This email or phone matches{" "}
           <Link to={`/contacts/${lead.duplicateOfContactId}`} className="font-medium underline">
-            {duplicateQuery.data?.contact?.email ?? "an existing contact"}
+            {duplicateQuery.data?.contact?.email || duplicateQuery.data?.contact?.phone || "an existing contact"}
           </Link>
           . Review both before conversion.
         </div>
@@ -140,12 +147,35 @@ export default function LeadDetailPage() {
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           <Field label="Status" value={<Badge tone={statusTone(lead.status)}>{lead.status}</Badge>} />
           <Field label="Score" value={lead.score.toString()} />
+          <Field label="Name" value={leadPersonName(lead)} />
+          <Field label="Phone / WhatsApp" value={lead.phone} />
           <Field label="Contact email" value={lead.contactEmail} />
+          <Field label="Company" value={lead.company} />
           <Field label="Source" value={lead.source} />
           <Field label="Owner" value={lead.ownerId} />
         </dl>
       </section>
+      {metaAttributionQuery.data?.attribution && (
+        <section className="mt-4 max-w-2xl rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Meta Lead Ads attribution</h2>
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+            <Field label="Platform" value={metaAttributionQuery.data.attribution.platform} />
+            <Field label="Campaign" value={metaAttributionQuery.data.attribution.campaignName} />
+            <Field label="Ad set" value={metaAttributionQuery.data.attribution.adsetName} />
+            <Field label="Ad" value={metaAttributionQuery.data.attribution.adName} />
+            <Field label="Page ID" value={metaAttributionQuery.data.attribution.pageId} />
+            <Field label="Form ID" value={metaAttributionQuery.data.attribution.formId} />
+          </dl>
+        </section>
+      )}
       <TagsPanel objectType="lead" objectId={id} />
+      <LeadChannelsPanel
+        leadId={id}
+        firstName={lead.firstName}
+        lastName={lead.lastName}
+        email={lead.contactEmail}
+        company={lead.company}
+      />
       <TasksPanel subjectType="lead" subjectId={id} />
       <NotesPanel subjectType="lead" subjectId={id} />
       <DraftedMessagesPanel subjectType="lead" subjectId={id} />
@@ -175,7 +205,7 @@ export default function LeadDetailPage() {
       <ConfirmDialog
         open={confirmingDelete}
         title="Delete lead"
-        description={`Delete ${lead.company}? This cannot be undone.`}
+        description={`Delete ${leadDisplayName(lead)}? This cannot be undone.`}
         confirmLabel="Delete"
         tone="danger"
         loading={deleteMutation.isPending}
@@ -219,7 +249,7 @@ export default function LeadDetailPage() {
                 label="Opportunity name"
                 value={opportunityName}
                 onChange={(event) => setOpportunityName(event.target.value)}
-                placeholder={`${lead.company} opportunity`}
+                placeholder={`${leadDisplayName(lead)} opportunity`}
               />
               <Input
                 label="Opportunity amount"

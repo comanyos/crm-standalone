@@ -162,6 +162,9 @@ func cloneLeadCaptureEndpoint(v *LeadCaptureEndpoint) *LeadCaptureEndpoint {
 var CaptureLeadFields = map[string]bool{
 	"company":       true,
 	"contact_email": true,
+	"first_name":    true,
+	"last_name":     true,
+	"phone":         true,
 	"source":        true,
 	"score":         true,
 	"owner_id":      true,
@@ -297,6 +300,12 @@ func LeadFromCapture(endpoint *LeadCaptureEndpoint, payload map[string]any) (*Le
 			continue
 		}
 		switch target {
+		case "first_name":
+			lead.FirstName, found = value, true
+		case "last_name":
+			lead.LastName, found = value, true
+		case "phone":
+			lead.Phone, found = value, true
 		case "company":
 			lead.Company, found = value, true
 		case "contact_email":
@@ -317,7 +326,10 @@ func LeadFromCapture(endpoint *LeadCaptureEndpoint, payload map[string]any) (*Le
 		// capture endpoint knows the answer even when the payload does not.
 		lead.Source = "capture:" + endpoint.Name
 	}
-	return lead, found
+	if !found || normalizeLeadIdentity(lead) != nil || lead.Validate() != nil {
+		return lead, false
+	}
+	return lead, true
 }
 
 // LeadCaptureDelivery is one POST received, kept as the feature's own
