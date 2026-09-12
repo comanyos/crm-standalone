@@ -161,6 +161,13 @@ service CRMService {
   // SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
   // calendar, and is bounded the same way.
   rpc SyncGoogleCalendar(SyncGoogleCalendarRequest) returns (SyncGoogleCalendarResponse);
+  // Google Calendar write surface. Every operation acts on the caller's own
+  // connected Google account; owner ids never cross this boundary.
+  rpc CreateGoogleCalendarEvent(CreateGoogleCalendarEventRequest) returns (CreateGoogleCalendarEventResponse);
+  rpc GetGoogleCalendarEvent(GetGoogleCalendarEventRequest) returns (GetGoogleCalendarEventResponse);
+  rpc ListGoogleCalendarEvents(ListGoogleCalendarEventsRequest) returns (ListGoogleCalendarEventsResponse);
+  rpc UpdateGoogleCalendarEvent(UpdateGoogleCalendarEventRequest) returns (UpdateGoogleCalendarEventResponse);
+  rpc CancelGoogleCalendarEvent(CancelGoogleCalendarEventRequest) returns (CancelGoogleCalendarEventResponse);
 
   // Data-subject requests against synchronised communication content
   // (docs/GOOGLE_INTEGRATION.md).
@@ -199,6 +206,21 @@ service CRMService {
   // event the rule was considered for, including the ones whose conditions
   // did not hold, and the bounded reason for each failure.
   rpc ListWorkflowExecutions(ListWorkflowExecutionsRequest) returns (ListWorkflowExecutionsResponse);
+  // Durable date/time automation. A schedule fires the active version of an
+  // existing rule for one linked CRM record, once or on a recurring cadence.
+  rpc CreateWorkflowSchedule(CreateWorkflowScheduleRequest) returns (CreateWorkflowScheduleResponse);
+  rpc ListWorkflowSchedules(ListWorkflowSchedulesRequest) returns (ListWorkflowSchedulesResponse);
+  rpc UpdateWorkflowSchedule(UpdateWorkflowScheduleRequest) returns (UpdateWorkflowScheduleResponse);
+  rpc DeleteWorkflowSchedule(DeleteWorkflowScheduleRequest) returns (DeleteWorkflowScheduleResponse);
+  // Approval work is private to the calling principal: the request never
+  // accepts an approver id, so one user cannot read or decide another's item.
+  rpc ListWorkflowApprovals(ListWorkflowApprovalsRequest) returns (ListWorkflowApprovalsResponse);
+  rpc DecideWorkflowApproval(DecideWorkflowApprovalRequest) returns (DecideWorkflowApprovalResponse);
+  // Named HTTPS destinations used by send_webhook actions. The signing secret
+  // is returned once on create and is never included in a later read.
+  rpc CreateWorkflowWebhookEndpoint(CreateWorkflowWebhookEndpointRequest) returns (CreateWorkflowWebhookEndpointResponse);
+  rpc ListWorkflowWebhookEndpoints(ListWorkflowWebhookEndpointsRequest) returns (ListWorkflowWebhookEndpointsResponse);
+  rpc DeleteWorkflowWebhookEndpoint(DeleteWorkflowWebhookEndpointRequest) returns (DeleteWorkflowWebhookEndpointResponse);
 
   // In-app notifications.
   //
@@ -952,6 +974,50 @@ message SyncGoogleCalendarResponse {
   int32 entries_created = 3;
 }
 
+// GoogleCalendarEvent is a meeting created from Savvy CRM. Provider etag is
+// the version token required for edit/cancel, preventing lost updates.
+message GoogleCalendarEvent {
+  string provider_event_id = 1;
+  string etag = 2;
+  string title = 3;
+  string description = 4;
+  string location = 5;
+  google.protobuf.Timestamp starts_at = 6;
+  google.protobuf.Timestamp ends_at = 7;
+  string time_zone = 8;
+  repeated string attendees = 9;
+  repeated string recurrence = 10;
+  repeated int32 reminder_minutes = 11;
+  string status = 12;
+  string subject_type = 13;
+  string subject_id = 14;
+  int32 attendee_count = 15;
+  bool editable = 16;
+}
+
+message CreateGoogleCalendarEventRequest {
+  // Generated once by the browser and reused on retry. The server derives a
+  // stable Google event id from it, so a timeout cannot create two meetings.
+  string request_id = 1;
+  GoogleCalendarEvent event = 2;
+}
+message CreateGoogleCalendarEventResponse { GoogleCalendarEvent event = 1; }
+message GetGoogleCalendarEventRequest { string provider_event_id = 1; }
+message GetGoogleCalendarEventResponse { GoogleCalendarEvent event = 1; }
+message ListGoogleCalendarEventsRequest {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+  int32 limit = 3;
+}
+message ListGoogleCalendarEventsResponse { repeated GoogleCalendarEvent events = 1; }
+message UpdateGoogleCalendarEventRequest { GoogleCalendarEvent event = 1; }
+message UpdateGoogleCalendarEventResponse { GoogleCalendarEvent event = 1; }
+message CancelGoogleCalendarEventRequest {
+  string provider_event_id = 1;
+  string etag = 2;
+}
+message CancelGoogleCalendarEventResponse { GoogleCalendarEvent event = 1; }
+
 // ErasureResult reports what an erasure did. Counts only: a result that
 // listed the subject lines it had just erased would be an odd thing to build.
 message ErasureResult {
@@ -1513,7 +1579,7 @@ message WorkflowCondition {
 // WorkflowAction is one thing a rule does. The fields each action type uses
 // are enforced server-side; the others are ignored.
 message WorkflowAction {
-  // type is create_task, add_activity, notify or assign_owner.
+  // type is one of the values returned by DescribeWorkflowCatalog.
   string type = 1;
   // title is the task title or the notification title.
   string title = 2;
@@ -1555,6 +1621,9 @@ message WorkflowAction {
   // the first step). The backend persists the due time, so delayed sequences
   // survive restarts and run once.
   int32 delay_minutes = 12;
+  // webhook_endpoint_id applies only to send_webhook. It names a tenant-owned
+  // endpoint whose secret is stored encrypted and never placed in the rule.
+  string webhook_endpoint_id = 13;
 }
 
 // WorkflowRule is the durable rule: a name, a lifecycle state, and a pointer
@@ -1598,7 +1667,8 @@ message WorkflowExecution {
   string source_event_type = 5;
   string subject_type = 6;
   string subject_id = 7;
-  // status is pending, running, succeeded, failed or skipped. Skipped means
+  // status is pending, running, waiting_approval, succeeded, failed or
+  // skipped. Skipped means
   // the rule saw the event and its conditions did not hold — recorded rather
   // than discarded, because that is the question authors actually ask.
   string status = 8;
@@ -1730,6 +1800,104 @@ message ListWorkflowExecutionsRequest {
   int32 limit = 2;
 }
 message ListWorkflowExecutionsResponse { repeated WorkflowExecution executions = 1; }
+
+// WorkflowSchedule is one durable clock. next_run_at is the exact next UTC
+// instant; time_zone preserves the local wall-clock time across DST changes.
+message WorkflowSchedule {
+  string id = 1;
+  string rule_id = 2;
+  string subject_type = 3;
+  string subject_id = 4;
+  string time_zone = 5;
+  // recurrence is once, daily, weekly or monthly.
+  string recurrence = 6;
+  int32 interval = 7;
+  // status is active, paused or completed.
+  string status = 8;
+  google.protobuf.Timestamp next_run_at = 9;
+  google.protobuf.Timestamp ends_at = 10;
+  google.protobuf.Timestamp last_run_at = 11;
+  string created_by = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message CreateWorkflowScheduleRequest {
+  string rule_id = 1;
+  string subject_type = 2;
+  string subject_id = 3;
+  string time_zone = 4;
+  string recurrence = 5;
+  int32 interval = 6;
+  google.protobuf.Timestamp next_run_at = 7;
+  google.protobuf.Timestamp ends_at = 8;
+}
+message CreateWorkflowScheduleResponse { WorkflowSchedule schedule = 1; }
+message ListWorkflowSchedulesRequest {}
+message ListWorkflowSchedulesResponse { repeated WorkflowSchedule schedules = 1; }
+message UpdateWorkflowScheduleRequest {
+  string id = 1;
+  string time_zone = 2;
+  string recurrence = 3;
+  int32 interval = 4;
+  string status = 5;
+  google.protobuf.Timestamp next_run_at = 6;
+  google.protobuf.Timestamp ends_at = 7;
+}
+message UpdateWorkflowScheduleResponse { WorkflowSchedule schedule = 1; }
+message DeleteWorkflowScheduleRequest { string id = 1; }
+message DeleteWorkflowScheduleResponse {}
+
+message WorkflowApproval {
+  string id = 1;
+  string execution_id = 2;
+  string rule_id = 3;
+  int32 action_index = 4;
+  string title = 5;
+  string body = 6;
+  string subject_type = 7;
+  string subject_id = 8;
+  // status is pending, approved or rejected.
+  string status = 9;
+  string decision_note = 10;
+  google.protobuf.Timestamp requested_at = 11;
+  google.protobuf.Timestamp decided_at = 12;
+}
+message ListWorkflowApprovalsRequest {
+  string status = 1;
+  int32 limit = 2;
+}
+message ListWorkflowApprovalsResponse { repeated WorkflowApproval approvals = 1; }
+message DecideWorkflowApprovalRequest {
+  string id = 1;
+  // decision is approved or rejected.
+  string decision = 2;
+  string note = 3;
+}
+message DecideWorkflowApprovalResponse { WorkflowApproval approval = 1; }
+
+message WorkflowWebhookEndpoint {
+  string id = 1;
+  string name = 2;
+  string url = 3;
+  string created_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+message CreateWorkflowWebhookEndpointRequest {
+  string name = 1;
+  string url = 2;
+}
+message CreateWorkflowWebhookEndpointResponse {
+  WorkflowWebhookEndpoint endpoint = 1;
+  // signing_secret is shown once. Receivers use it to verify
+  // X-Savvy-Signature over "<timestamp>.<raw request body>" with HMAC-SHA256.
+  string signing_secret = 2;
+}
+message ListWorkflowWebhookEndpointsRequest {}
+message ListWorkflowWebhookEndpointsResponse { repeated WorkflowWebhookEndpoint endpoints = 1; }
+message DeleteWorkflowWebhookEndpointRequest { string id = 1; }
+message DeleteWorkflowWebhookEndpointResponse {}
 
 message ListNotificationsRequest {
   bool unread_only = 1;

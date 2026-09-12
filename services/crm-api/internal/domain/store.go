@@ -228,6 +228,11 @@ type Store interface {
 	// discarding one on every unchanged event, which is most of them.
 	RecordCalendarEvent(ctx context.Context, scope Scope, event *CalendarEvent, activityFor func(CalendarChange) *Activity) (CalendarChange, error)
 	ListCalendarEventsForSubject(ctx context.Context, scope Scope, subjectType, subjectID string, limit int) ([]*CalendarEvent, error)
+	// Calendar events created from Savvy CRM are editable only by the owner
+	// whose Google account holds them. Imported matches deliberately stay
+	// read-only.
+	GetManagedCalendarEvent(ctx context.Context, scope Scope, ownerID, providerEventID string) (*CalendarEvent, error)
+	ListManagedCalendarEvents(ctx context.Context, scope Scope, ownerID string, from, to time.Time, limit int) ([]*CalendarEvent, error)
 	// PurgeCalendarDataForOwner mirrors PurgeGmailDataForOwner, including why
 	// disconnecting passes false: the mirror is what remembers which events
 	// have already been posted, so dropping it would repost every meeting on
@@ -293,6 +298,23 @@ type Store interface {
 	// DueWorkflowExecutions claims retryable executions whose backoff has
 	// elapsed.
 	DueWorkflowExecutions(ctx context.Context, scope Scope, now time.Time, limit int) ([]*WorkflowExecution, error)
+
+	// Durable time-based automation, approvals and signed webhook endpoints.
+	CreateWorkflowSchedule(ctx context.Context, scope Scope, v *WorkflowSchedule) (*WorkflowSchedule, error)
+	GetWorkflowSchedule(ctx context.Context, scope Scope, id string) (*WorkflowSchedule, error)
+	ListWorkflowSchedules(ctx context.Context, scope Scope) ([]*WorkflowSchedule, error)
+	UpdateWorkflowSchedule(ctx context.Context, scope Scope, v *WorkflowSchedule) (*WorkflowSchedule, error)
+	DeleteWorkflowSchedule(ctx context.Context, scope Scope, id string) error
+	DueWorkflowSchedules(ctx context.Context, scope Scope, now time.Time, limit int) ([]*WorkflowSchedule, error)
+	AdvanceWorkflowSchedule(ctx context.Context, scope Scope, id string, expected, next time.Time, status string) (*WorkflowSchedule, error)
+	EnsureWorkflowApproval(ctx context.Context, scope Scope, v *WorkflowApproval) (*WorkflowApproval, error)
+	ListWorkflowApprovals(ctx context.Context, scope Scope, approverID, status string, limit int) ([]*WorkflowApproval, error)
+	DecideWorkflowApproval(ctx context.Context, scope Scope, id, approverID, decision, note string, now time.Time) (*WorkflowApproval, error)
+	CreateWorkflowWebhookEndpoint(ctx context.Context, scope Scope, v *WorkflowWebhookEndpoint) (*WorkflowWebhookEndpoint, error)
+	GetWorkflowWebhookEndpoint(ctx context.Context, scope Scope, id string) (*WorkflowWebhookEndpoint, error)
+	ListWorkflowWebhookEndpoints(ctx context.Context, scope Scope) ([]*WorkflowWebhookEndpoint, error)
+	DeleteWorkflowWebhookEndpoint(ctx context.Context, scope Scope, id string) error
+	RecordWorkflowWebhookDelivery(ctx context.Context, scope Scope, v *WorkflowWebhookDelivery) error
 
 	// The engine's position in one tenant's outbox, and the events after it.
 	GetWorkflowCursor(ctx context.Context, scope Scope) (*WorkflowCursor, error)

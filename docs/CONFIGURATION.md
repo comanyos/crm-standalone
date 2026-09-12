@@ -131,6 +131,16 @@ The token key is base64-encoded 32 random bytes used to seal stored provider
 credentials. Partial configuration fails startup. See
 [GOOGLE_INTEGRATION.md](GOOGLE_INTEGRATION.md).
 
+## Outbound workflow webhooks
+
+`WORKFLOW_WEBHOOK_SECRET_KEY` is an independent base64-encoded 32-byte key
+used to seal the signing secret generated for each outbound webhook endpoint.
+Leave it empty to disable endpoint creation in local/offline deployments. In
+the Azure beta it is required and stored in Key Vault as
+`workflow-webhook-secret-key`. Do not reuse `LEAD_CAPTURE_SECRET_KEY`, a Google
+token key, or a Meta token key; those credentials have separate rotation and
+incident boundaries.
+
 ## Browser application
 
 The public build-time settings are:

@@ -86,17 +86,22 @@ var crmScopes = map[string]string{
 	"/crm.v1.CRMService/ListGoogleConnections":      "crm:integration_admin:read",
 	// Synchronising writes CRM Activities, so it is a write even though it
 	// reads a mailbox to decide what to write.
-	"/crm.v1.CRMService/SyncGoogleMailbox":        "crm:integration:write",
-	"/crm.v1.CRMService/SyncGoogleCalendar":       "crm:integration:write",
-	"/crm.v1.CRMService/StartMetaConnection":      "crm:integration:write",
-	"/crm.v1.CRMService/GetMetaConnection":        "crm:integration:read",
-	"/crm.v1.CRMService/ListMetaBusinesses":       "crm:integration:read",
-	"/crm.v1.CRMService/ListMetaPages":            "crm:integration:read",
-	"/crm.v1.CRMService/ListMetaForms":            "crm:integration:read",
-	"/crm.v1.CRMService/SelectMetaLeadForm":       "crm:integration:write",
-	"/crm.v1.CRMService/ImportMetaLeads":          "crm:integration:write",
-	"/crm.v1.CRMService/DisconnectMetaConnection": "crm:integration:write",
-	"/crm.v1.CRMService/GetLeadMetaAttribution":   "crm:lead:read",
+	"/crm.v1.CRMService/SyncGoogleMailbox":         "crm:integration:write",
+	"/crm.v1.CRMService/SyncGoogleCalendar":        "crm:integration:write",
+	"/crm.v1.CRMService/CreateGoogleCalendarEvent": "crm:integration:write",
+	"/crm.v1.CRMService/GetGoogleCalendarEvent":    "crm:integration:read",
+	"/crm.v1.CRMService/ListGoogleCalendarEvents":  "crm:integration:read",
+	"/crm.v1.CRMService/UpdateGoogleCalendarEvent": "crm:integration:write",
+	"/crm.v1.CRMService/CancelGoogleCalendarEvent": "crm:integration:write",
+	"/crm.v1.CRMService/StartMetaConnection":       "crm:integration:write",
+	"/crm.v1.CRMService/GetMetaConnection":         "crm:integration:read",
+	"/crm.v1.CRMService/ListMetaBusinesses":        "crm:integration:read",
+	"/crm.v1.CRMService/ListMetaPages":             "crm:integration:read",
+	"/crm.v1.CRMService/ListMetaForms":             "crm:integration:read",
+	"/crm.v1.CRMService/SelectMetaLeadForm":        "crm:integration:write",
+	"/crm.v1.CRMService/ImportMetaLeads":           "crm:integration:write",
+	"/crm.v1.CRMService/DisconnectMetaConnection":  "crm:integration:write",
+	"/crm.v1.CRMService/GetLeadMetaAttribution":    "crm:lead:read",
 
 	// Data-subject requests are administrative, not personal: they act on
 	// behalf of somebody who is usually not a CRM user, so they need an
@@ -150,15 +155,24 @@ var crmScopes = map[string]string{
 	// The catalog is a read even though it returns no tenant data: it
 	// describes the authoring surface, and there is no one who needs it who
 	// does not also need to read the rules.
-	"/crm.v1.CRMService/DescribeWorkflowCatalog":    "crm:workflow:read",
-	"/crm.v1.CRMService/CreateWorkflowRule":         "crm:workflow:write",
-	"/crm.v1.CRMService/GetWorkflowRule":            "crm:workflow:read",
-	"/crm.v1.CRMService/ListWorkflowRules":          "crm:workflow:read",
-	"/crm.v1.CRMService/UpdateWorkflowRule":         "crm:workflow:write",
-	"/crm.v1.CRMService/PublishWorkflowRuleVersion": "crm:workflow:write",
-	"/crm.v1.CRMService/ListWorkflowRuleVersions":   "crm:workflow:read",
-	"/crm.v1.CRMService/SetWorkflowRuleStatus":      "crm:workflow:write",
-	"/crm.v1.CRMService/ListWorkflowExecutions":     "crm:workflow:read",
+	"/crm.v1.CRMService/DescribeWorkflowCatalog":       "crm:workflow:read",
+	"/crm.v1.CRMService/CreateWorkflowRule":            "crm:workflow:write",
+	"/crm.v1.CRMService/GetWorkflowRule":               "crm:workflow:read",
+	"/crm.v1.CRMService/ListWorkflowRules":             "crm:workflow:read",
+	"/crm.v1.CRMService/UpdateWorkflowRule":            "crm:workflow:write",
+	"/crm.v1.CRMService/PublishWorkflowRuleVersion":    "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowRuleVersions":      "crm:workflow:read",
+	"/crm.v1.CRMService/SetWorkflowRuleStatus":         "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowExecutions":        "crm:workflow:read",
+	"/crm.v1.CRMService/CreateWorkflowSchedule":        "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowSchedules":         "crm:workflow:read",
+	"/crm.v1.CRMService/UpdateWorkflowSchedule":        "crm:workflow:write",
+	"/crm.v1.CRMService/DeleteWorkflowSchedule":        "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowApprovals":         "crm:workflow:read",
+	"/crm.v1.CRMService/DecideWorkflowApproval":        "crm:workflow:write",
+	"/crm.v1.CRMService/CreateWorkflowWebhookEndpoint": "crm:workflow:write",
+	"/crm.v1.CRMService/ListWorkflowWebhookEndpoints":  "crm:workflow:read",
+	"/crm.v1.CRMService/DeleteWorkflowWebhookEndpoint": "crm:workflow:write",
 
 	// Notifications are the caller's own and nobody else's — neither RPC
 	// takes a recipient — so the scope is about whether this principal

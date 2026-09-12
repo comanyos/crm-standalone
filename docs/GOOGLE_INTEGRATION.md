@@ -484,6 +484,41 @@ A deployment with none of these set is a correctly running CRM that cannot
 offer the feature. `GetGoogleConnection` reports `configured: false` and the UI
 says so rather than showing a button that cannot work.
 
+## Calendar event management
+
+The Calendar page combines due-dated CRM tasks with meetings authored from
+Savvy CRM. **New event** collects title, start/end, IANA time zone, attendees,
+location, description, a Contact/Lead/Opportunity link, recurrence, and popup
+reminders. The API writes to the connected user's primary Google Calendar
+with `sendUpdates=all`, so Google sends attendee invitations and changes.
+
+Daily, weekly, monthly, and yearly RRULE frequencies are accepted by the API;
+the current UI offers daily, weekly, and monthly series with a bounded
+occurrence count. Editing writes the whole Google series, rescheduling is an
+edit with changed start/end, and cancellation deletes the provider event and
+notifies attendees. Savvy CRM uses Google's ETag in `If-Match` for edit and
+cancel so a stale screen cannot silently overwrite a newer Google change.
+
+Every event must link to an existing record in the caller's tenant. Provider
+ids are never caller-selected: create derives a Google-compatible id from the
+tenant, connected owner, and one browser request id. A timeout/retry therefore
+resolves to the same Google event and the same mirror row. The mirror records
+who authored the meeting; imported Google events remain read-only. Scheduling,
+material edits, reschedules, and cancellation append bounded CRM timeline
+entries without storing OAuth tokens or provider error bodies.
+
+The production integration client must register exactly:
+
+```text
+https://crmapi.savvyadvi.com/integrations/google/callback
+```
+
+It is separate from the identity-only Google login client and requests Gmail
+read/send plus Calendar event access. The OAuth client id, client secret, and
+independent 32-byte token-sealing key belong in Azure Key Vault as
+`google-oauth-client-id`, `google-oauth-client-secret`, and
+`google-oauth-token-key`.
+
 ### Rotating the sealing key
 
 There is no re-encryption path yet. Changing `GOOGLE_OAUTH_TOKEN_KEY` makes
@@ -499,21 +534,17 @@ refresh. Users must reconnect. Rotation with re-encryption is open work.
 - **Export for a subject-access request** — "tell me what you hold about me"
   is the other half of the same regulation, and there is no operation for it.
 
-- **Writing to Google, except sending one drafted message.** Sync is one-way
-  in both streams: the CRM never creates, moves or cancels an event, and
-  nothing writes back to a mailbox. Google is authoritative for everything
-  synced, so there is no two-way conflict to resolve.
-
-  The one exception is `gmail.send`, which now sends a drafted message when a
-  person presses the button — see *Sending* below. It writes nothing back into
-  sync's own state and creates no conflict: the sent message arrives through
-  the ordinary incremental sync like any other, from the mailbox's own record
-  of it.
+- **General mailbox writes.** `gmail.send` sends a reviewed CRM draft and the
+  Calendar surface creates/updates/cancels CRM-authored events. The CRM does
+  not modify arbitrary existing mail or imported calendar events. Gmail sent
+  mail and Google event changes return through ordinary incremental sync.
 - **Calendars other than `primary`** — a user with a separate work calendar
   syncs only their main one.
-- **Recurring series** — instances are synced individually (`singleEvents`),
-  so moving a whole series posts one timeline entry per affected instance.
-  `recurring_event_id` is stored but nothing groups them.
+- **Imported recurring-series grouping** — instances are synced individually
+  (`singleEvents`), so moving an external series posts one timeline entry per
+  affected matched instance. CRM-authored recurring series can be created,
+  edited, rescheduled, and cancelled as a series; imported instances are not
+  yet grouped into one collapsible timeline item.
 - **Account and opportunity matching** — sync attaches an email to matched
   Contacts only. Rolling that up to the Contact's Account, or onto an open
   Opportunity, needs a rule for which of several open deals an email belongs
@@ -581,16 +612,16 @@ on the wire, the header-injection refusals, that a provider error body never
 reaches an error value (Gmail's echo request content, and errors here reach
 logs), and that sending refuses without a usable connection.
 
-**No message has been sent to Gmail.** That needs a real OAuth client, which
-no environment here has. Before trusting this in production: connect a real
-mailbox, send one draft, and confirm it arrives correctly formatted — the
-encoding and the `From` handling are the two things a stub cannot prove.
+Provider-contract tests assert the exact request bytes. Production acceptance
+still requires a real OAuth connection: connect a test mailbox, send one draft
+to that same mailbox, and confirm its encoding and `From`; then create,
+reschedule, update, and cancel one meeting and confirm both Google state and
+the linked CRM audit trail.
 
 ## Verification status
 
 Google marks `gmail.readonly` as a restricted scope; `gmail.send` and
-`calendar.events` require verification. The Cloud project
-(`akshara-telugu-260624`) is configured for it, and submission remains
-deliberately deferred until the sync features exist and a truthful demo video
-can be recorded. Until verification completes, only test users listed on the
-OAuth consent screen can connect.
+`calendar.events` require verification. The production Cloud project is
+`savvyadvi-crm-prod`. Submission remains deferred until a truthful consent
+screen demo and privacy evidence are ready. Until Google verification
+completes, only test users listed on the OAuth consent screen can connect.

@@ -29,7 +29,7 @@ const (
 	// fieldMask is the allowlist. Adding `items(description)` or
 	// `items(location)` here is the change that would make this package start
 	// handling private content, which is exactly the review it deserves.
-	fieldMask = "nextPageToken,nextSyncToken,items(id,iCalUID,status,summary,start,end," +
+	fieldMask = "nextPageToken,nextSyncToken,items(id,etag,iCalUID,status,summary,start,end," +
 		"organizer(email,self),attendees(email,self,organizer,responseStatus)," +
 		"recurringEventId,updated)"
 )
@@ -72,6 +72,7 @@ type Attendee struct {
 // description and no location field: nothing can put them somewhere.
 type Event struct {
 	ID               string
+	ETag             string
 	ICalUID          string
 	RecurringEventID string
 	Status           string
@@ -82,6 +83,10 @@ type Event struct {
 	// that organized a meeting is not always listed as an attendee of it.
 	OrganizerIsSelf bool
 	Attendees       []Attendee
+	Description     string
+	Location        string
+	Recurrence      []string
+	ReminderMinutes []int
 
 	// StartsAt and EndsAt are absolute instants. For an all-day event they
 	// are local midnight in TimeZone, which is why the zone travels with
@@ -240,6 +245,7 @@ type wireTime struct {
 
 type wireEvent struct {
 	ID               string   `json:"id"`
+	ETag             string   `json:"etag"`
 	ICalUID          string   `json:"iCalUID"`
 	Status           string   `json:"status"`
 	Summary          string   `json:"summary"`
@@ -271,6 +277,7 @@ func (w wireEvent) toEvent() (Event, error) {
 
 	event := Event{
 		ID:               w.ID,
+		ETag:             w.ETag,
 		ICalUID:          w.ICalUID,
 		RecurringEventID: w.RecurringEventID,
 		Status:           w.Status,

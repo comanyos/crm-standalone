@@ -19,6 +19,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -52,21 +53,32 @@ const (
 	// and an address does not appear.
 	ReasonConsentWithdrawn = "consent_withdrawn"
 	ReasonNoAddress        = "no_messageable_address"
+	ReasonApprovalRejected = "approval_rejected"
 )
+
+var errApprovalPending = errors.New("workflow approval is pending")
 
 // Engine evaluates events and performs actions.
 type Engine struct {
-	store domain.Store
-	now   func() time.Time
-	log   *slog.Logger
+	store   domain.Store
+	webhook *WebhookSender
+	now     func() time.Time
+	log     *slog.Logger
 }
 
 // New wires the engine.
 func New(store domain.Store, log *slog.Logger) *Engine {
+	return NewWithWebhook(store, nil, log)
+}
+
+// NewWithWebhook wires the optional signed webhook delivery service. Keeping
+// New as a wrapper preserves the small test and offline deployments that do
+// not have a secret-encryption key configured.
+func NewWithWebhook(store domain.Store, webhook *WebhookSender, log *slog.Logger) *Engine {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Engine{store: store, now: func() time.Time { return time.Now().UTC() }, log: log}
+	return &Engine{store: store, webhook: webhook, now: func() time.Time { return time.Now().UTC() }, log: log}
 }
 
 // Result reports what one pass over one tenant did.
@@ -114,6 +126,16 @@ func (e *Engine) run(
 ) (Result, error) {
 	var result Result
 
+	// Turn due wall-clock schedules into ordinary execution rows before
+	// draining event-triggered work. The execution's source id contains the
+	// scheduled instant, so a crash before advancing the schedule replays into
+	// the same unique key instead of creating a second run.
+	if made, err := e.claimSchedules(ctx, scope); err != nil {
+		return result, err
+	} else {
+		result.ExecutionsMade += made
+	}
+
 	events, err := e.store.OutboxEventsAfter(ctx, scope, *cursor, EventsPerBatch)
 	if err != nil {
 		return result, err
@@ -159,6 +181,65 @@ func (e *Engine) run(
 		return result, fmt.Errorf("%d workflow executions failed", result.Failures)
 	}
 	return result, nil
+}
+
+func (e *Engine) claimSchedules(ctx context.Context, scope domain.Scope) (int, error) {
+	now := e.now()
+	schedules, err := e.store.DueWorkflowSchedules(ctx, scope, now, EventsPerBatch)
+	if err != nil {
+		return 0, err
+	}
+	made := 0
+	for _, schedule := range schedules {
+		rule, err := e.store.GetWorkflowRule(ctx, scope, schedule.RuleID)
+		if err != nil {
+			return made, err
+		}
+		if rule.Status != domain.WorkflowActive || rule.ActiveVersionID == "" {
+			continue
+		}
+		version, err := e.store.GetWorkflowRuleVersion(ctx, scope, rule.ActiveVersionID)
+		if err != nil {
+			return made, err
+		}
+		if version.TriggerObjectType != schedule.SubjectType {
+			// A newly published rule version may target a different object. An
+			// old schedule must not fail every automation pass forever; pause it
+			// for an administrator to review instead.
+			schedule.Status = domain.SchedulePaused
+			if _, err := e.store.UpdateWorkflowSchedule(ctx, scope, schedule); err != nil {
+				return made, fmt.Errorf("pause incompatible workflow schedule: %w", err)
+			}
+			continue
+		}
+		sourceID := "schedule:" + schedule.ID + ":" + schedule.NextRunAt.UTC().Format(time.RFC3339Nano)
+		_, created, err := e.store.ClaimWorkflowExecution(ctx, scope, &domain.WorkflowExecution{
+			RuleID: rule.ID, RuleVersionID: version.ID, SourceEventID: sourceID,
+			SourceEventType: "schedule.triggered", SubjectType: schedule.SubjectType,
+			SubjectID: schedule.SubjectID, Status: domain.ExecutionPending,
+		})
+		if err != nil {
+			return made, err
+		}
+		if created {
+			made++
+		}
+		next, recurring := domain.NextScheduleOccurrence(schedule.NextRunAt, schedule.TimeZone, schedule.Recurrence, schedule.Interval)
+		// Run one missed occurrence after an outage, then advance directly to
+		// the next future wall-clock slot. Replaying every missed daily run at
+		// ten-second intervals would create a catch-up storm of stale work.
+		for recurring && !next.After(now) {
+			next, recurring = domain.NextScheduleOccurrence(next, schedule.TimeZone, schedule.Recurrence, schedule.Interval)
+		}
+		status := domain.ScheduleActive
+		if !recurring || (!schedule.EndsAt.IsZero() && next.After(schedule.EndsAt)) {
+			status, next = domain.ScheduleCompleted, time.Time{}
+		}
+		if _, err := e.store.AdvanceWorkflowSchedule(ctx, scope, schedule.ID, schedule.NextRunAt, next, status); err != nil && !errors.Is(err, domain.ErrConflict) {
+			return made, err
+		}
+	}
+	return made, nil
 }
 
 // claimFor creates an execution for each active rule whose trigger and
@@ -276,6 +357,16 @@ func (e *Engine) perform(
 		}
 
 		reason, err := e.act(ctx, scope, version, action, execution)
+		if errors.Is(err, errApprovalPending) {
+			execution.Status = domain.ExecutionWaitingApproval
+			execution.ErrorCategory = ""
+			execution.NextAttemptAt = time.Time{}
+			execution.Attempts = 0
+			if _, saveErr := e.store.UpdateWorkflowExecution(ctx, scope, execution); saveErr != nil {
+				return performed, saveErr
+			}
+			return performed, nil
+		}
 		if err != nil {
 			e.log.Warn("a workflow action failed", "reason", reason)
 			return performed, e.retryOrFail(ctx, scope, execution, reason)
@@ -328,7 +419,7 @@ func terminal(reason string) bool {
 		// does not appear. Retrying either would mean three attempts to
 		// contact somebody who said no — the precise behaviour this ledger
 		// exists to make impossible.
-		ReasonConsentWithdrawn, ReasonNoAddress:
+		ReasonConsentWithdrawn, ReasonNoAddress, ReasonApprovalRejected:
 		return true
 	default:
 		return false

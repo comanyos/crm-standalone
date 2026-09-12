@@ -39,10 +39,11 @@ var workflowStatuses = map[string]bool{
 
 // The execution states.
 const (
-	ExecutionPending   = "pending"
-	ExecutionRunning   = "running"
-	ExecutionSucceeded = "succeeded"
-	ExecutionFailed    = "failed"
+	ExecutionPending         = "pending"
+	ExecutionRunning         = "running"
+	ExecutionSucceeded       = "succeeded"
+	ExecutionFailed          = "failed"
+	ExecutionWaitingApproval = "waiting_approval"
 	// ExecutionSkipped records that the rule matched the event type but its
 	// conditions did not hold. It is stored rather than discarded because
 	// "why didn't my rule fire" is the question authors actually ask, and an
@@ -216,7 +217,8 @@ func operatorsFor(kind fieldKind) []string {
 // WorkflowActionTypes and WorkflowAssigneeSelectors are the remaining halves
 // of the authoring catalog.
 func WorkflowActionTypes() []string {
-	return []string{ActionCreateTask, ActionAddActivity, ActionNotify, ActionAssignOwner, ActionDraftMessage}
+	return []string{ActionCreateTask, ActionAddActivity, ActionNotify, ActionAssignOwner,
+		ActionDraftMessage, ActionRequestApproval, ActionSendWebhook}
 }
 
 // MaxRotationMembers reports the bound on an assign_owner action's member
@@ -276,7 +278,9 @@ const (
 	// rep to send in one tap (task_crm.md §6). It drafts rather than sends,
 	// because nothing in this codebase can deliver a message — see
 	// internal/domain/outbound_message.go.
-	ActionDraftMessage = "draft_message"
+	ActionDraftMessage    = "draft_message"
+	ActionRequestApproval = "request_approval"
+	ActionSendWebhook     = "send_webhook"
 )
 
 // maxRotationMembers bounds a rotation. The limit exists because the member
@@ -345,8 +349,9 @@ type WorkflowAction struct {
 	// its version. That asymmetry is deliberate: a rule version has to say
 	// what it did, but nobody wants to publish a new version to fix a typo in
 	// an opener.
-	ChannelKind string `json:"channel_kind,omitempty"`
-	TemplateID  string `json:"template_id,omitempty"`
+	ChannelKind       string `json:"channel_kind,omitempty"`
+	TemplateID        string `json:"template_id,omitempty"`
+	WebhookEndpointID string `json:"webhook_endpoint_id,omitempty"`
 }
 
 const (
@@ -406,6 +411,19 @@ func (a *WorkflowAction) Validate() error {
 		if a.Assignee != "" || strings.TrimSpace(a.AssigneeID) != "" {
 			return fmt.Errorf("%w: a draft_message action goes to the record's owner "+
 				"and must not also name an assignee", ErrInvalid)
+		}
+		return a.bounded()
+	case ActionRequestApproval:
+		if strings.TrimSpace(a.Title) == "" {
+			return fmt.Errorf("%w: a request_approval action needs a title", ErrInvalid)
+		}
+		return a.validateAssignee(true)
+	case ActionSendWebhook:
+		if strings.TrimSpace(a.WebhookEndpointID) == "" {
+			return fmt.Errorf("%w: a send_webhook action needs a configured endpoint", ErrInvalid)
+		}
+		if a.Assignee != "" || strings.TrimSpace(a.AssigneeID) != "" {
+			return fmt.Errorf("%w: a webhook action must not name an assignee", ErrInvalid)
 		}
 		return a.bounded()
 	default:
@@ -703,7 +721,7 @@ type WorkflowExecution struct {
 
 var executionStatuses = map[string]bool{
 	ExecutionPending: true, ExecutionRunning: true, ExecutionSucceeded: true,
-	ExecutionFailed: true, ExecutionSkipped: true,
+	ExecutionFailed: true, ExecutionSkipped: true, ExecutionWaitingApproval: true,
 }
 
 // Validate enforces what the database also enforces.

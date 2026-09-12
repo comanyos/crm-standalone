@@ -158,7 +158,8 @@ func (s *PgStore) DueCalendarMailboxes(
 	return out, rows.Err()
 }
 
-const calendarEventColumns = `owner_id, provider_event_id, subject_type, subject_id, calendar_id,
+const calendarEventColumns = `owner_id, provider_event_id, provider_etag, created_by,
+	subject_type, subject_id, calendar_id,
 	ical_uid, recurring_event_id, activity_id, title, status, starts_at, ends_at,
 	all_day, time_zone, organizer_address, attendee_count, state_key, created_at, updated_at,
 	erased_at`
@@ -169,7 +170,8 @@ func scanCalendarEvent(row pgx.Row) (*CalendarEvent, error) {
 		endsAt *time.Time
 		erased *time.Time
 	)
-	if err := row.Scan(&v.OwnerID, &v.ProviderEventID, &v.SubjectType, &v.SubjectID, &v.CalendarID,
+	if err := row.Scan(&v.OwnerID, &v.ProviderEventID, &v.ProviderETag, &v.CreatedBy,
+		&v.SubjectType, &v.SubjectID, &v.CalendarID,
 		&v.ICalUID, &v.RecurringEventID, &v.ActivityID, &v.Title, &v.Status, &v.StartsAt, &endsAt,
 		&v.AllDay, &v.TimeZone, &v.OrganizerAddress, &v.AttendeeCount, &v.StateKey,
 		&v.CreatedAt, &v.UpdatedAt, &erased); err != nil {
@@ -295,13 +297,16 @@ func (s *PgStore) RecordCalendarEvent(
 		}
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO calendar_events
-			     (tenant_id, owner_id, provider_event_id, subject_type, subject_id, calendar_id,
+			     (tenant_id, owner_id, provider_event_id, provider_etag, created_by,
+			      subject_type, subject_id, calendar_id,
 			      ical_uid, recurring_event_id, activity_id, title, status, starts_at, ends_at,
 			      all_day, time_zone, organizer_address, attendee_count, state_key,
 			      created_at, updated_at)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 			 ON CONFLICT (tenant_id, owner_id, provider_event_id, subject_type, subject_id)
 			 DO UPDATE SET
+			      provider_etag      = CASE WHEN EXCLUDED.provider_etag = '' THEN calendar_events.provider_etag ELSE EXCLUDED.provider_etag END,
+			      created_by         = CASE WHEN EXCLUDED.created_by = '' THEN calendar_events.created_by ELSE EXCLUDED.created_by END,
 			      calendar_id        = EXCLUDED.calendar_id,
 			      ical_uid           = EXCLUDED.ical_uid,
 			      recurring_event_id = EXCLUDED.recurring_event_id,
@@ -315,8 +320,9 @@ func (s *PgStore) RecordCalendarEvent(
 			      attendee_count     = EXCLUDED.attendee_count,
 			      state_key          = EXCLUDED.state_key,
 			      updated_at         = EXCLUDED.updated_at`,
-			scope.TenantID, event.OwnerID, event.ProviderEventID, event.SubjectType,
-			event.SubjectID, event.CalendarID, event.ICalUID, event.RecurringEventID,
+			scope.TenantID, event.OwnerID, event.ProviderEventID, event.ProviderETag,
+			event.CreatedBy, event.SubjectType, event.SubjectID, event.CalendarID,
+			event.ICalUID, event.RecurringEventID,
 			activityID, event.Title, event.Status, event.StartsAt, nullTimeValue(event.EndsAt),
 			event.AllDay, event.TimeZone, event.OrganizerAddress, event.AttendeeCount,
 			stateKey, createdAt, now); err != nil {
@@ -328,6 +334,67 @@ func (s *PgStore) RecordCalendarEvent(
 		return CalendarUnchanged, err
 	}
 	return change, nil
+}
+
+// GetManagedCalendarEvent returns one CRM-authored event belonging to the
+// connected owner. Provider ids from another user's calendar and imported
+// events intentionally look absent.
+func (s *PgStore) GetManagedCalendarEvent(
+	ctx context.Context, scope Scope, ownerID, providerEventID string,
+) (*CalendarEvent, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	row, err := scanCalendarEvent(s.db.QueryRow(ctx, scope,
+		`SELECT `+calendarEventColumns+` FROM calendar_events
+		  WHERE tenant_id = $1 AND owner_id = $2 AND provider_event_id = $3
+		    AND created_by <> '' AND erased_at IS NULL
+		  ORDER BY created_at LIMIT 1`, scope.TenantID, ownerID, providerEventID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get managed calendar event: %w", err)
+	}
+	return row, nil
+}
+
+// ListManagedCalendarEvents returns the caller's CRM-authored events in a
+// bounded range. The owner predicate is authorization, not a UI filter.
+func (s *PgStore) ListManagedCalendarEvents(
+	ctx context.Context, scope Scope, ownerID string, from, to time.Time, limit int,
+) ([]*CalendarEvent, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 500
+	}
+	if from.IsZero() {
+		from = time.Now().UTC().AddDate(-1, 0, 0)
+	}
+	if to.IsZero() {
+		to = time.Now().UTC().AddDate(2, 0, 0)
+	}
+	rows, err := s.db.Query(ctx, scope,
+		`SELECT `+calendarEventColumns+` FROM calendar_events
+		  WHERE tenant_id = $1 AND owner_id = $2 AND created_by <> ''
+		    AND erased_at IS NULL AND starts_at >= $3 AND starts_at < $4
+		  ORDER BY starts_at, provider_event_id LIMIT $5`,
+		scope.TenantID, ownerID, from.UTC(), to.UTC(), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list managed calendar events: %w", err)
+	}
+	defer rows.Close()
+	out := make([]*CalendarEvent, 0, 16)
+	for rows.Next() {
+		record, err := scanCalendarEvent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan managed calendar event: %w", err)
+		}
+		out = append(out, record)
+	}
+	return out, rows.Err()
 }
 
 // ListCalendarEventsForSubject returns one record's meetings, newest first.

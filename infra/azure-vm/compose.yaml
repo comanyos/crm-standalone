@@ -126,6 +126,7 @@ services:
       GOOGLE_OAUTH_REDIRECT_URL: ${GOOGLE_OAUTH_REDIRECT_URL:-}
       GOOGLE_OAUTH_TOKEN_KEY: ${GOOGLE_OAUTH_TOKEN_KEY:-}
       LEAD_CAPTURE_SECRET_KEY: ${LEAD_CAPTURE_SECRET_KEY:?LEAD_CAPTURE_SECRET_KEY is required}
+      WORKFLOW_WEBHOOK_SECRET_KEY: ${WORKFLOW_WEBHOOK_SECRET_KEY:?WORKFLOW_WEBHOOK_SECRET_KEY is required}
       # Optional until the Meta app has approved production credentials. All
       # five empty keeps the route absent; a partial group fails startup.
       META_APP_ID: ${META_APP_ID:-}

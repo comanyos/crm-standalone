@@ -27,8 +27,9 @@ type CRMService struct {
 	meta   *metaintegration.Service
 	// gmail is nil for the same reason google is: without provider
 	// credentials there is no mailbox to synchronise.
-	gmail    *gmail.Syncer
-	calendar *calendar.Syncer
+	gmail          *gmail.Syncer
+	calendar       *calendar.Syncer
+	calendarWriter *calendar.Writer
 	// privacy is never nil: erasure must work for content collected before
 	// the integration was switched off.
 	privacy *privacy.Service
@@ -37,6 +38,10 @@ type CRMService struct {
 	// a secret need it; listing endpoints and reading the delivery log work
 	// either way, so an administrator can still see what exists.
 	capture *secrets.Sealer
+	// workflowWebhooks seals outbound-webhook signing secrets. It uses its own
+	// deployment key so rotating inbound lead-capture credentials cannot make
+	// an unrelated outbound endpoint unreadable.
+	workflowWebhooks *secrets.Sealer
 	// gmailSender is nil unless Google is configured. A nil sender is how
 	// SendOutboundMessage answers "can this deployment send at all" — it
 	// reports a precondition failure and tells the user to send it themselves.
@@ -49,6 +54,7 @@ func NewCRMService(
 	cfg config.Config, store domain.Store, googleSvc *google.Service,
 	gmailSyncer *gmail.Syncer, calendarSyncer *calendar.Syncer,
 	privacySvc *privacy.Service, captureSealer *secrets.Sealer,
+	workflowWebhookSealer *secrets.Sealer,
 	gmailSender *gmail.Sender,
 	metaSvc *metaintegration.Service,
 ) *CRMService {
@@ -62,11 +68,16 @@ func NewCRMService(
 		// which is the safe half to default.
 		privacySvc = privacy.New(store, 0, nil)
 	}
-	return &CRMService{
+	service := &CRMService{
 		cfg: cfg, store: store, google: googleSvc,
 		gmail: gmailSyncer, calendar: calendarSyncer, privacy: privacySvc,
-		capture: captureSealer, gmailSender: gmailSender, meta: metaSvc,
+		capture: captureSealer, workflowWebhooks: workflowWebhookSealer,
+		gmailSender: gmailSender, meta: metaSvc,
 	}
+	if calendarSyncer != nil {
+		service.calendarWriter = calendarSyncer.Writer()
+	}
+	return service
 }
 
 // CreateAccount stores a new Account.

@@ -351,5 +351,5 @@ func TestSyncGoogleCalendarNeedsAConfiguredIntegration(t *testing.T) {
 // collected before the integration was switched off.
 func newUnconfiguredService() *CRMService {
 	store := domain.NewMemStore()
-	return NewCRMService(config.Config{}, store, nil, nil, nil, privacy.New(store, 0, nil), nil, nil, nil)
+	return NewCRMService(config.Config{}, store, nil, nil, nil, privacy.New(store, 0, nil), nil, nil, nil, nil)
 }

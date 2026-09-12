@@ -53,6 +53,9 @@ type Server struct {
 	// API layer so issuing an endpoint and verifying its deliveries cannot
 	// drift onto two different keys.
 	captureSealer *secrets.Sealer
+	// workflowWebhookSealer is intentionally independent from captureSealer;
+	// inbound verification and outbound signing are separate trust domains.
+	workflowWebhookSealer *secrets.Sealer
 	// gmailSender is nil unless Google is configured, exactly like gmail
 	// above: without a credential there is no mailbox to send from, and a
 	// sender wired to a nil token source would fail on every attempt rather
@@ -121,6 +124,10 @@ func New(
 			return nil, err
 		}
 	}
+	workflowWebhookSealer, err := newWorkflowWebhookSealer(cfg)
+	if err != nil {
+		return nil, err
+	}
 	metaSvc, err := newMetaService(cfg, store)
 	if err != nil {
 		return nil, err
@@ -136,10 +143,11 @@ func New(
 		gmail:    gmailSyncer,
 		calendar: calendarSyncer,
 
-		leadCapture:   captureSvc,
-		meta:          metaSvc,
-		captureSealer: captureSealer,
-		gmailSender:   gmailSender,
+		leadCapture:           captureSvc,
+		meta:                  metaSvc,
+		captureSealer:         captureSealer,
+		workflowWebhookSealer: workflowWebhookSealer,
+		gmailSender:           gmailSender,
 
 		mux: http.NewServeMux(),
 	}
@@ -159,6 +167,12 @@ func (s *Server) GmailSyncer() *gmail.Syncer { return s.gmail }
 
 // CalendarSyncer is GmailSyncer's twin.
 func (s *Server) CalendarSyncer() *calendar.Syncer { return s.calendar }
+
+// WorkflowSecretSealer exposes the already-configured application sealer to
+// the background workflow runner. The API uses the same instance when it
+// creates a webhook endpoint, so the worker can open only secrets issued by
+// this deployment.
+func (s *Server) WorkflowSecretSealer() *secrets.Sealer { return s.workflowWebhookSealer }
 
 // Close gracefully drains the server's NATS connection.
 func (s *Server) Close() {
@@ -253,7 +267,7 @@ func (s *Server) routes() {
 
 	crmPath, crmHandler := crmv1connect.NewCRMServiceHandler(
 		api.NewCRMService(s.cfg, s.store, s.google, s.gmail, s.calendar, s.privacy,
-			s.captureSealer, s.gmailSender, s.meta), interceptors, readLimit)
+			s.captureSealer, s.workflowWebhookSealer, s.gmailSender, s.meta), interceptors, readLimit)
 	s.mux.Handle(crmPath, crmHandler)
 
 	// The Google OAuth callback is a plain browser redirect, not a Connect
@@ -294,6 +308,20 @@ func newCaptureSealer(cfg config.Config) (*secrets.Sealer, error) {
 	sealer, err := secrets.New(cfg.LeadCaptureSecretKey)
 	if err != nil {
 		return nil, fmt.Errorf("lead capture: %w", err)
+	}
+	return sealer, nil
+}
+
+// newWorkflowWebhookSealer builds the outbound webhook credential sealer.
+// It is optional in local/offline deployments; without it endpoint creation
+// is unavailable and the runner has no outbound sender.
+func newWorkflowWebhookSealer(cfg config.Config) (*secrets.Sealer, error) {
+	if strings.TrimSpace(cfg.WorkflowWebhookSecretKey) == "" {
+		return nil, nil
+	}
+	sealer, err := secrets.New(cfg.WorkflowWebhookSecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("workflow webhook: %w", err)
 	}
 	return sealer, nil
 }

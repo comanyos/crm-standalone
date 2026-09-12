@@ -262,6 +262,42 @@ func TestAnUnknownTriggerIsRefusedAtAuthoringTime(t *testing.T) {
 	}
 }
 
+// TestAWebhookActionMustReferenceThisTenantsExistingEndpoint catches a broken
+// rule before it is published. Waiting until execution would turn a simple
+// authoring mistake into three retries and a failed customer sequence.
+func TestAWebhookActionMustReferenceThisTenantsExistingEndpoint(t *testing.T) {
+	s := newTestService()
+	ctx := workflowCtx()
+	rule := draftRule(t, s, ctx, "Notify fulfilment")
+
+	request := func(endpointID string) *crmv1.PublishWorkflowRuleVersionRequest {
+		return &crmv1.PublishWorkflowRuleVersionRequest{
+			RuleId: rule.GetId(), TriggerEventType: domain.EventLeadCreated,
+			Actions: []*crmv1.WorkflowAction{{
+				Type: domain.ActionSendWebhook, WebhookEndpointId: endpointID,
+			}},
+		}
+	}
+
+	if _, err := s.PublishWorkflowRuleVersion(ctx, connect.NewRequest(request("missing-endpoint"))); err == nil {
+		t.Fatal("a rule referencing a missing webhook endpoint was published")
+	} else if got := connectCode(t, err); got != connect.CodeInvalidArgument {
+		t.Fatalf("missing endpoint code = %v, want InvalidArgument", got)
+	}
+
+	created, err := s.CreateWorkflowWebhookEndpoint(ctx, connect.NewRequest(
+		&crmv1.CreateWorkflowWebhookEndpointRequest{
+			Name: "Fulfilment", Url: "https://hooks.example.com/savvy",
+		}))
+	if err != nil {
+		t.Fatalf("create webhook endpoint: %v", err)
+	}
+	if _, err := s.PublishWorkflowRuleVersion(ctx, connect.NewRequest(
+		request(created.Msg.GetEndpoint().GetId()))); err != nil {
+		t.Fatalf("publish with existing endpoint: %v", err)
+	}
+}
+
 // TestTheCatalogOffersExactlyWhatThePublisherAccepts. An editor built from
 // this response must not be able to compose a rule the server refuses.
 func TestTheCatalogOffersExactlyWhatThePublisherAccepts(t *testing.T) {

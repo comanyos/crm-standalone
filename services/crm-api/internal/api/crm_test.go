@@ -77,7 +77,7 @@ func newTestServiceWithStore() (*CRMService, domain.Store) {
 	}
 	metaSvc := metaintegration.NewService(store, metaClient, sealer, "")
 	return NewCRMService(config.Config{}, store, googleSvc, syncer, calendarSyncer,
-		privacySvc, sealer, nil, metaSvc), store
+		privacySvc, sealer, sealer, nil, metaSvc), store
 }
 
 // testCaptureKey seals lead-capture secrets in this package's tests. Base64

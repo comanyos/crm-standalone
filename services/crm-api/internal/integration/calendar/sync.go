@@ -94,6 +94,20 @@ func NewSyncer(
 	}
 }
 
+// Writer returns the authenticated write service when the configured API
+// client implements Google Calendar writes. Test read-only clients simply
+// return nil, preserving the narrow sync interface.
+func (s *Syncer) Writer() *Writer {
+	if s == nil {
+		return nil
+	}
+	api, ok := s.api.(WriteAPI)
+	if !ok {
+		return nil
+	}
+	return NewWriter(s.store, api, s.tokens)
+}
+
 // Result reports what one pass did.
 type Result struct {
 	// EventsExamined counts events read. Most will match nothing and are
@@ -359,6 +373,7 @@ func (s *Syncer) recordEntry(
 	record := &domain.CalendarEvent{
 		OwnerID:          connection.OwnerID,
 		ProviderEventID:  event.ID,
+		ProviderETag:     event.ETag,
 		SubjectType:      domain.SubjectContact,
 		SubjectID:        contact.ID,
 		CalendarID:       "primary",

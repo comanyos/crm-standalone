@@ -45,11 +45,63 @@ func (e *Engine) act(
 		return e.assignOwner(ctx, scope, action, execution, subject)
 	case domain.ActionDraftMessage:
 		return e.draftMessage(ctx, scope, action, execution, subject)
+	case domain.ActionRequestApproval:
+		return e.requestApproval(ctx, scope, version, action, execution, subject)
+	case domain.ActionSendWebhook:
+		return e.sendWebhook(ctx, scope, version, action, execution)
 	default:
 		// A version that stored an action type this build does not know is
 		// terminal: it will not become known by retrying.
 		return ReasonInvalidAction, errors.New("unknown action type")
 	}
+}
+
+func (e *Engine) requestApproval(
+	ctx context.Context, scope domain.Scope, version *domain.WorkflowRuleVersion,
+	action domain.WorkflowAction, execution *domain.WorkflowExecution, subject subjectSnapshot,
+) (string, error) {
+	approver := assigneeFor(action, subject)
+	if approver == "" {
+		return ReasonNoAssignee, errors.New("no approver could be resolved")
+	}
+	requested := &domain.WorkflowApproval{ID: domain.NewID(), ExecutionID: execution.ID,
+		RuleID: version.RuleID, ActionIndex: execution.ActionsCompleted, ApproverID: approver,
+		Title: action.Title, Body: action.Body, SubjectType: subject.Type, SubjectID: subject.ID,
+		Status: domain.ApprovalPending, RequestedAt: e.now()}
+	approval, err := e.store.EnsureWorkflowApproval(ctx, scope, requested)
+	if err != nil {
+		return actionReason(err), err
+	}
+	switch approval.Status {
+	case domain.ApprovalApproved:
+		return "", nil
+	case domain.ApprovalRejected:
+		return ReasonApprovalRejected, errors.New("approval was rejected")
+	default:
+		if approval.ID == requested.ID {
+			_, _ = e.store.CreateNotification(ctx, scope, &domain.Notification{
+				RecipientID: approver, Kind: "approval", Title: action.Title, Body: action.Body,
+				SubjectType: subject.Type, SubjectID: subject.ID, RuleID: version.RuleID,
+			})
+		}
+		return "", errApprovalPending
+	}
+}
+
+func (e *Engine) sendWebhook(
+	ctx context.Context, scope domain.Scope, version *domain.WorkflowRuleVersion,
+	action domain.WorkflowAction, execution *domain.WorkflowExecution,
+) (string, error) {
+	if e.webhook == nil {
+		return ReasonInvalidAction, errors.New("signed webhook delivery is not configured")
+	}
+	if err := e.webhook.Deliver(ctx, scope, action.WebhookEndpointID, version, execution, execution.ActionsCompleted); err != nil {
+		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrInvalid) {
+			return ReasonInvalidAction, err
+		}
+		return ReasonActionFailed, err
+	}
+	return "", nil
 }
 
 // subjectSnapshot is what actions need about the record the event concerned,

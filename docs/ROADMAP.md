@@ -460,14 +460,19 @@ webhook security decisions from the product owner.
   (`SYNC_RETENTION_DAYS`, off by default) uses the same erasure inside the sync
   pass. Every erasure is audited through the outbox with counts and no content.
 
-  **Not done — what the connection still owes.** Sync is one-way in both
-  streams: the CRM never creates, moves or cancels an event, and `gmail.send`
-  is requested but unused. Only the `primary` calendar is read. Recurring
-  series sync as individual instances, so moving a series posts one entry per
-  instance. Synced email and meetings attach to matched Contacts only, not to
-  their Accounts or open Opportunities. `thread_id` and `recurring_event_id`
-  are stored but nothing groups a conversation or a series in the UI. Sealing-key rotation still has no re-encryption path. Google verification submission stays deferred until a truthful demo
-  can be recorded. Microsoft remains deliberately unconfigured.
+  **Done — provider writes from CRM.** A rep can send one reviewed Gmail
+  draft from their own connected mailbox. Calendar can create, edit,
+  reschedule, and cancel a CRM-authored primary-calendar event; invitations,
+  recurrence, reminders, Contact/Lead/Opportunity linking, ETag conflict
+  protection, idempotent provider ids, and tenant-scoped audit entries are
+  implemented in migration `0041` and the Calendar UI.
+
+  **Still open.** Only the `primary` calendar is used. External recurring
+  instances are not grouped into one collapsible timeline item. Synced email
+  and imported meetings attach to matched Contacts only. `thread_id` is not
+  grouped in the UI, sealing-key rotation has no re-encryption path, Google
+  production acceptance/verification is external, and Microsoft remains
+  deliberately unconfigured.
 - [~] Workflow engine, notifications, assignments, approvals, scheduled work,
   webhook signing/retries, and administration controls.
 
@@ -505,14 +510,20 @@ webhook security decisions from the product owner.
   action. Every in-app notification is also placed on a durable SMTP queue
   with a lease, bounded retries, and capped exponential backoff.
 
-  **Not done.** Approvals (a rule that waits needs a durable pause and a way
-  to address the approver), wall-clock triggers and recurrence, outbound
-  webhooks with signing and retries (need an egress
-  policy and a secret story), templated action text (needs a field-visibility
-  model), custom fields in conditions (needs definition versioning), and
-  cross-rule chaining (needs the causation-depth limit the loop-prevention
-  section names). Delayed multi-step sequences inside one rule are complete.
-  See [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md).
+  **Done — advanced automation (`0041`).** Published sequences can run once,
+  daily, weekly, or monthly at a named-zone wall-clock time and survive
+  restarts without duplicate or catch-up storms. `request_approval` pauses
+  durably for the named approver and resumes or rejects exactly once.
+  `send_webhook` uses one-time generated, independently encrypted secrets,
+  HMAC signatures, stable retry ids, delivery audit, bounded retries, HTTPS
+  only, and DNS-time SSRF protection. The Automation UI creates and controls
+  all three.
+
+  **Still open.** Templated action text needs a field-visibility model,
+  custom fields in conditions need definition versioning, and cross-rule
+  chaining needs the causation-depth limit the loop-prevention section names.
+  Provider-specific chat destinations are separate integrations. See
+  [WORKFLOW_AUTOMATION.md](WORKFLOW_AUTOMATION.md).
 
 Acceptance criteria: provider credentials never reach browser storage or logs;
 sync is idempotent; automations are auditable, tenant-isolated, and safely

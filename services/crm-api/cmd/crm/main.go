@@ -128,7 +128,8 @@ func execute() int {
 	// a pass interrupted mid-way leaves its cursor where it was and its lease
 	// to expire, and the idempotency key on each execution is what makes
 	// resuming safe.
-	workflow.Start(dispatchCtx, store, 0, slog.Default())
+	workflow.StartWithWebhook(dispatchCtx, store,
+		workflow.NewWebhookSender(store, srv.WorkflowSecretSealer(), nil), 0, slog.Default())
 
 	// Speed-to-lead notifications and their email queue are durable database
 	// work just like workflows. Claims and leases make restarts and multiple

@@ -114,8 +114,15 @@ func (p *Poller) Once(ctx context.Context, now time.Time) (int, error) {
 // is part of the CRM rather than an integration, so it always runs. A
 // deployment with no active rules simply finds no due tenants.
 func Start(ctx context.Context, store domain.Store, interval time.Duration, log *slog.Logger) {
+	StartWithWebhook(ctx, store, nil, interval, log)
+}
+
+// StartWithWebhook starts automation with signed outbound delivery enabled.
+func StartWithWebhook(
+	ctx context.Context, store domain.Store, webhook *WebhookSender, interval time.Duration, log *slog.Logger,
+) {
 	if log == nil {
 		log = slog.Default()
 	}
-	go NewPoller(store, New(store, log), interval, log).Run(ctx)
+	go NewPoller(store, NewWithWebhook(store, webhook, log), interval, log).Run(ctx)
 }

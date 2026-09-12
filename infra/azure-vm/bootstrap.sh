@@ -5,9 +5,9 @@ umask 077
 key_vault_name=savvy-crm-kv-8bc52d
 storage_account_name=stsavvycrm8bc52d
 deployment_container=deployment
-deployment_blob=savvy-crm-beta-20260911-010.tar.gz
+deployment_blob=savvy-crm-beta-20260912-011.tar.gz
 acr_login_server=savvycrm8bc52d.azurecr.io
-image_tag=beta-20260911-010
+image_tag=beta-20260912-011
 install_dir=/opt/savvy-crm
 state_dir=/var/lib/savvy-crm
 data_device=/dev/disk/azure/scsi1/lun0
@@ -129,6 +129,7 @@ if [ -n "$google_oauth_client_id" ]; then
   google_oauth_redirect_url=https://crmapi.savvyadvi.com/integrations/google/callback
 fi
 lead_capture_secret_key=$(vault_secret lead-capture-secret-key)
+workflow_webhook_secret_key=$(vault_secret workflow-webhook-secret-key)
 meta_app_id=$(vault_secret_optional meta-app-id)
 meta_app_secret=$(vault_secret_optional meta-app-secret)
 meta_webhook_verify_token=$(vault_secret_optional meta-webhook-verify-token)
@@ -157,6 +158,7 @@ runtime_env=$(mktemp /tmp/savvy-crm-runtime.XXXXXX)
   printf 'GOOGLE_OAUTH_REDIRECT_URL=%s\n' "$google_oauth_redirect_url"
   printf 'GOOGLE_OAUTH_TOKEN_KEY=%s\n' "$google_oauth_token_key"
   printf 'LEAD_CAPTURE_SECRET_KEY=%s\n' "$lead_capture_secret_key"
+  printf 'WORKFLOW_WEBHOOK_SECRET_KEY=%s\n' "$workflow_webhook_secret_key"
   printf 'META_APP_ID=%s\n' "$meta_app_id"
   printf 'META_APP_SECRET=%s\n' "$meta_app_secret"
   printf 'META_OAUTH_REDIRECT_URL=%s\n' "$meta_oauth_redirect_url"

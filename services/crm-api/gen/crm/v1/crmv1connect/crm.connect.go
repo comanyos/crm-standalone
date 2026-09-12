@@ -245,6 +245,21 @@ const (
 	// CRMServiceSyncGoogleCalendarProcedure is the fully-qualified name of the CRMService's
 	// SyncGoogleCalendar RPC.
 	CRMServiceSyncGoogleCalendarProcedure = "/crm.v1.CRMService/SyncGoogleCalendar"
+	// CRMServiceCreateGoogleCalendarEventProcedure is the fully-qualified name of the CRMService's
+	// CreateGoogleCalendarEvent RPC.
+	CRMServiceCreateGoogleCalendarEventProcedure = "/crm.v1.CRMService/CreateGoogleCalendarEvent"
+	// CRMServiceGetGoogleCalendarEventProcedure is the fully-qualified name of the CRMService's
+	// GetGoogleCalendarEvent RPC.
+	CRMServiceGetGoogleCalendarEventProcedure = "/crm.v1.CRMService/GetGoogleCalendarEvent"
+	// CRMServiceListGoogleCalendarEventsProcedure is the fully-qualified name of the CRMService's
+	// ListGoogleCalendarEvents RPC.
+	CRMServiceListGoogleCalendarEventsProcedure = "/crm.v1.CRMService/ListGoogleCalendarEvents"
+	// CRMServiceUpdateGoogleCalendarEventProcedure is the fully-qualified name of the CRMService's
+	// UpdateGoogleCalendarEvent RPC.
+	CRMServiceUpdateGoogleCalendarEventProcedure = "/crm.v1.CRMService/UpdateGoogleCalendarEvent"
+	// CRMServiceCancelGoogleCalendarEventProcedure is the fully-qualified name of the CRMService's
+	// CancelGoogleCalendarEvent RPC.
+	CRMServiceCancelGoogleCalendarEventProcedure = "/crm.v1.CRMService/CancelGoogleCalendarEvent"
 	// CRMServiceEraseSyncedContentForContactProcedure is the fully-qualified name of the CRMService's
 	// EraseSyncedContentForContact RPC.
 	CRMServiceEraseSyncedContentForContactProcedure = "/crm.v1.CRMService/EraseSyncedContentForContact"
@@ -284,6 +299,33 @@ const (
 	// CRMServiceListWorkflowExecutionsProcedure is the fully-qualified name of the CRMService's
 	// ListWorkflowExecutions RPC.
 	CRMServiceListWorkflowExecutionsProcedure = "/crm.v1.CRMService/ListWorkflowExecutions"
+	// CRMServiceCreateWorkflowScheduleProcedure is the fully-qualified name of the CRMService's
+	// CreateWorkflowSchedule RPC.
+	CRMServiceCreateWorkflowScheduleProcedure = "/crm.v1.CRMService/CreateWorkflowSchedule"
+	// CRMServiceListWorkflowSchedulesProcedure is the fully-qualified name of the CRMService's
+	// ListWorkflowSchedules RPC.
+	CRMServiceListWorkflowSchedulesProcedure = "/crm.v1.CRMService/ListWorkflowSchedules"
+	// CRMServiceUpdateWorkflowScheduleProcedure is the fully-qualified name of the CRMService's
+	// UpdateWorkflowSchedule RPC.
+	CRMServiceUpdateWorkflowScheduleProcedure = "/crm.v1.CRMService/UpdateWorkflowSchedule"
+	// CRMServiceDeleteWorkflowScheduleProcedure is the fully-qualified name of the CRMService's
+	// DeleteWorkflowSchedule RPC.
+	CRMServiceDeleteWorkflowScheduleProcedure = "/crm.v1.CRMService/DeleteWorkflowSchedule"
+	// CRMServiceListWorkflowApprovalsProcedure is the fully-qualified name of the CRMService's
+	// ListWorkflowApprovals RPC.
+	CRMServiceListWorkflowApprovalsProcedure = "/crm.v1.CRMService/ListWorkflowApprovals"
+	// CRMServiceDecideWorkflowApprovalProcedure is the fully-qualified name of the CRMService's
+	// DecideWorkflowApproval RPC.
+	CRMServiceDecideWorkflowApprovalProcedure = "/crm.v1.CRMService/DecideWorkflowApproval"
+	// CRMServiceCreateWorkflowWebhookEndpointProcedure is the fully-qualified name of the CRMService's
+	// CreateWorkflowWebhookEndpoint RPC.
+	CRMServiceCreateWorkflowWebhookEndpointProcedure = "/crm.v1.CRMService/CreateWorkflowWebhookEndpoint"
+	// CRMServiceListWorkflowWebhookEndpointsProcedure is the fully-qualified name of the CRMService's
+	// ListWorkflowWebhookEndpoints RPC.
+	CRMServiceListWorkflowWebhookEndpointsProcedure = "/crm.v1.CRMService/ListWorkflowWebhookEndpoints"
+	// CRMServiceDeleteWorkflowWebhookEndpointProcedure is the fully-qualified name of the CRMService's
+	// DeleteWorkflowWebhookEndpoint RPC.
+	CRMServiceDeleteWorkflowWebhookEndpointProcedure = "/crm.v1.CRMService/DeleteWorkflowWebhookEndpoint"
 	// CRMServiceListNotificationsProcedure is the fully-qualified name of the CRMService's
 	// ListNotifications RPC.
 	CRMServiceListNotificationsProcedure = "/crm.v1.CRMService/ListNotifications"
@@ -567,6 +609,13 @@ type CRMServiceClient interface {
 	// SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
 	// calendar, and is bounded the same way.
 	SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error)
+	// Google Calendar write surface. Every operation acts on the caller's own
+	// connected Google account; owner ids never cross this boundary.
+	CreateGoogleCalendarEvent(context.Context, *connect.Request[v1.CreateGoogleCalendarEventRequest]) (*connect.Response[v1.CreateGoogleCalendarEventResponse], error)
+	GetGoogleCalendarEvent(context.Context, *connect.Request[v1.GetGoogleCalendarEventRequest]) (*connect.Response[v1.GetGoogleCalendarEventResponse], error)
+	ListGoogleCalendarEvents(context.Context, *connect.Request[v1.ListGoogleCalendarEventsRequest]) (*connect.Response[v1.ListGoogleCalendarEventsResponse], error)
+	UpdateGoogleCalendarEvent(context.Context, *connect.Request[v1.UpdateGoogleCalendarEventRequest]) (*connect.Response[v1.UpdateGoogleCalendarEventResponse], error)
+	CancelGoogleCalendarEvent(context.Context, *connect.Request[v1.CancelGoogleCalendarEventRequest]) (*connect.Response[v1.CancelGoogleCalendarEventResponse], error)
 	// Data-subject requests against synchronised communication content
 	// (docs/GOOGLE_INTEGRATION.md).
 	//
@@ -603,6 +652,21 @@ type CRMServiceClient interface {
 	// event the rule was considered for, including the ones whose conditions
 	// did not hold, and the bounded reason for each failure.
 	ListWorkflowExecutions(context.Context, *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error)
+	// Durable date/time automation. A schedule fires the active version of an
+	// existing rule for one linked CRM record, once or on a recurring cadence.
+	CreateWorkflowSchedule(context.Context, *connect.Request[v1.CreateWorkflowScheduleRequest]) (*connect.Response[v1.CreateWorkflowScheduleResponse], error)
+	ListWorkflowSchedules(context.Context, *connect.Request[v1.ListWorkflowSchedulesRequest]) (*connect.Response[v1.ListWorkflowSchedulesResponse], error)
+	UpdateWorkflowSchedule(context.Context, *connect.Request[v1.UpdateWorkflowScheduleRequest]) (*connect.Response[v1.UpdateWorkflowScheduleResponse], error)
+	DeleteWorkflowSchedule(context.Context, *connect.Request[v1.DeleteWorkflowScheduleRequest]) (*connect.Response[v1.DeleteWorkflowScheduleResponse], error)
+	// Approval work is private to the calling principal: the request never
+	// accepts an approver id, so one user cannot read or decide another's item.
+	ListWorkflowApprovals(context.Context, *connect.Request[v1.ListWorkflowApprovalsRequest]) (*connect.Response[v1.ListWorkflowApprovalsResponse], error)
+	DecideWorkflowApproval(context.Context, *connect.Request[v1.DecideWorkflowApprovalRequest]) (*connect.Response[v1.DecideWorkflowApprovalResponse], error)
+	// Named HTTPS destinations used by send_webhook actions. The signing secret
+	// is returned once on create and is never included in a later read.
+	CreateWorkflowWebhookEndpoint(context.Context, *connect.Request[v1.CreateWorkflowWebhookEndpointRequest]) (*connect.Response[v1.CreateWorkflowWebhookEndpointResponse], error)
+	ListWorkflowWebhookEndpoints(context.Context, *connect.Request[v1.ListWorkflowWebhookEndpointsRequest]) (*connect.Response[v1.ListWorkflowWebhookEndpointsResponse], error)
+	DeleteWorkflowWebhookEndpoint(context.Context, *connect.Request[v1.DeleteWorkflowWebhookEndpointRequest]) (*connect.Response[v1.DeleteWorkflowWebhookEndpointResponse], error)
 	// In-app notifications.
 	//
 	// Both RPCs act on the calling principal's own notifications and take no
@@ -1276,6 +1340,36 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
 			connect.WithClientOptions(opts...),
 		),
+		createGoogleCalendarEvent: connect.NewClient[v1.CreateGoogleCalendarEventRequest, v1.CreateGoogleCalendarEventResponse](
+			httpClient,
+			baseURL+CRMServiceCreateGoogleCalendarEventProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateGoogleCalendarEvent")),
+			connect.WithClientOptions(opts...),
+		),
+		getGoogleCalendarEvent: connect.NewClient[v1.GetGoogleCalendarEventRequest, v1.GetGoogleCalendarEventResponse](
+			httpClient,
+			baseURL+CRMServiceGetGoogleCalendarEventProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("GetGoogleCalendarEvent")),
+			connect.WithClientOptions(opts...),
+		),
+		listGoogleCalendarEvents: connect.NewClient[v1.ListGoogleCalendarEventsRequest, v1.ListGoogleCalendarEventsResponse](
+			httpClient,
+			baseURL+CRMServiceListGoogleCalendarEventsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListGoogleCalendarEvents")),
+			connect.WithClientOptions(opts...),
+		),
+		updateGoogleCalendarEvent: connect.NewClient[v1.UpdateGoogleCalendarEventRequest, v1.UpdateGoogleCalendarEventResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateGoogleCalendarEventProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateGoogleCalendarEvent")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelGoogleCalendarEvent: connect.NewClient[v1.CancelGoogleCalendarEventRequest, v1.CancelGoogleCalendarEventResponse](
+			httpClient,
+			baseURL+CRMServiceCancelGoogleCalendarEventProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CancelGoogleCalendarEvent")),
+			connect.WithClientOptions(opts...),
+		),
 		eraseSyncedContentForContact: connect.NewClient[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentForContactResponse](
 			httpClient,
 			baseURL+CRMServiceEraseSyncedContentForContactProcedure,
@@ -1352,6 +1446,60 @@ func NewCRMServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...
 			httpClient,
 			baseURL+CRMServiceListWorkflowExecutionsProcedure,
 			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowExecutions")),
+			connect.WithClientOptions(opts...),
+		),
+		createWorkflowSchedule: connect.NewClient[v1.CreateWorkflowScheduleRequest, v1.CreateWorkflowScheduleResponse](
+			httpClient,
+			baseURL+CRMServiceCreateWorkflowScheduleProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateWorkflowSchedule")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkflowSchedules: connect.NewClient[v1.ListWorkflowSchedulesRequest, v1.ListWorkflowSchedulesResponse](
+			httpClient,
+			baseURL+CRMServiceListWorkflowSchedulesProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowSchedules")),
+			connect.WithClientOptions(opts...),
+		),
+		updateWorkflowSchedule: connect.NewClient[v1.UpdateWorkflowScheduleRequest, v1.UpdateWorkflowScheduleResponse](
+			httpClient,
+			baseURL+CRMServiceUpdateWorkflowScheduleProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("UpdateWorkflowSchedule")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteWorkflowSchedule: connect.NewClient[v1.DeleteWorkflowScheduleRequest, v1.DeleteWorkflowScheduleResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteWorkflowScheduleProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteWorkflowSchedule")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkflowApprovals: connect.NewClient[v1.ListWorkflowApprovalsRequest, v1.ListWorkflowApprovalsResponse](
+			httpClient,
+			baseURL+CRMServiceListWorkflowApprovalsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowApprovals")),
+			connect.WithClientOptions(opts...),
+		),
+		decideWorkflowApproval: connect.NewClient[v1.DecideWorkflowApprovalRequest, v1.DecideWorkflowApprovalResponse](
+			httpClient,
+			baseURL+CRMServiceDecideWorkflowApprovalProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DecideWorkflowApproval")),
+			connect.WithClientOptions(opts...),
+		),
+		createWorkflowWebhookEndpoint: connect.NewClient[v1.CreateWorkflowWebhookEndpointRequest, v1.CreateWorkflowWebhookEndpointResponse](
+			httpClient,
+			baseURL+CRMServiceCreateWorkflowWebhookEndpointProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("CreateWorkflowWebhookEndpoint")),
+			connect.WithClientOptions(opts...),
+		),
+		listWorkflowWebhookEndpoints: connect.NewClient[v1.ListWorkflowWebhookEndpointsRequest, v1.ListWorkflowWebhookEndpointsResponse](
+			httpClient,
+			baseURL+CRMServiceListWorkflowWebhookEndpointsProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowWebhookEndpoints")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteWorkflowWebhookEndpoint: connect.NewClient[v1.DeleteWorkflowWebhookEndpointRequest, v1.DeleteWorkflowWebhookEndpointResponse](
+			httpClient,
+			baseURL+CRMServiceDeleteWorkflowWebhookEndpointProcedure,
+			connect.WithSchema(cRMServiceMethods.ByName("DeleteWorkflowWebhookEndpoint")),
 			connect.WithClientOptions(opts...),
 		),
 		listNotifications: connect.NewClient[v1.ListNotificationsRequest, v1.ListNotificationsResponse](
@@ -1732,6 +1880,11 @@ type cRMServiceClient struct {
 	getLeadMetaAttribution         *connect.Client[v1.GetLeadMetaAttributionRequest, v1.GetLeadMetaAttributionResponse]
 	syncGoogleMailbox              *connect.Client[v1.SyncGoogleMailboxRequest, v1.SyncGoogleMailboxResponse]
 	syncGoogleCalendar             *connect.Client[v1.SyncGoogleCalendarRequest, v1.SyncGoogleCalendarResponse]
+	createGoogleCalendarEvent      *connect.Client[v1.CreateGoogleCalendarEventRequest, v1.CreateGoogleCalendarEventResponse]
+	getGoogleCalendarEvent         *connect.Client[v1.GetGoogleCalendarEventRequest, v1.GetGoogleCalendarEventResponse]
+	listGoogleCalendarEvents       *connect.Client[v1.ListGoogleCalendarEventsRequest, v1.ListGoogleCalendarEventsResponse]
+	updateGoogleCalendarEvent      *connect.Client[v1.UpdateGoogleCalendarEventRequest, v1.UpdateGoogleCalendarEventResponse]
+	cancelGoogleCalendarEvent      *connect.Client[v1.CancelGoogleCalendarEventRequest, v1.CancelGoogleCalendarEventResponse]
 	eraseSyncedContentForContact   *connect.Client[v1.EraseSyncedContentForContactRequest, v1.EraseSyncedContentForContactResponse]
 	listSyncSuppressions           *connect.Client[v1.ListSyncSuppressionsRequest, v1.ListSyncSuppressionsResponse]
 	suppressSyncAddress            *connect.Client[v1.SuppressSyncAddressRequest, v1.SuppressSyncAddressResponse]
@@ -1745,6 +1898,15 @@ type cRMServiceClient struct {
 	listWorkflowRuleVersions       *connect.Client[v1.ListWorkflowRuleVersionsRequest, v1.ListWorkflowRuleVersionsResponse]
 	setWorkflowRuleStatus          *connect.Client[v1.SetWorkflowRuleStatusRequest, v1.SetWorkflowRuleStatusResponse]
 	listWorkflowExecutions         *connect.Client[v1.ListWorkflowExecutionsRequest, v1.ListWorkflowExecutionsResponse]
+	createWorkflowSchedule         *connect.Client[v1.CreateWorkflowScheduleRequest, v1.CreateWorkflowScheduleResponse]
+	listWorkflowSchedules          *connect.Client[v1.ListWorkflowSchedulesRequest, v1.ListWorkflowSchedulesResponse]
+	updateWorkflowSchedule         *connect.Client[v1.UpdateWorkflowScheduleRequest, v1.UpdateWorkflowScheduleResponse]
+	deleteWorkflowSchedule         *connect.Client[v1.DeleteWorkflowScheduleRequest, v1.DeleteWorkflowScheduleResponse]
+	listWorkflowApprovals          *connect.Client[v1.ListWorkflowApprovalsRequest, v1.ListWorkflowApprovalsResponse]
+	decideWorkflowApproval         *connect.Client[v1.DecideWorkflowApprovalRequest, v1.DecideWorkflowApprovalResponse]
+	createWorkflowWebhookEndpoint  *connect.Client[v1.CreateWorkflowWebhookEndpointRequest, v1.CreateWorkflowWebhookEndpointResponse]
+	listWorkflowWebhookEndpoints   *connect.Client[v1.ListWorkflowWebhookEndpointsRequest, v1.ListWorkflowWebhookEndpointsResponse]
+	deleteWorkflowWebhookEndpoint  *connect.Client[v1.DeleteWorkflowWebhookEndpointRequest, v1.DeleteWorkflowWebhookEndpointResponse]
 	listNotifications              *connect.Client[v1.ListNotificationsRequest, v1.ListNotificationsResponse]
 	markNotificationRead           *connect.Client[v1.MarkNotificationReadRequest, v1.MarkNotificationReadResponse]
 	createTag                      *connect.Client[v1.CreateTagRequest, v1.CreateTagResponse]
@@ -2191,6 +2353,31 @@ func (c *cRMServiceClient) SyncGoogleCalendar(ctx context.Context, req *connect.
 	return c.syncGoogleCalendar.CallUnary(ctx, req)
 }
 
+// CreateGoogleCalendarEvent calls crm.v1.CRMService.CreateGoogleCalendarEvent.
+func (c *cRMServiceClient) CreateGoogleCalendarEvent(ctx context.Context, req *connect.Request[v1.CreateGoogleCalendarEventRequest]) (*connect.Response[v1.CreateGoogleCalendarEventResponse], error) {
+	return c.createGoogleCalendarEvent.CallUnary(ctx, req)
+}
+
+// GetGoogleCalendarEvent calls crm.v1.CRMService.GetGoogleCalendarEvent.
+func (c *cRMServiceClient) GetGoogleCalendarEvent(ctx context.Context, req *connect.Request[v1.GetGoogleCalendarEventRequest]) (*connect.Response[v1.GetGoogleCalendarEventResponse], error) {
+	return c.getGoogleCalendarEvent.CallUnary(ctx, req)
+}
+
+// ListGoogleCalendarEvents calls crm.v1.CRMService.ListGoogleCalendarEvents.
+func (c *cRMServiceClient) ListGoogleCalendarEvents(ctx context.Context, req *connect.Request[v1.ListGoogleCalendarEventsRequest]) (*connect.Response[v1.ListGoogleCalendarEventsResponse], error) {
+	return c.listGoogleCalendarEvents.CallUnary(ctx, req)
+}
+
+// UpdateGoogleCalendarEvent calls crm.v1.CRMService.UpdateGoogleCalendarEvent.
+func (c *cRMServiceClient) UpdateGoogleCalendarEvent(ctx context.Context, req *connect.Request[v1.UpdateGoogleCalendarEventRequest]) (*connect.Response[v1.UpdateGoogleCalendarEventResponse], error) {
+	return c.updateGoogleCalendarEvent.CallUnary(ctx, req)
+}
+
+// CancelGoogleCalendarEvent calls crm.v1.CRMService.CancelGoogleCalendarEvent.
+func (c *cRMServiceClient) CancelGoogleCalendarEvent(ctx context.Context, req *connect.Request[v1.CancelGoogleCalendarEventRequest]) (*connect.Response[v1.CancelGoogleCalendarEventResponse], error) {
+	return c.cancelGoogleCalendarEvent.CallUnary(ctx, req)
+}
+
 // EraseSyncedContentForContact calls crm.v1.CRMService.EraseSyncedContentForContact.
 func (c *cRMServiceClient) EraseSyncedContentForContact(ctx context.Context, req *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentForContactResponse], error) {
 	return c.eraseSyncedContentForContact.CallUnary(ctx, req)
@@ -2254,6 +2441,51 @@ func (c *cRMServiceClient) SetWorkflowRuleStatus(ctx context.Context, req *conne
 // ListWorkflowExecutions calls crm.v1.CRMService.ListWorkflowExecutions.
 func (c *cRMServiceClient) ListWorkflowExecutions(ctx context.Context, req *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error) {
 	return c.listWorkflowExecutions.CallUnary(ctx, req)
+}
+
+// CreateWorkflowSchedule calls crm.v1.CRMService.CreateWorkflowSchedule.
+func (c *cRMServiceClient) CreateWorkflowSchedule(ctx context.Context, req *connect.Request[v1.CreateWorkflowScheduleRequest]) (*connect.Response[v1.CreateWorkflowScheduleResponse], error) {
+	return c.createWorkflowSchedule.CallUnary(ctx, req)
+}
+
+// ListWorkflowSchedules calls crm.v1.CRMService.ListWorkflowSchedules.
+func (c *cRMServiceClient) ListWorkflowSchedules(ctx context.Context, req *connect.Request[v1.ListWorkflowSchedulesRequest]) (*connect.Response[v1.ListWorkflowSchedulesResponse], error) {
+	return c.listWorkflowSchedules.CallUnary(ctx, req)
+}
+
+// UpdateWorkflowSchedule calls crm.v1.CRMService.UpdateWorkflowSchedule.
+func (c *cRMServiceClient) UpdateWorkflowSchedule(ctx context.Context, req *connect.Request[v1.UpdateWorkflowScheduleRequest]) (*connect.Response[v1.UpdateWorkflowScheduleResponse], error) {
+	return c.updateWorkflowSchedule.CallUnary(ctx, req)
+}
+
+// DeleteWorkflowSchedule calls crm.v1.CRMService.DeleteWorkflowSchedule.
+func (c *cRMServiceClient) DeleteWorkflowSchedule(ctx context.Context, req *connect.Request[v1.DeleteWorkflowScheduleRequest]) (*connect.Response[v1.DeleteWorkflowScheduleResponse], error) {
+	return c.deleteWorkflowSchedule.CallUnary(ctx, req)
+}
+
+// ListWorkflowApprovals calls crm.v1.CRMService.ListWorkflowApprovals.
+func (c *cRMServiceClient) ListWorkflowApprovals(ctx context.Context, req *connect.Request[v1.ListWorkflowApprovalsRequest]) (*connect.Response[v1.ListWorkflowApprovalsResponse], error) {
+	return c.listWorkflowApprovals.CallUnary(ctx, req)
+}
+
+// DecideWorkflowApproval calls crm.v1.CRMService.DecideWorkflowApproval.
+func (c *cRMServiceClient) DecideWorkflowApproval(ctx context.Context, req *connect.Request[v1.DecideWorkflowApprovalRequest]) (*connect.Response[v1.DecideWorkflowApprovalResponse], error) {
+	return c.decideWorkflowApproval.CallUnary(ctx, req)
+}
+
+// CreateWorkflowWebhookEndpoint calls crm.v1.CRMService.CreateWorkflowWebhookEndpoint.
+func (c *cRMServiceClient) CreateWorkflowWebhookEndpoint(ctx context.Context, req *connect.Request[v1.CreateWorkflowWebhookEndpointRequest]) (*connect.Response[v1.CreateWorkflowWebhookEndpointResponse], error) {
+	return c.createWorkflowWebhookEndpoint.CallUnary(ctx, req)
+}
+
+// ListWorkflowWebhookEndpoints calls crm.v1.CRMService.ListWorkflowWebhookEndpoints.
+func (c *cRMServiceClient) ListWorkflowWebhookEndpoints(ctx context.Context, req *connect.Request[v1.ListWorkflowWebhookEndpointsRequest]) (*connect.Response[v1.ListWorkflowWebhookEndpointsResponse], error) {
+	return c.listWorkflowWebhookEndpoints.CallUnary(ctx, req)
+}
+
+// DeleteWorkflowWebhookEndpoint calls crm.v1.CRMService.DeleteWorkflowWebhookEndpoint.
+func (c *cRMServiceClient) DeleteWorkflowWebhookEndpoint(ctx context.Context, req *connect.Request[v1.DeleteWorkflowWebhookEndpointRequest]) (*connect.Response[v1.DeleteWorkflowWebhookEndpointResponse], error) {
+	return c.deleteWorkflowWebhookEndpoint.CallUnary(ctx, req)
 }
 
 // ListNotifications calls crm.v1.CRMService.ListNotifications.
@@ -2643,6 +2875,13 @@ type CRMServiceHandler interface {
 	// SyncGoogleCalendar is SyncGoogleMailbox's twin for the calling user's own
 	// calendar, and is bounded the same way.
 	SyncGoogleCalendar(context.Context, *connect.Request[v1.SyncGoogleCalendarRequest]) (*connect.Response[v1.SyncGoogleCalendarResponse], error)
+	// Google Calendar write surface. Every operation acts on the caller's own
+	// connected Google account; owner ids never cross this boundary.
+	CreateGoogleCalendarEvent(context.Context, *connect.Request[v1.CreateGoogleCalendarEventRequest]) (*connect.Response[v1.CreateGoogleCalendarEventResponse], error)
+	GetGoogleCalendarEvent(context.Context, *connect.Request[v1.GetGoogleCalendarEventRequest]) (*connect.Response[v1.GetGoogleCalendarEventResponse], error)
+	ListGoogleCalendarEvents(context.Context, *connect.Request[v1.ListGoogleCalendarEventsRequest]) (*connect.Response[v1.ListGoogleCalendarEventsResponse], error)
+	UpdateGoogleCalendarEvent(context.Context, *connect.Request[v1.UpdateGoogleCalendarEventRequest]) (*connect.Response[v1.UpdateGoogleCalendarEventResponse], error)
+	CancelGoogleCalendarEvent(context.Context, *connect.Request[v1.CancelGoogleCalendarEventRequest]) (*connect.Response[v1.CancelGoogleCalendarEventResponse], error)
 	// Data-subject requests against synchronised communication content
 	// (docs/GOOGLE_INTEGRATION.md).
 	//
@@ -2679,6 +2918,21 @@ type CRMServiceHandler interface {
 	// event the rule was considered for, including the ones whose conditions
 	// did not hold, and the bounded reason for each failure.
 	ListWorkflowExecutions(context.Context, *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error)
+	// Durable date/time automation. A schedule fires the active version of an
+	// existing rule for one linked CRM record, once or on a recurring cadence.
+	CreateWorkflowSchedule(context.Context, *connect.Request[v1.CreateWorkflowScheduleRequest]) (*connect.Response[v1.CreateWorkflowScheduleResponse], error)
+	ListWorkflowSchedules(context.Context, *connect.Request[v1.ListWorkflowSchedulesRequest]) (*connect.Response[v1.ListWorkflowSchedulesResponse], error)
+	UpdateWorkflowSchedule(context.Context, *connect.Request[v1.UpdateWorkflowScheduleRequest]) (*connect.Response[v1.UpdateWorkflowScheduleResponse], error)
+	DeleteWorkflowSchedule(context.Context, *connect.Request[v1.DeleteWorkflowScheduleRequest]) (*connect.Response[v1.DeleteWorkflowScheduleResponse], error)
+	// Approval work is private to the calling principal: the request never
+	// accepts an approver id, so one user cannot read or decide another's item.
+	ListWorkflowApprovals(context.Context, *connect.Request[v1.ListWorkflowApprovalsRequest]) (*connect.Response[v1.ListWorkflowApprovalsResponse], error)
+	DecideWorkflowApproval(context.Context, *connect.Request[v1.DecideWorkflowApprovalRequest]) (*connect.Response[v1.DecideWorkflowApprovalResponse], error)
+	// Named HTTPS destinations used by send_webhook actions. The signing secret
+	// is returned once on create and is never included in a later read.
+	CreateWorkflowWebhookEndpoint(context.Context, *connect.Request[v1.CreateWorkflowWebhookEndpointRequest]) (*connect.Response[v1.CreateWorkflowWebhookEndpointResponse], error)
+	ListWorkflowWebhookEndpoints(context.Context, *connect.Request[v1.ListWorkflowWebhookEndpointsRequest]) (*connect.Response[v1.ListWorkflowWebhookEndpointsResponse], error)
+	DeleteWorkflowWebhookEndpoint(context.Context, *connect.Request[v1.DeleteWorkflowWebhookEndpointRequest]) (*connect.Response[v1.DeleteWorkflowWebhookEndpointResponse], error)
 	// In-app notifications.
 	//
 	// Both RPCs act on the calling principal's own notifications and take no
@@ -3348,6 +3602,36 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		connect.WithSchema(cRMServiceMethods.ByName("SyncGoogleCalendar")),
 		connect.WithHandlerOptions(opts...),
 	)
+	cRMServiceCreateGoogleCalendarEventHandler := connect.NewUnaryHandler(
+		CRMServiceCreateGoogleCalendarEventProcedure,
+		svc.CreateGoogleCalendarEvent,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateGoogleCalendarEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceGetGoogleCalendarEventHandler := connect.NewUnaryHandler(
+		CRMServiceGetGoogleCalendarEventProcedure,
+		svc.GetGoogleCalendarEvent,
+		connect.WithSchema(cRMServiceMethods.ByName("GetGoogleCalendarEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListGoogleCalendarEventsHandler := connect.NewUnaryHandler(
+		CRMServiceListGoogleCalendarEventsProcedure,
+		svc.ListGoogleCalendarEvents,
+		connect.WithSchema(cRMServiceMethods.ByName("ListGoogleCalendarEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateGoogleCalendarEventHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateGoogleCalendarEventProcedure,
+		svc.UpdateGoogleCalendarEvent,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateGoogleCalendarEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCancelGoogleCalendarEventHandler := connect.NewUnaryHandler(
+		CRMServiceCancelGoogleCalendarEventProcedure,
+		svc.CancelGoogleCalendarEvent,
+		connect.WithSchema(cRMServiceMethods.ByName("CancelGoogleCalendarEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	cRMServiceEraseSyncedContentForContactHandler := connect.NewUnaryHandler(
 		CRMServiceEraseSyncedContentForContactProcedure,
 		svc.EraseSyncedContentForContact,
@@ -3424,6 +3708,60 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 		CRMServiceListWorkflowExecutionsProcedure,
 		svc.ListWorkflowExecutions,
 		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowExecutions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCreateWorkflowScheduleHandler := connect.NewUnaryHandler(
+		CRMServiceCreateWorkflowScheduleProcedure,
+		svc.CreateWorkflowSchedule,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateWorkflowSchedule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListWorkflowSchedulesHandler := connect.NewUnaryHandler(
+		CRMServiceListWorkflowSchedulesProcedure,
+		svc.ListWorkflowSchedules,
+		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowSchedules")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceUpdateWorkflowScheduleHandler := connect.NewUnaryHandler(
+		CRMServiceUpdateWorkflowScheduleProcedure,
+		svc.UpdateWorkflowSchedule,
+		connect.WithSchema(cRMServiceMethods.ByName("UpdateWorkflowSchedule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteWorkflowScheduleHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteWorkflowScheduleProcedure,
+		svc.DeleteWorkflowSchedule,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteWorkflowSchedule")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListWorkflowApprovalsHandler := connect.NewUnaryHandler(
+		CRMServiceListWorkflowApprovalsProcedure,
+		svc.ListWorkflowApprovals,
+		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowApprovals")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDecideWorkflowApprovalHandler := connect.NewUnaryHandler(
+		CRMServiceDecideWorkflowApprovalProcedure,
+		svc.DecideWorkflowApproval,
+		connect.WithSchema(cRMServiceMethods.ByName("DecideWorkflowApproval")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceCreateWorkflowWebhookEndpointHandler := connect.NewUnaryHandler(
+		CRMServiceCreateWorkflowWebhookEndpointProcedure,
+		svc.CreateWorkflowWebhookEndpoint,
+		connect.WithSchema(cRMServiceMethods.ByName("CreateWorkflowWebhookEndpoint")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceListWorkflowWebhookEndpointsHandler := connect.NewUnaryHandler(
+		CRMServiceListWorkflowWebhookEndpointsProcedure,
+		svc.ListWorkflowWebhookEndpoints,
+		connect.WithSchema(cRMServiceMethods.ByName("ListWorkflowWebhookEndpoints")),
+		connect.WithHandlerOptions(opts...),
+	)
+	cRMServiceDeleteWorkflowWebhookEndpointHandler := connect.NewUnaryHandler(
+		CRMServiceDeleteWorkflowWebhookEndpointProcedure,
+		svc.DeleteWorkflowWebhookEndpoint,
+		connect.WithSchema(cRMServiceMethods.ByName("DeleteWorkflowWebhookEndpoint")),
 		connect.WithHandlerOptions(opts...),
 	)
 	cRMServiceListNotificationsHandler := connect.NewUnaryHandler(
@@ -3880,6 +4218,16 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceSyncGoogleMailboxHandler.ServeHTTP(w, r)
 		case CRMServiceSyncGoogleCalendarProcedure:
 			cRMServiceSyncGoogleCalendarHandler.ServeHTTP(w, r)
+		case CRMServiceCreateGoogleCalendarEventProcedure:
+			cRMServiceCreateGoogleCalendarEventHandler.ServeHTTP(w, r)
+		case CRMServiceGetGoogleCalendarEventProcedure:
+			cRMServiceGetGoogleCalendarEventHandler.ServeHTTP(w, r)
+		case CRMServiceListGoogleCalendarEventsProcedure:
+			cRMServiceListGoogleCalendarEventsHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateGoogleCalendarEventProcedure:
+			cRMServiceUpdateGoogleCalendarEventHandler.ServeHTTP(w, r)
+		case CRMServiceCancelGoogleCalendarEventProcedure:
+			cRMServiceCancelGoogleCalendarEventHandler.ServeHTTP(w, r)
 		case CRMServiceEraseSyncedContentForContactProcedure:
 			cRMServiceEraseSyncedContentForContactHandler.ServeHTTP(w, r)
 		case CRMServiceListSyncSuppressionsProcedure:
@@ -3906,6 +4254,24 @@ func NewCRMServiceHandler(svc CRMServiceHandler, opts ...connect.HandlerOption) 
 			cRMServiceSetWorkflowRuleStatusHandler.ServeHTTP(w, r)
 		case CRMServiceListWorkflowExecutionsProcedure:
 			cRMServiceListWorkflowExecutionsHandler.ServeHTTP(w, r)
+		case CRMServiceCreateWorkflowScheduleProcedure:
+			cRMServiceCreateWorkflowScheduleHandler.ServeHTTP(w, r)
+		case CRMServiceListWorkflowSchedulesProcedure:
+			cRMServiceListWorkflowSchedulesHandler.ServeHTTP(w, r)
+		case CRMServiceUpdateWorkflowScheduleProcedure:
+			cRMServiceUpdateWorkflowScheduleHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteWorkflowScheduleProcedure:
+			cRMServiceDeleteWorkflowScheduleHandler.ServeHTTP(w, r)
+		case CRMServiceListWorkflowApprovalsProcedure:
+			cRMServiceListWorkflowApprovalsHandler.ServeHTTP(w, r)
+		case CRMServiceDecideWorkflowApprovalProcedure:
+			cRMServiceDecideWorkflowApprovalHandler.ServeHTTP(w, r)
+		case CRMServiceCreateWorkflowWebhookEndpointProcedure:
+			cRMServiceCreateWorkflowWebhookEndpointHandler.ServeHTTP(w, r)
+		case CRMServiceListWorkflowWebhookEndpointsProcedure:
+			cRMServiceListWorkflowWebhookEndpointsHandler.ServeHTTP(w, r)
+		case CRMServiceDeleteWorkflowWebhookEndpointProcedure:
+			cRMServiceDeleteWorkflowWebhookEndpointHandler.ServeHTTP(w, r)
 		case CRMServiceListNotificationsProcedure:
 			cRMServiceListNotificationsHandler.ServeHTTP(w, r)
 		case CRMServiceMarkNotificationReadProcedure:
@@ -4329,6 +4695,26 @@ func (UnimplementedCRMServiceHandler) SyncGoogleCalendar(context.Context, *conne
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.SyncGoogleCalendar is not implemented"))
 }
 
+func (UnimplementedCRMServiceHandler) CreateGoogleCalendarEvent(context.Context, *connect.Request[v1.CreateGoogleCalendarEventRequest]) (*connect.Response[v1.CreateGoogleCalendarEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateGoogleCalendarEvent is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) GetGoogleCalendarEvent(context.Context, *connect.Request[v1.GetGoogleCalendarEventRequest]) (*connect.Response[v1.GetGoogleCalendarEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.GetGoogleCalendarEvent is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListGoogleCalendarEvents(context.Context, *connect.Request[v1.ListGoogleCalendarEventsRequest]) (*connect.Response[v1.ListGoogleCalendarEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListGoogleCalendarEvents is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateGoogleCalendarEvent(context.Context, *connect.Request[v1.UpdateGoogleCalendarEventRequest]) (*connect.Response[v1.UpdateGoogleCalendarEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateGoogleCalendarEvent is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CancelGoogleCalendarEvent(context.Context, *connect.Request[v1.CancelGoogleCalendarEventRequest]) (*connect.Response[v1.CancelGoogleCalendarEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CancelGoogleCalendarEvent is not implemented"))
+}
+
 func (UnimplementedCRMServiceHandler) EraseSyncedContentForContact(context.Context, *connect.Request[v1.EraseSyncedContentForContactRequest]) (*connect.Response[v1.EraseSyncedContentForContactResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.EraseSyncedContentForContact is not implemented"))
 }
@@ -4379,6 +4765,42 @@ func (UnimplementedCRMServiceHandler) SetWorkflowRuleStatus(context.Context, *co
 
 func (UnimplementedCRMServiceHandler) ListWorkflowExecutions(context.Context, *connect.Request[v1.ListWorkflowExecutionsRequest]) (*connect.Response[v1.ListWorkflowExecutionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowExecutions is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateWorkflowSchedule(context.Context, *connect.Request[v1.CreateWorkflowScheduleRequest]) (*connect.Response[v1.CreateWorkflowScheduleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateWorkflowSchedule is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListWorkflowSchedules(context.Context, *connect.Request[v1.ListWorkflowSchedulesRequest]) (*connect.Response[v1.ListWorkflowSchedulesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowSchedules is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) UpdateWorkflowSchedule(context.Context, *connect.Request[v1.UpdateWorkflowScheduleRequest]) (*connect.Response[v1.UpdateWorkflowScheduleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.UpdateWorkflowSchedule is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteWorkflowSchedule(context.Context, *connect.Request[v1.DeleteWorkflowScheduleRequest]) (*connect.Response[v1.DeleteWorkflowScheduleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteWorkflowSchedule is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListWorkflowApprovals(context.Context, *connect.Request[v1.ListWorkflowApprovalsRequest]) (*connect.Response[v1.ListWorkflowApprovalsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowApprovals is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DecideWorkflowApproval(context.Context, *connect.Request[v1.DecideWorkflowApprovalRequest]) (*connect.Response[v1.DecideWorkflowApprovalResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DecideWorkflowApproval is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) CreateWorkflowWebhookEndpoint(context.Context, *connect.Request[v1.CreateWorkflowWebhookEndpointRequest]) (*connect.Response[v1.CreateWorkflowWebhookEndpointResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.CreateWorkflowWebhookEndpoint is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) ListWorkflowWebhookEndpoints(context.Context, *connect.Request[v1.ListWorkflowWebhookEndpointsRequest]) (*connect.Response[v1.ListWorkflowWebhookEndpointsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.ListWorkflowWebhookEndpoints is not implemented"))
+}
+
+func (UnimplementedCRMServiceHandler) DeleteWorkflowWebhookEndpoint(context.Context, *connect.Request[v1.DeleteWorkflowWebhookEndpointRequest]) (*connect.Response[v1.DeleteWorkflowWebhookEndpointResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("crm.v1.CRMService.DeleteWorkflowWebhookEndpoint is not implemented"))
 }
 
 func (UnimplementedCRMServiceHandler) ListNotifications(context.Context, *connect.Request[v1.ListNotificationsRequest]) (*connect.Response[v1.ListNotificationsResponse], error) {

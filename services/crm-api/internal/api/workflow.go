@@ -179,11 +179,25 @@ func (s *CRMService) PublishWorkflowRuleVersion(
 			errors.New("this rule is archived; publishing to it would produce a version nothing can run"))
 	}
 
+	actions := workflowActionsFromProto(req.Msg.GetActions())
+	for _, action := range actions {
+		if action.Type != domain.ActionSendWebhook {
+			continue
+		}
+		if _, err := s.store.GetWorkflowWebhookEndpoint(ctx, scope, action.WebhookEndpointID); err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
+				return nil, connect.NewError(connect.CodeInvalidArgument,
+					errors.New("a webhook action references an endpoint that does not exist"))
+			}
+			return nil, connectErr(err)
+		}
+	}
+
 	version, err := s.store.CreateWorkflowRuleVersion(ctx, scope, &domain.WorkflowRuleVersion{
 		RuleID:           rule.ID,
 		TriggerEventType: req.Msg.GetTriggerEventType(),
 		Conditions:       workflowConditionsFromProto(req.Msg.GetConditions()),
-		Actions:          workflowActionsFromProto(req.Msg.GetActions()),
+		Actions:          actions,
 		CreatedBy:        principalSubject(ctx),
 	})
 	if err != nil {
@@ -372,10 +386,11 @@ func workflowVersionToProto(v *domain.WorkflowRuleVersion) *crmv1.WorkflowRuleVe
 		actions = append(actions, &crmv1.WorkflowAction{
 			Type: action.Type, Title: action.Title, Body: action.Body,
 			DelayMinutes: boundedInt32(action.DelayMinutes),
-			Assignee: action.Assignee, AssigneeId: action.AssigneeID,
+			Assignee:     action.Assignee, AssigneeId: action.AssigneeID,
 			Priority: action.Priority, DueInDays: boundedInt32(action.DueInDays),
 			ActivityKind: action.ActivityKind, RotationMembers: action.RotationMembers,
 			ChannelKind: action.ChannelKind, TemplateId: action.TemplateID,
+			WebhookEndpointId: action.WebhookEndpointID,
 		})
 	}
 	return &crmv1.WorkflowRuleVersion{
@@ -402,10 +417,11 @@ func workflowActionsFromProto(in []*crmv1.WorkflowAction) []domain.WorkflowActio
 		out = append(out, domain.WorkflowAction{
 			Type: action.GetType(), Title: action.GetTitle(), Body: action.GetBody(),
 			DelayMinutes: int(action.GetDelayMinutes()),
-			Assignee: action.GetAssignee(), AssigneeID: action.GetAssigneeId(),
+			Assignee:     action.GetAssignee(), AssigneeID: action.GetAssigneeId(),
 			Priority: action.GetPriority(), DueInDays: int(action.GetDueInDays()),
 			ActivityKind: action.GetActivityKind(), RotationMembers: action.GetRotationMembers(),
 			ChannelKind: action.GetChannelKind(), TemplateID: action.GetTemplateId(),
+			WebhookEndpointID: action.GetWebhookEndpointId(),
 		})
 	}
 	return out

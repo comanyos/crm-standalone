@@ -19,11 +19,15 @@ type workflowTables struct {
 	versions   map[string]map[string]*WorkflowRuleVersion
 	executions map[string]map[string]*WorkflowExecution
 	// claimed mirrors the unique index: tenant -> "version|event" -> true.
-	claimed       map[string]map[string]bool
-	notifications map[string]map[string]*Notification
-	leadAlerts    map[string]map[string]*leadAlertState
-	deliveries    map[string]map[string]*NotificationDelivery
-	cursors       map[string]*WorkflowCursor
+	claimed           map[string]map[string]bool
+	notifications     map[string]map[string]*Notification
+	leadAlerts        map[string]map[string]*leadAlertState
+	deliveries        map[string]map[string]*NotificationDelivery
+	cursors           map[string]*WorkflowCursor
+	schedules         map[string]map[string]*WorkflowSchedule
+	approvals         map[string]map[string]*WorkflowApproval
+	webhooks          map[string]map[string]*WorkflowWebhookEndpoint
+	webhookDeliveries map[string][]*WorkflowWebhookDelivery
 }
 
 type leadAlertState struct {
@@ -33,14 +37,18 @@ type leadAlertState struct {
 
 func newWorkflowTables() *workflowTables {
 	return &workflowTables{
-		rules:         make(map[string]map[string]*WorkflowRule),
-		versions:      make(map[string]map[string]*WorkflowRuleVersion),
-		executions:    make(map[string]map[string]*WorkflowExecution),
-		claimed:       make(map[string]map[string]bool),
-		notifications: make(map[string]map[string]*Notification),
-		leadAlerts:    make(map[string]map[string]*leadAlertState),
-		deliveries:    make(map[string]map[string]*NotificationDelivery),
-		cursors:       make(map[string]*WorkflowCursor),
+		rules:             make(map[string]map[string]*WorkflowRule),
+		versions:          make(map[string]map[string]*WorkflowRuleVersion),
+		executions:        make(map[string]map[string]*WorkflowExecution),
+		claimed:           make(map[string]map[string]bool),
+		notifications:     make(map[string]map[string]*Notification),
+		leadAlerts:        make(map[string]map[string]*leadAlertState),
+		deliveries:        make(map[string]map[string]*NotificationDelivery),
+		cursors:           make(map[string]*WorkflowCursor),
+		schedules:         make(map[string]map[string]*WorkflowSchedule),
+		approvals:         make(map[string]map[string]*WorkflowApproval),
+		webhooks:          make(map[string]map[string]*WorkflowWebhookEndpoint),
+		webhookDeliveries: make(map[string][]*WorkflowWebhookDelivery),
 	}
 }
 

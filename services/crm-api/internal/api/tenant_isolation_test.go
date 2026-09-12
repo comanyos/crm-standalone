@@ -53,13 +53,17 @@ type apiFixture struct {
 	// googleOwner is the principal whose Google connection this fixture
 	// seeded. It matches ctxAs's subject, because every Google RPC acts on
 	// the caller's own connection.
-	googleOwner string
+	googleOwner     string
+	calendarEventID string
 	// The automation fixtures. Both organizations seed an active rule, a
 	// published version, an execution and a notification, so no workflow
 	// probe can pass for want of anything to leak.
-	workflowRuleID    string
-	workflowVersionID string
-	notificationID    string
+	workflowRuleID     string
+	workflowVersionID  string
+	workflowScheduleID string
+	workflowApprovalID string
+	workflowWebhookID  string
+	notificationID     string
 	// tagID names a tag created and assigned to accountID, so a tag probe
 	// has both a definition and an assignment to try to leak.
 	tagID string
@@ -112,10 +116,11 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 			OwnerID:            f.googleOwner,
 			GoogleAccountEmail: label + "@gmail.example",
 			Status:             domain.GoogleStatusConnected,
-			GrantedScopes:      []string{"https://www.googleapis.com/auth/gmail.readonly"},
-			TokenCiphertext:    sealTestTokens(t, tenantID, f.googleOwner),
-			ConnectedBy:        f.googleOwner,
-			ConnectedAt:        time.Now().UTC(),
+			GrantedScopes: []string{"https://www.googleapis.com/auth/gmail.readonly",
+				"https://www.googleapis.com/auth/calendar.events"},
+			TokenCiphertext: sealTestTokens(t, tenantID, f.googleOwner),
+			ConnectedBy:     f.googleOwner,
+			ConnectedAt:     time.Now().UTC(),
 		}); err != nil {
 		t.Fatalf("[%s] seed google connection: %v", label, err)
 	}
@@ -160,6 +165,20 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 		t.Fatalf("[%s] create contact: %v", label, err)
 	}
 	f.contactID = contact.Msg.GetContact().GetId()
+	f.calendarEventID = "calendar-" + label
+	if _, err := s.store.RecordCalendarEvent(f.ctx, domain.Scope{TenantID: tenantID, OrgID: orgID},
+		&domain.CalendarEvent{OwnerID: f.googleOwner, ProviderEventID: f.calendarEventID,
+			ProviderETag: "etag-" + label, CreatedBy: f.googleOwner,
+			SubjectType: domain.SubjectContact, SubjectID: f.contactID, CalendarID: "primary",
+			ActivityID: domain.NewID(), Title: label + " review", Status: domain.CalendarStatusConfirmed,
+			StartsAt: time.Now().UTC().Add(time.Hour), EndsAt: time.Now().UTC().Add(2 * time.Hour), TimeZone: "UTC"},
+		func(domain.CalendarChange) *domain.Activity {
+			return &domain.Activity{ID: domain.NewID(), Kind: domain.CalendarActivityKind,
+				SubjectType: domain.SubjectContact, SubjectID: f.contactID, Notes: "Meeting scheduled",
+				ActorID: f.googleOwner, OccurredAt: time.Now().UTC()}
+		}); err != nil {
+		t.Fatalf("[%s] seed calendar event: %v", label, err)
+	}
 
 	// A withdrawal against this contact's own email, so a consent probe has a
 	// real decision to try to read across the tenant boundary. It is the most
@@ -369,14 +388,39 @@ func seedViaAPI(t *testing.T, s *CRMService, tenantID, orgID, label string) apiF
 	// The execution and the notification are seeded through the store: the
 	// engine writes both, and there is no RPC that creates either.
 	scope := domain.Scope{TenantID: tenantID, OrgID: orgID}
-	if _, _, err := s.store.ClaimWorkflowExecution(f.ctx, scope, &domain.WorkflowExecution{
+	execution, _, err := s.store.ClaimWorkflowExecution(f.ctx, scope, &domain.WorkflowExecution{
 		RuleID: f.workflowRuleID, RuleVersionID: f.workflowVersionID,
 		SourceEventID: "event-" + label, SourceEventType: domain.EventLeadCreated,
 		SubjectType: domain.SubjectLead, SubjectID: f.leadID,
 		Status: domain.ExecutionSucceeded,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("[%s] seed workflow execution: %v", label, err)
 	}
+	schedule, err := s.CreateWorkflowSchedule(f.ctx, connect.NewRequest(&crmv1.CreateWorkflowScheduleRequest{
+		RuleId: f.workflowRuleID, SubjectType: domain.SubjectLead, SubjectId: f.leadID,
+		TimeZone: "UTC", Recurrence: domain.ScheduleWeekly, Interval: 1,
+		NextRunAt: timestamppb.New(time.Now().UTC().Add(24 * time.Hour)),
+	}))
+	if err != nil {
+		t.Fatalf("[%s] seed workflow schedule: %v", label, err)
+	}
+	f.workflowScheduleID = schedule.Msg.GetSchedule().GetId()
+	approval, err := s.store.EnsureWorkflowApproval(f.ctx, scope, &domain.WorkflowApproval{
+		ExecutionID: execution.ID, RuleID: f.workflowRuleID, ActionIndex: 0,
+		ApproverID: f.googleOwner, Title: label + " approval", SubjectType: domain.SubjectLead,
+		SubjectID: f.leadID, Status: domain.ApprovalPending,
+	})
+	if err != nil {
+		t.Fatalf("[%s] seed workflow approval: %v", label, err)
+	}
+	f.workflowApprovalID = approval.ID
+	endpoint, err := s.CreateWorkflowWebhookEndpoint(f.ctx, connect.NewRequest(
+		&crmv1.CreateWorkflowWebhookEndpointRequest{Name: label + " webhook", Url: "https://hooks.example.com/" + label}))
+	if err != nil {
+		t.Fatalf("[%s] seed workflow webhook: %v", label, err)
+	}
+	f.workflowWebhookID = endpoint.Msg.GetEndpoint().GetId()
 	notification, err := s.store.CreateNotification(f.ctx, scope, &domain.Notification{
 		RecipientID: f.googleOwner, Kind: "workflow",
 		Title: label + " confidential alert", Body: label + " internal note",
@@ -465,6 +509,41 @@ func wantNotFound(t *testing.T, rpc string, err error) {
 // crossTenantProbes is keyed by CRMService method name so the coverage test
 // below can compare it against the real method set.
 var crossTenantProbes = map[string]isolationProbe{
+	"CreateGoogleCalendarEvent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		start := time.Now().UTC().Add(time.Hour)
+		_, err := s.CreateGoogleCalendarEvent(ctxB, connect.NewRequest(&crmv1.CreateGoogleCalendarEventRequest{
+			RequestId: "cross-tenant-create", Event: &crmv1.GoogleCalendarEvent{Title: "Private meeting",
+				StartsAt: timestamppb.New(start), EndsAt: timestamppb.New(start.Add(time.Hour)), TimeZone: "UTC",
+				SubjectType: domain.SubjectContact, SubjectId: a.contactID},
+		}))
+		wantNotFound(t, "CreateGoogleCalendarEvent", err)
+	},
+	"GetGoogleCalendarEvent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.GetGoogleCalendarEvent(ctxB, connect.NewRequest(&crmv1.GetGoogleCalendarEventRequest{ProviderEventId: a.calendarEventID}))
+		wantNotFound(t, "GetGoogleCalendarEvent", err)
+	},
+	"ListGoogleCalendarEvents": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListGoogleCalendarEvents(ctxB, connect.NewRequest(&crmv1.ListGoogleCalendarEventsRequest{}))
+		if err != nil {
+			t.Fatalf("ListGoogleCalendarEvents: %v", err)
+		}
+		for _, event := range res.Msg.GetEvents() {
+			if event.GetProviderEventId() == a.calendarEventID {
+				t.Error("calendar event crossed tenant boundary")
+			}
+		}
+	},
+	"UpdateGoogleCalendarEvent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		start := time.Now().UTC().Add(time.Hour)
+		_, err := s.UpdateGoogleCalendarEvent(ctxB, connect.NewRequest(&crmv1.UpdateGoogleCalendarEventRequest{Event: &crmv1.GoogleCalendarEvent{
+			ProviderEventId: a.calendarEventID, Etag: "etag-victim", Title: "Stolen",
+			StartsAt: timestamppb.New(start), EndsAt: timestamppb.New(start.Add(time.Hour)), TimeZone: "UTC"}}))
+		wantNotFound(t, "UpdateGoogleCalendarEvent", err)
+	},
+	"CancelGoogleCalendarEvent": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.CancelGoogleCalendarEvent(ctxB, connect.NewRequest(&crmv1.CancelGoogleCalendarEventRequest{ProviderEventId: a.calendarEventID, Etag: "etag-victim"}))
+		wantNotFound(t, "CancelGoogleCalendarEvent", err)
+	},
 	"GetMetaConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		res, err := s.GetMetaConnection(ctxB, connect.NewRequest(&crmv1.GetMetaConnectionRequest{}))
 		if err != nil {
@@ -702,8 +781,8 @@ var crossTenantProbes = map[string]isolationProbe{
 		if err != nil {
 			t.Fatalf("read A's meetings: %v", err)
 		}
-		if len(events) != 0 {
-			t.Errorf("a calendar pass run by tenant B wrote %d meetings onto tenant A's timeline", len(events))
+		if len(events) != 1 || events[0].ProviderEventID != a.calendarEventID {
+			t.Errorf("a calendar pass run by tenant B changed tenant A's meeting mirror: %+v", events)
 		}
 	},
 	"DisconnectGoogleConnection": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
@@ -1231,10 +1310,11 @@ var crossTenantProbes = map[string]isolationProbe{
 			t.Fatalf("GetSummary: %v", err)
 		}
 		// B seeded exactly one of each entity in this test, plus the extra
-		// lead and pipeline its own probes create. Activity is two: one
-		// logged directly and one the fixture's synced message produced.
+		// lead and pipeline its own probes create. Activity is three: one
+		// logged directly, one from synced mail, and one from the managed
+		// calendar event seeded for the calendar isolation probes.
 		// What matters is that the counts never include A's rows.
-		want := map[string]int64{"account": 1, "contact": 1, "opportunity": 1, "activity": 2}
+		want := map[string]int64{"account": 1, "contact": 1, "opportunity": 1, "activity": 3}
 		for entity, expected := range want {
 			if got := res.Msg.GetCounts()[entity]; got != expected {
 				t.Errorf("GetSummary counts %d %s rows for organization B; want %d — "+
@@ -1405,6 +1485,88 @@ var crossTenantProbes = map[string]isolationProbe{
 				t.Error("ListWorkflowExecutions returned organization A's ledger")
 			}
 		}
+	},
+	"CreateWorkflowSchedule": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.CreateWorkflowSchedule(ctxB, connect.NewRequest(&crmv1.CreateWorkflowScheduleRequest{
+			RuleId: a.workflowRuleID, SubjectType: domain.SubjectLead, SubjectId: a.leadID,
+			TimeZone: "UTC", Recurrence: domain.ScheduleOnce, Interval: 1,
+			NextRunAt: timestamppb.New(time.Now().UTC().Add(time.Hour)),
+		}))
+		wantNotFound(t, "CreateWorkflowSchedule", err)
+	},
+	"ListWorkflowSchedules": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListWorkflowSchedules(ctxB, connect.NewRequest(&crmv1.ListWorkflowSchedulesRequest{}))
+		if err != nil {
+			t.Fatalf("ListWorkflowSchedules: %v", err)
+		}
+		for _, row := range res.Msg.GetSchedules() {
+			if row.GetId() == a.workflowScheduleID {
+				t.Error("ListWorkflowSchedules returned organization A's schedule")
+			}
+		}
+	},
+	"UpdateWorkflowSchedule": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.UpdateWorkflowSchedule(ctxB, connect.NewRequest(&crmv1.UpdateWorkflowScheduleRequest{
+			Id: a.workflowScheduleID, TimeZone: "UTC", Recurrence: domain.ScheduleDaily,
+			Interval: 1, Status: domain.SchedulePaused,
+			NextRunAt: timestamppb.New(time.Now().UTC().Add(time.Hour)),
+		}))
+		wantNotFound(t, "UpdateWorkflowSchedule", err)
+	},
+	"DeleteWorkflowSchedule": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteWorkflowSchedule(ctxB, connect.NewRequest(
+			&crmv1.DeleteWorkflowScheduleRequest{Id: a.workflowScheduleID}))
+		wantNotFound(t, "DeleteWorkflowSchedule", err)
+	},
+	"ListWorkflowApprovals": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListWorkflowApprovals(ctxB, connect.NewRequest(
+			&crmv1.ListWorkflowApprovalsRequest{}))
+		if err != nil {
+			t.Fatalf("ListWorkflowApprovals: %v", err)
+		}
+		for _, row := range res.Msg.GetApprovals() {
+			if row.GetId() == a.workflowApprovalID {
+				t.Error("ListWorkflowApprovals returned organization A's approval")
+			}
+		}
+	},
+	"DecideWorkflowApproval": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DecideWorkflowApproval(ctxB, connect.NewRequest(&crmv1.DecideWorkflowApprovalRequest{
+			Id: a.workflowApprovalID, Decision: domain.ApprovalApproved,
+		}))
+		wantNotFound(t, "DecideWorkflowApproval", err)
+	},
+	"CreateWorkflowWebhookEndpoint": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		created, err := s.CreateWorkflowWebhookEndpoint(ctxB, connect.NewRequest(
+			&crmv1.CreateWorkflowWebhookEndpointRequest{Name: "B-only webhook", Url: "https://hooks.example.net/b"}))
+		if err != nil {
+			t.Fatalf("CreateWorkflowWebhookEndpoint: %v", err)
+		}
+		res, err := s.ListWorkflowWebhookEndpoints(a.ctx, connect.NewRequest(&crmv1.ListWorkflowWebhookEndpointsRequest{}))
+		if err != nil {
+			t.Fatalf("list victim webhooks: %v", err)
+		}
+		for _, row := range res.Msg.GetEndpoints() {
+			if row.GetId() == created.Msg.GetEndpoint().GetId() {
+				t.Error("organization B's webhook landed in organization A")
+			}
+		}
+	},
+	"ListWorkflowWebhookEndpoints": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		res, err := s.ListWorkflowWebhookEndpoints(ctxB, connect.NewRequest(&crmv1.ListWorkflowWebhookEndpointsRequest{}))
+		if err != nil {
+			t.Fatalf("ListWorkflowWebhookEndpoints: %v", err)
+		}
+		for _, row := range res.Msg.GetEndpoints() {
+			if row.GetId() == a.workflowWebhookID {
+				t.Error("ListWorkflowWebhookEndpoints returned organization A's endpoint")
+			}
+		}
+	},
+	"DeleteWorkflowWebhookEndpoint": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
+		_, err := s.DeleteWorkflowWebhookEndpoint(ctxB, connect.NewRequest(
+			&crmv1.DeleteWorkflowWebhookEndpointRequest{Id: a.workflowWebhookID}))
+		wantNotFound(t, "DeleteWorkflowWebhookEndpoint", err)
 	},
 	"ListNotifications": func(t *testing.T, s *CRMService, ctxB context.Context, a apiFixture) {
 		for _, unreadOnly := range []bool{false, true} {

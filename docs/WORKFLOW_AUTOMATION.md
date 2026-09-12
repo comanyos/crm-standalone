@@ -6,9 +6,9 @@ why it is shaped this way, and what it deliberately does not do.
 The narrowness is the feature. A rule is one allowlisted trigger, an AND-only
 list of typed comparisons over allowlisted fields, and an ordered list of
 actions from a fixed set. Each action may carry a bounded delay, which turns
-that ordered action list into a restart-safe sequence. There is no expression
-language, arbitrary code, outbound webhook, or calendar recurrence; each of
-those still needs additional policy and lifecycle design.
+that ordered action list into a restart-safe sequence. A published rule may
+also be launched by a durable one-time or recurring wall-clock schedule.
+There is no arbitrary code or expression language.
 
 ## What runs
 
@@ -61,7 +61,8 @@ Custom fields are deliberately not comparable. They are tenant-defined and can
 be archived or retyped underneath a saved rule, which would turn it into one
 that silently stops matching; that needs a versioning story of its own.
 
-Actions are `create_task`, `add_activity` and `notify`. Every action also has
+Actions are `create_task`, `add_activity`, `notify`, `assign_owner`,
+`draft_message`, `request_approval`, and `send_webhook`. Every action also has
 an optional `delay_minutes` value from zero through one year. The engine writes
 the next due instant to the durable execution ledger before returning; another
 poll or a restarted process continues only when that instant is due. Delays
@@ -79,6 +80,53 @@ the record can read fields the rule author is not allowed to see.
 A rule is refused at authoring time if it names a trigger, field, operator or
 action outside these lists. A rule that will not save is better than one the
 author believes is working.
+
+### Scheduled sequences
+
+A schedule points at an active published rule and one existing Account,
+Contact, Lead, or Opportunity of the same object type. It stores an absolute
+next run plus the IANA time zone that gave that instant meaning. Recurrence is
+`once`, `daily`, `weekly`, or `monthly`, with an interval and optional end.
+Daily, weekly, and monthly advances happen in local wall-clock time, so a
+09:00 schedule remains 09:00 through daylight-saving changes; a monthly run
+on the 31st clamps to the last day of shorter months.
+
+The poller turns a due occurrence into the ordinary workflow execution ledger
+using `schedule:<id>:<scheduled instant>` as the source-event identity. It
+then advances the schedule with an optimistic compare on that instant. A
+crash, retry, or second replica therefore cannot create a second execution.
+After downtime, one missed occurrence is run and the clock advances directly
+to the next future slot instead of creating a burst of stale catch-up work.
+
+### Approvals
+
+`request_approval` resolves either the record owner or a fixed principal at
+execution time. It creates one approval per execution/action, notifies that
+person, and moves the execution to `waiting_approval`. Only the named
+principal can see or decide it. Approval resumes at the same action, where the
+durable decision is observed and the sequence proceeds exactly once;
+rejection ends the execution with the bounded `approval_rejected` reason.
+The decision and optional note are stored in the tenant-scoped audit row.
+
+### Signed outbound webhooks
+
+Administrators register a named public HTTPS endpoint on port 443. Savvy CRM
+generates a 256-bit signing secret, returns it once, and stores only ciphertext
+bound to both tenant and endpoint id. `WORKFLOW_WEBHOOK_SECRET_KEY` is a
+dedicated deployment key; it must not be shared with lead capture or provider
+OAuth credentials.
+
+Each delivery is JSON and carries `X-Savvy-Event-ID`, `X-Savvy-Timestamp`, and
+`X-Savvy-Signature`. The signature is lower-case hex HMAC-SHA256 over
+`<timestamp>.<raw request body>` and is prefixed with `sha256=`. The event id
+is stable across retries. Receivers must reject stale timestamps, compare the
+signature in constant time, and deduplicate event ids.
+
+The sender refuses HTTP, credentials in URLs, redirects, non-443 ports, IP
+literals in private/reserved ranges, and any DNS answer in those ranges. DNS
+is checked again in the actual dial path to prevent rebinding. Requests time
+out after ten seconds, response bodies are discarded, and only bounded status
+and HTTP-code metadata is retained in the delivery audit.
 
 ## Versioning and lifecycle
 
@@ -156,13 +204,10 @@ headers or full records.
 
 ## Named open items
 
-- **Approvals.** Not in v1's action list; an approval is a rule that waits,
-  which needs a durable pause and a way to address the approver.
-- **Time-based triggers and calendar recurrence.** Delayed action sequences are
-  implemented; rules that start at a wall-clock time or recur are not.
-- **Outbound webhooks and chat.** Need an egress policy and a secret story; see
-  the integrations section below. `notify` actions create an in-app message and
-  a durable SMTP delivery with bounded retries.
+- **Chat destinations.** Slack, Teams, and SMS still need provider choices,
+  OAuth/secret ownership, retention, and production acceptance. Generic
+  signed webhooks are implemented but are not a substitute for those product
+  decisions.
 - **Templated text.** Needs a field-visibility model, since a template that
   can read the record can read fields the author cannot.
 - **Custom fields in conditions.** Needs the definition-versioning story.
@@ -171,10 +216,10 @@ headers or full records.
 
 ## Decisions still needed before integrations
 
-SMS, Slack/Teams, Microsoft and outbound webhooks remain out of scope until a
-product owner supplies provider choices, OAuth/webhook secrets,
-retention/deletion policy, and production secret/KMS ownership. Operational
-email uses the same server-side SMTP transport as passwordless login. Google
-Gmail/Calendar and Meta use independent encrypted provider credential groups;
-provider credentials remain unavailable to the browser and are purged on
-disconnect.
+SMS, Slack/Teams, and Microsoft remain out of scope until a product owner
+supplies provider choices, OAuth secrets, retention/deletion policy, and
+production secret/KMS ownership. Operational email uses the same server-side
+SMTP transport as passwordless login. Google Gmail/Calendar, Meta, lead
+capture, and outbound workflow webhooks use independent encrypted credential
+groups; provider credentials remain unavailable to the browser and are purged
+on disconnect.

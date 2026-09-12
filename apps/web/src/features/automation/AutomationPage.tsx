@@ -15,6 +15,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { useCrmClients } from "../../lib/useCrmClients";
 import { mutationErrorMessage, renderQueryError } from "../../lib/connectErrors";
 import { useToast } from "../../components/ui/Toast";
+import { AdvancedAutomation } from "./AdvancedAutomation";
 
 /** Automation rules (docs/WORKFLOW_AUTOMATION.md).
  *
@@ -37,6 +38,8 @@ const ACTION_LABELS: Record<string, string> = {
   notify: "Send a notification",
   assign_owner: "Assign to the next person in a rotation",
   draft_message: "Draft a message for someone to send",
+  request_approval: "Wait for an approval",
+  send_webhook: "Send a signed webhook",
 };
 
 /** The patch that switching an action's type needs, beyond the type itself.
@@ -55,13 +58,16 @@ function changeActionType(type: string): Partial<WorkflowAction> {
     // owner — so the server refuses an action that also names an assignee.
     return { type, assignee: "", assigneeId: "", title: "", body: "", rotationMembers: [] };
   }
-  return { type, rotationMembers: [], assignee: "record_owner", channelKind: "", templateId: "" };
+  if (type === "send_webhook") {
+    return { type, rotationMembers: [], assignee: "", assigneeId: "", title: "", body: "", channelKind: "", templateId: "" };
+  }
+  return { type, rotationMembers: [], assignee: "record_owner", channelKind: "", templateId: "", webhookEndpointId: "" };
 }
 
 /** Actions that hand work to a person the author names. assign_owner is
  * absent on purpose: it picks the assignee from its own rotation, and the
  * server refuses an action that does both. */
-const ASSIGNING_ACTIONS = new Set(["create_task", "notify"]);
+const ASSIGNING_ACTIONS = new Set(["create_task", "notify", "request_approval"]);
 
 /** Channels a template — and therefore a draft — can be written for. Voice is
  * absent because a dialer has nowhere to put a message. */
@@ -91,6 +97,7 @@ const EXECUTION_TONE: Record<string, BadgeTone> = {
   skipped: "neutral",
   pending: "brand",
   running: "brand",
+  waiting_approval: "warning",
 };
 
 /** The failure codes the engine records. They are bounded codes rather than
@@ -101,6 +108,7 @@ const FAILURE_REASONS: Record<string, string> = {
   action_failed: "An action could not be completed.",
   rule_version_gone: "The rule version was removed.",
   invalid_action: "The rule asks for something this version cannot do.",
+  approval_rejected: "The approver rejected this sequence.",
 };
 
 type Draft = {
@@ -130,6 +138,7 @@ const blankAction = (): WorkflowAction =>
     rotationMembers: [],
     channelKind: "",
     templateId: "",
+    webhookEndpointId: "",
   }) as WorkflowAction;
 
 const blankDraft = (): Draft => ({
@@ -172,6 +181,11 @@ export default function AutomationPage() {
     queryKey: ["crm.listWorkflowExecutions", history?.id],
     queryFn: () => crm.listWorkflowExecutions({ ruleId: history?.id ?? "" }),
     enabled: Boolean(history),
+  });
+  const webhookEndpointsQuery = useQuery({
+    queryKey: ["crm.listWorkflowWebhookEndpoints"],
+    queryFn: () => crm.listWorkflowWebhookEndpoints({}),
+    enabled: canRead,
   });
 
   const rules = rulesQuery.data?.rules ?? [];
@@ -289,6 +303,8 @@ export default function AutomationPage() {
         saves a new version rather than changing what is already running, so a rule&apos;s history always says
         exactly what ran.
       </p>
+
+      <AdvancedAutomation canWrite={canWrite} rules={rules} />
 
       {rulesQuery.isPending && <SkeletonRows rows={4} />}
       {rulesQuery.error &&
@@ -549,7 +565,20 @@ export default function AutomationPage() {
                       </p>
                     </>
                   )}
-                  {action.type !== "assign_owner" && action.type !== "draft_message" && (
+                  {action.type === "send_webhook" && (
+                    <Select
+                      label={`Webhook endpoint ${index + 1}`}
+                      value={action.webhookEndpointId}
+                      onChange={(event) => patchAction(index, { webhookEndpointId: event.target.value })}
+                      options={(webhookEndpointsQuery.data?.endpoints ?? []).map((endpoint) => ({
+                        value: endpoint.id,
+                        label: endpoint.name,
+                      }))}
+                      placeholder="Choose an endpoint"
+                      hint="The request is HMAC-signed and retries use the same event ID."
+                    />
+                  )}
+                  {action.type !== "assign_owner" && action.type !== "draft_message" && action.type !== "send_webhook" && (
                     <Input
                       label={action.type === "add_activity" ? `Note ${index + 1}` : `Details ${index + 1}`}
                       value={action.body}

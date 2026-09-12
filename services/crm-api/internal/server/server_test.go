@@ -214,7 +214,7 @@ func TestScopePolicySeparatesReadFromWrite(t *testing.T) {
 // asserting that a third party consented to be contacted is a claim the
 // organization may later have to defend.
 func isMutation(method string) bool {
-	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate", "Discard", "Send", "Select", "Import"} {
+	for _, p := range []string{"Create", "Update", "Delete", "Upsert", "Convert", "Complete", "Reopen", "Archive", "Move", "Start", "Disconnect", "Sync", "Erase", "Suppress", "Release", "Publish", "Set", "Mark", "Assign", "Remove", "Bulk", "Merge", "Commit", "Record", "Rotate", "Discard", "Send", "Select", "Import", "Cancel", "Decide"} {
 		if strings.HasPrefix(method, p) {
 			return true
 		}

@@ -192,6 +192,12 @@ func (s *MemStore) RecordCalendarEvent(
 	now := nowStamp()
 	stored.UpdatedAt = now
 	if existing != nil {
+		if stored.ProviderETag == "" {
+			stored.ProviderETag = existing.ProviderETag
+		}
+		if stored.CreatedBy == "" {
+			stored.CreatedBy = existing.CreatedBy
+		}
 		stored.CreatedAt = existing.CreatedAt
 		// The first Activity's id is the row's identity; a later entry gets
 		// its own Activity but does not renumber the row.
@@ -221,6 +227,56 @@ func (s *MemStore) RecordCalendarEvent(
 	stored.StateKey = event.MaterialStateKey()
 	s.calendar.events[scope.TenantID][key] = stored
 	return change, nil
+}
+
+func (s *MemStore) GetManagedCalendarEvent(
+	_ context.Context, scope Scope, ownerID, providerEventID string,
+) (*CalendarEvent, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	s.calendar.mu.Lock()
+	defer s.calendar.mu.Unlock()
+	for key, record := range s.calendar.events[scope.TenantID] {
+		if key.owner == ownerID && key.eventID == providerEventID &&
+			record.CreatedBy != "" && record.ErasedAt.IsZero() {
+			return cloneCalendarEvent(record), nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (s *MemStore) ListManagedCalendarEvents(
+	_ context.Context, scope Scope, ownerID string, from, to time.Time, limit int,
+) ([]*CalendarEvent, error) {
+	if !scope.Valid() {
+		return nil, ErrNoTenant
+	}
+	s.calendar.mu.Lock()
+	defer s.calendar.mu.Unlock()
+	out := make([]*CalendarEvent, 0, 16)
+	for _, record := range s.calendar.events[scope.TenantID] {
+		if record.OwnerID != ownerID || record.CreatedBy == "" || !record.ErasedAt.IsZero() {
+			continue
+		}
+		if !from.IsZero() && record.StartsAt.Before(from) {
+			continue
+		}
+		if !to.IsZero() && !record.StartsAt.Before(to) {
+			continue
+		}
+		out = append(out, cloneCalendarEvent(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].StartsAt.Equal(out[j].StartsAt) {
+			return out[i].StartsAt.Before(out[j].StartsAt)
+		}
+		return out[i].ProviderEventID < out[j].ProviderEventID
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 // ListCalendarEventsForSubject returns one record's meetings, newest first.

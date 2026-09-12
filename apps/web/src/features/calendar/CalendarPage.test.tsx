@@ -6,7 +6,7 @@ import { makeTask, renderRoutes } from "../../test/harness";
 import { expectNoA11yViolations } from "../../test/a11y";
 
 const { crm, auth } = vi.hoisted(() => ({
-  crm: { listTasks: vi.fn(), createTask: vi.fn() },
+  crm: { listTasks: vi.fn(), createTask: vi.fn(), listGoogleCalendarEvents: vi.fn() },
   auth: { hasScope: vi.fn(), session: { claims: { sub: "user-1" } } },
 }));
 
@@ -27,6 +27,7 @@ beforeEach(() => {
     nextPageToken: "",
   });
   crm.createTask.mockResolvedValue({ task: makeTask({ id: "task-2" }) });
+  crm.listGoogleCalendarEvents.mockResolvedValue({ events: [] });
 });
 
 describe("CalendarPage", () => {

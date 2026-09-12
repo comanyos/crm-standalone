@@ -88,9 +88,17 @@ func (s *CalendarSyncState) NeedsBackfill() bool {
 type CalendarEvent struct {
 	OwnerID         string `json:"owner_id"`
 	ProviderEventID string `json:"provider_event_id"`
-	SubjectType     string `json:"subject_type"`
-	SubjectID       string `json:"subject_id"`
-	CalendarID      string `json:"calendar_id"`
+	// ProviderETag is Google's optimistic-concurrency token. CRM-authored
+	// edits must present the latest value so two people cannot silently move
+	// the same meeting over one another.
+	ProviderETag string `json:"provider_etag"`
+	// CreatedBy is set only for events authored from Savvy CRM. Imported
+	// events remain read-only in the CRM: a sync match is not consent to edit
+	// somebody's existing calendar.
+	CreatedBy   string `json:"created_by"`
+	SubjectType string `json:"subject_type"`
+	SubjectID   string `json:"subject_id"`
+	CalendarID  string `json:"calendar_id"`
 	// ICalUID is stable across calendars, so the same meeting on the
 	// organizer's and an attendee's calendar shares it. RecurringEventID
 	// names the series an instance belongs to. Neither is read yet.

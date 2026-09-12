@@ -1,8 +1,8 @@
 # Savvy CRM Azure beta deployment
 
-**Status:** Deployed beta environment (September 11, 2026)
+**Status:** Deployed beta environment (September 12, 2026)
 
-**Current immutable release:** `beta-20260911-010`
+**Current immutable release:** `beta-20260912-011`
 
 **Azure subscription:** Microsoft Azure Sponsorship
 **Resource group:** `verse`
@@ -124,8 +124,14 @@ redundant services before a larger or contractual production launch.
 
 - Enabled for beta: passwordless SMTP login, Google account login, generic
   signed lead-capture endpoint.
-- Enabled in `beta-20260911-010`: My Day, new-lead in-app/email alerts,
-  untouched-lead SLA escalation, and durable delayed workflow sequences.
+- Enabled in `beta-20260912-011`: My Day, new-lead in-app/email alerts,
+  untouched-lead SLA escalation, durable delayed and recurring/date-time
+  sequences, approval-paused workflows, and signed outbound webhooks with
+  retry-safe delivery IDs and SSRF protection.
+- Deployed in `beta-20260912-011` but gated on the separate Google integration
+  credential group: create, edit, reschedule, and cancel Google Calendar
+  events; attendee notifications, recurrence, reminders, CRM record links,
+  ETag conflict checks, tenant audit, and provider-ID duplicate protection.
 - Not enabled by this deployment: Gmail inbox sync and Google Calendar sync
   (they require their own complete provider OAuth credential/key group).
 - Deployed but not enabled until external credentials arrive:

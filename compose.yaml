@@ -119,6 +119,8 @@ services:
       # is off and the route is not registered — there is deliberately no
       # unsigned mode, so a deployment either has a key or has no endpoint.
       LEAD_CAPTURE_SECRET_KEY: ${LEAD_CAPTURE_SECRET_KEY:-}
+      # Independent key for outbound workflow endpoint signing secrets.
+      WORKFLOW_WEBHOOK_SECRET_KEY: ${WORKFLOW_WEBHOOK_SECRET_KEY:-}
       # Native Facebook + Instagram Lead Ads. The API enables the connector
       # only when this complete group is supplied; all-empty is safely off.
       META_APP_ID: ${META_APP_ID:-}
